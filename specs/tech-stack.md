@@ -60,6 +60,14 @@ A top-level `justfile` (or `Makefile`) provides single-word commands for common 
 - **Local dev:** Docker Compose brings up Postgres, the FastAPI backend, and the Vite dev server.
 - **Secrets:** `.env` files locally (git-ignored); CI uses GitHub Actions secrets; production uses environment variables only.
 
+## Scripts & cross-platform policy
+
+Development happens on Windows; deployment runs on Linux. To avoid drift between parallel `.sh` and `.ps1` versions of the same script, scripts in this repo follow these rules:
+
+- **Default to Python** for anything under `scripts/`. Python is already a project dependency, so it's free to use and runs identically on both platforms.
+- **Bash is allowed only inside Linux containers** — Dockerfile `RUN` steps and GitHub Actions Linux jobs. It must not be a developer's direct entry point.
+- **`justfile` recipes** stay short and shell out to Python scripts for any non-trivial work. The `just` binary is cross-platform; recipe bodies are not.
+
 ## Decisions deferred to ADRs
 
 The following will be captured as ADRs under `docs/adr/` when implemented:
