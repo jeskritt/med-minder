@@ -53,6 +53,7 @@ These are explicitly out of scope to keep the product honest about YAGNI.
 
 These are binding rules, not aspirations. They come directly from the Developer Story in `docs/user_stories.md`.
 
+- **Security-conscious by default** — MedMinder stores personal medication records. Treat that data with the same care as protected health information: encrypt in transit, minimize what is collected and logged, prefer revocable session-based auth over long-lived tokens, hash credentials with Argon2id, keep secrets out of the repo, and apply least privilege to database roles and deployment credentials. When security and convenience conflict, security wins. New surface area (endpoints, fields, dependencies, third-party calls) requires an explicit threat consideration in the relevant ADR or PR description.
 - **SOLID, KISS, DRY, YAGNI** — applied at function, module, and service boundaries.
 - **Fully typed** — Python with `mypy --strict`; TypeScript with `strict: true`.
 - **Small units** — reasonably sized functions and files; no deeply nested code or conditional logic; no deeply nested data models.

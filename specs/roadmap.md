@@ -9,6 +9,7 @@ Phases are intentionally small. Each phase ends with something runnable, typed, 
 - A relevant diagram in `docs/` is added or updated (ER, state, sequence).
 - A new ADR is written for any non-obvious decision.
 - No dead code, no commented-out code, no TODOs left without an issue.
+- Security review of any new surface area is included in the PR: authn/authz checks on new endpoints, input validation at boundaries, secrets are env-only, dependencies added are pinned and reviewed, and any new data field is justified against data minimization.
 
 ---
 
@@ -97,5 +98,5 @@ For Molly: "cannot take X within N hours of Y" rules with clear UI warnings befo
 
 - Accessibility pass (keyboard, screen reader, contrast) on primary flows.
 - Performance budgets enforced in CI (Lighthouse PWA score, bundle size).
-- Security review (session handling, CSRF, push key handling, input validation).
+- Final, comprehensive security review covering session handling, CSRF, push key handling, input validation, dependency audit, and a sweep of audit logging — building on the per-phase reviews already required by the exit criteria.
 - End-to-end Playwright suite covering each persona's primary flow from `docs/user_stories.md`.
