@@ -113,13 +113,14 @@ both. Two rules:
     that introduce each.
 7.3 Top-level `README.md` — quickstart: prerequisites, `just dev`, `just
     test`, link to constitution.
+7.4 Generate a secure beginner-level deployment guide (covering Koyeb for backend, Vercel/Cloudflare for frontend, and Supabase for DB) in `docs/deployment.md`.
 
 ## 8. Exit-criteria sweep
 
 8.1 Verify all roadmap exit criteria for Phase 0:
     - `mypy --strict` clean, `tsc --noEmit` clean.
     - Unit tests cover `/healthz` and the home page.
-    - `docs/diagrams/` and `docs/adr/` exist with the stubs above.
+    - `docs/diagrams/`, `docs/adr/`, and `docs/deployment.md` exist with the stubs above.
     - No dead code, commented-out code, or unowned TODOs.
     - PR description includes the security note from `requirements.md`
       §"Security considerations for new surface area".

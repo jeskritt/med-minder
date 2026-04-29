@@ -46,6 +46,14 @@ A top-level `justfile` (or `Makefile`) provides single-word commands for common 
 - **Testing:** Vitest + React Testing Library for unit/component; Playwright for E2E.
 - **Lint / format:** ESLint + Prettier.
 
+## Deployment
+
+To maximize free-tier usage while ensuring background tasks (`APScheduler`) remain reliable, the application targets the following infrastructure:
+
+- **Frontend:** Vercel or Cloudflare Pages (Static Site Hosting, no sleep).
+- **Backend:** Koyeb Free Tier (Eco Micro Instance, does not sleep, keeping `APScheduler` alive).
+- **Database:** Supabase Free Tier (Direct PostgreSQL connection via `asyncpg`, avoiding REST API limitations).
+
 ## API contract
 
 - FastAPI emits OpenAPI automatically.
