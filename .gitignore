@@ -14,8 +14,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -216,3 +216,53 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# =============================================================================
+# Node / Vite / Frontend
+# =============================================================================
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =============================================================================
+# Vitest / Playwright / Test & Coverage
+# =============================================================================
+coverage/
+playwright-report/
+test-results/
+
+# =============================================================================
+# Tooling caches
+# =============================================================================
+.turbo/
+.parcel-cache/
+
+# =============================================================================
+# Docker / Compose local state
+# =============================================================================
+*.local
+.docker/
+docker-compose.override.yml
+
+# =============================================================================
+# Editor / OS junk
+# =============================================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+# Uncomment to commit shared VS Code settings:
+# .vscode/
+
+# =============================================================================
+# FILES COMMITTED BY DESIGN (do NOT add to .gitignore)
+# =============================================================================
+# frontend/src/api/    — Generated OpenAPI TypeScript client (source of truth)
+# pnpm-lock.yaml       — Frontend lockfile for reproducible builds

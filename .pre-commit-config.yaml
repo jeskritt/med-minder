@@ -1,0 +1,49 @@
+repos:
+  # Python linting & formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  # Python type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        args: [--strict, --config-file=backend/pyproject.toml]
+        files: ^backend/src/
+        additional_dependencies:
+          - fastapi>=0.115.0
+          - pydantic>=2.9.0
+          - pydantic-settings>=2.6.0
+          - uvicorn>=0.32.0
+
+  # Frontend linting (eslint)
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd frontend && pnpm lint'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      # Frontend formatting (prettier)
+      - id: prettier
+        name: prettier
+        entry: bash -c 'cd frontend && pnpm format:check'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|json|css|md)$
+        pass_filenames: false
+
+      # Frontend type checking
+      - id: tsc
+        name: tsc --noEmit
+        entry: bash -c 'cd frontend && pnpm typecheck'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
