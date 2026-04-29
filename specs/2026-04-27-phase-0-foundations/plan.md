@@ -46,15 +46,15 @@ both. Two rules:
       opt in to committing shared settings).
     - **Generated artifacts that are *not* ignored** (committed by
       design): a comment block listing `frontend/src/api/` (OpenAPI
-      client) and lockfiles, so future contributors don't try to ignore
+      client) and `pnpm-lock.yaml`, so future contributors don't try to ignore
       them.
     Verify by running `git status` after `just dev` and after running
     tests — only intended files should be untracked.
 
 ## 2. Backend skeleton
 
-2.1 `backend/pyproject.toml` with FastAPI, Pydantic v2, uvicorn, ruff, black,
-    mypy, pytest, pytest-asyncio, httpx — all pinned.
+2.1 `backend/pyproject.toml` with FastAPI, Pydantic v2, uvicorn, ruff, mypy,
+    pytest, pytest-asyncio, httpx — all pinned.
 2.2 App factory in `backend/src/medminder/app.py` returning a FastAPI
     instance; settings via `pydantic-settings` reading env vars.
 2.3 `/healthz` endpoint: returns `{"status": "ok"}`. No DB call, no version,
@@ -66,7 +66,7 @@ both. Two rules:
 ## 3. Frontend skeleton
 
 3.1 Scaffold `frontend/` with Vite + React 18 + TS strict.
-3.2 Install Tailwind CSS, React Router, TanStack Query, React Hook Form,
+3.2 Install Tailwind CSS, TanStack Router, TanStack Query, React Hook Form,
     Zod, ESLint, Prettier — all pinned.
 3.3 Single route `/` rendering "Hello MedMinder" plus a TanStack Query call
     to `/healthz` showing `ok` / `error`.
@@ -78,7 +78,7 @@ both. Two rules:
 4.1 Script `scripts/generate_openapi_client.py` (Python, cross-platform —
     see §0 Cross-platform scripting policy) that boots the FastAPI app
     in-process, dumps the OpenAPI JSON to a temp file, and shells out to
-    `npx openapi-typescript` to write `frontend/src/api/`.
+    `pnpm dlx openapi-typescript` to write `frontend/src/api/`.
 4.2 Wire `just generate-client` to invoke that Python script.
 4.3 The home page uses the generated client to call `/healthz`, proving the
     end-to-end path works.
@@ -97,7 +97,7 @@ both. Two rules:
 
 ## 6. Pre-commit & CI
 
-6.1 `.pre-commit-config.yaml` with ruff, black, mypy, eslint, prettier,
+6.1 `.pre-commit-config.yaml` with ruff, mypy, eslint, prettier,
     `tsc --noEmit`. All hooks pass on a clean tree.
 6.2 `.github/workflows/ci.yml` jobs: `lint`, `typecheck`, `backend-tests`,
     `frontend-tests`, `openapi-drift`. All jobs required to pass.

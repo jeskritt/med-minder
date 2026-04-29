@@ -30,17 +30,17 @@ A top-level `justfile` (or `Makefile`) provides single-word commands for common 
 - **Admin CLI:** Typer; same domain layer as the web app, no duplicated logic.
 - **Reminders & push:** Web Push (VAPID) via `pywebpush`. Background scheduling via APScheduler running in-process for v1. Switching to Celery + Redis is a deferred decision (see ADR-0002 placeholder).
 - **Testing:** pytest, pytest-asyncio, httpx test client, factory-boy (or simple fixtures). Coverage gate enforced in CI.
-- **Lint / format / type:** ruff, black, mypy `--strict`.
+- **Lint / format / type:** ruff (linting and formatting), mypy `--strict`.
 
 ## Frontend
 
-- **Language / runtime:** TypeScript (strict), Node 20+.
+- **Language / runtime:** TypeScript (strict), Node 20+, `pnpm` (strictly enforced).
 - **Framework / build:** React 18 + Vite.
-- **Routing:** React Router.
+- **Routing:** TanStack Router.
 - **Server state:** TanStack Query.
 - **Client state:** Default to none. Introduce Zustand only if a concrete need arises.
 - **Styling:** Tailwind CSS.
-- **UI primitives:** Radix UI for accessible primitives (dialog, dropdown, etc.).
+- **UI primitives / Components:** shadcn/ui (built on Radix UI and Tailwind CSS).
 - **Forms / validation:** React Hook Form + Zod.
 - **PWA:** `vite-plugin-pwa` (Workbox under the hood). Service worker handles push notifications and an offline app shell.
 - **Testing:** Vitest + React Testing Library for unit/component; Playwright for E2E.
@@ -57,13 +57,14 @@ To maximize free-tier usage while ensuring background tasks (`APScheduler`) rema
 ## API contract
 
 - FastAPI emits OpenAPI automatically.
-- A TypeScript client is generated from that OpenAPI document via `openapi-typescript` (or equivalent) and committed under `frontend/src/api/`.
+- A TypeScript client is generated from that OpenAPI document via `openapi-typescript` and committed under `frontend/src/api/`.
+- The frontend fetches data using `openapi-fetch`, which natively consumes the generated types for 100% type-safe requests.
 - Generation runs in CI; a drift between the spec and the committed client fails the build.
 - This is the single source of truth that bridges Pydantic and Zod — frontend types are derived, never hand-maintained.
 
 ## Tooling & CI
 
-- **Pre-commit hooks:** ruff, black, mypy, eslint, prettier, `tsc --noEmit`.
+- **Pre-commit hooks:** ruff, mypy, eslint, prettier, `tsc --noEmit`.
 - **CI (GitHub Actions):** lint → typecheck → unit tests → integration tests (with a Postgres service container) → E2E (Playwright) → build artifacts. All gates must pass before merge.
 - **Local dev:** Docker Compose brings up Postgres, the FastAPI backend, and the Vite dev server.
 - **Secrets:** `.env` files locally (git-ignored); CI uses GitHub Actions secrets; production uses environment variables only.

@@ -14,7 +14,7 @@ The phase is mergeable when **every** check below passes on a fresh clone.
 
 ## B. Type & lint gates
 
-5. `just lint` exits 0 on a clean tree (ruff, black --check, eslint,
+5. `just lint` exits 0 on a clean tree (ruff, eslint,
    prettier --check).
 6. `just typecheck` exits 0 (`mypy --strict` over `backend/`, `tsc --noEmit`
    over `frontend/`).
@@ -74,16 +74,17 @@ The phase is mergeable when **every** check below passes on a fresh clone.
     `README.md`.
 22. `docs/diagrams/README.md` exists and names the three diagram types
     that will accumulate (ER, state, sequence).
-23. Top-level `README.md` documents prerequisites, `just dev`, `just test`,
+23. `docs/deployment.md` exists and contains the beginner-friendly deployment guide.
+24. Top-level `README.md` documents prerequisites, `just dev`, `just test`,
     and links to `specs/mission.md`, `specs/roadmap.md`, and
     `specs/tech-stack.md`.
 
 ## H. Cross-platform sanity
 
-24. Every script under `scripts/` is `.py`. There are no `.sh` or `.ps1`
+25. Every script under `scripts/` is `.py`. There are no `.sh` or `.ps1`
     files developers are expected to invoke directly. (Bash inside
     Dockerfiles or GitHub Actions Linux jobs is fine and does not count.)
-25. `just dev`, `just test`, `just lint`, `just typecheck`, and
+26. `just dev`, `just test`, `just lint`, `just typecheck`, and
     `just generate-client` all complete successfully on Windows
     (developer machine) and on Linux (CI), with no platform-specific
     branches in the recipe bodies.

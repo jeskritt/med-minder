@@ -21,11 +21,12 @@ repo layout, dev tooling, CI, and dev-environment plumbing described in
 - `docker-compose.yml` brings up Postgres 16, the FastAPI backend, and the
   Vite dev server.
 - `justfile` with `dev`, `test`, `lint`, `typecheck`, `migrate` targets.
-- Pre-commit hooks: ruff, black, mypy, eslint, prettier, `tsc --noEmit`.
+- Pre-commit hooks: ruff, mypy, eslint, prettier, `tsc --noEmit`.
 - GitHub Actions CI workflow with real, required gates: lint → typecheck →
   unit tests → OpenAPI client drift check.
 - `docs/adr/0000-template.md` (ADR template) and `docs/diagrams/` with
   README stubs for ER, state, and sequence diagrams.
+- `docs/deployment.md` with a beginner-friendly deployment guide.
 
 ## Out of scope (deferred)
 
@@ -73,5 +74,5 @@ repo layout, dev tooling, CI, and dev-environment plumbing described in
   `backend/README.md`.
 - Cookie-related middleware is **not** added in Phase 0 — sessions arrive in
   Phase 3 with their own ADR.
-- Dependencies added are pinned in `pyproject.toml` / `package-lock.json`
+- Dependencies added are pinned in `pyproject.toml` / `pnpm-lock.yaml`
   and reviewed in the PR description.
