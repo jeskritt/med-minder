@@ -20,14 +20,14 @@ The personas below are drawn from `docs/user_stories.md` and define the v1 produ
 
 - Admin-managed users via CLI; no self-registration.
 - Email + password login with server-side sessions.
-- Add, edit, and delete medications with name, dosage, frequency, start date, and end date.
+- Add, edit, and delete medications with name, dosage, frequency, start date, end date, and remaining refill inventory.
 - Mark a dose as taken; persist a timestamp; allow correcting a mistaken "taken" via confirmation modal.
 - Per-medication timer modes:
   - **None** — simple boolean "taken today" flag (Granny).
   - **Count-up** — time since last dose (Molly's interaction window).
   - **Count-down** — time until the next dose is permitted (Harry).
   - **Multi-sub-dose** — split timer bar for staggered sub-doses inside a dosing window (Billy).
-- Local + Web Push reminders, with one-hour snooze and quiet hours.
+- Local + Web Push reminders, with one-hour snooze, quiet hours, and refill warnings.
 - Long-term adherence view (calendar and/or stacked bar, color-coded) for retrospective questions like "did I take my BP medication yesterday?".
 - Printable medication summary suitable for medical paperwork.
 
@@ -51,7 +51,7 @@ These are explicitly out of scope to keep the product honest about YAGNI.
 
 ## Engineering principles
 
-These are binding rules, not aspirations. They come directly from the Developer Story in `docs/user_stories.md`.
+These are binding rules, not aspirations.
 
 - **Security-conscious by default** — MedMinder stores personal medication records. Treat that data with the same care as protected health information: encrypt in transit, minimize what is collected and logged, prefer revocable session-based auth over long-lived tokens, hash credentials with Argon2id, keep secrets out of the repo, and apply least privilege to database roles and deployment credentials. When security and convenience conflict, security wins. New surface area (endpoints, fields, dependencies, third-party calls) requires an explicit threat consideration in the relevant ADR or PR description.
 - **SOLID, KISS, DRY, YAGNI** — applied at function, module, and service boundaries.
