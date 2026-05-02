@@ -20,7 +20,10 @@ from medminder.cli.main import app
 
 
 @pytest.fixture
-def cli_runner() -> CliRunner:
+def cli_runner(monkeypatch: pytest.MonkeyPatch) -> CliRunner:
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("TERM", "dumb")
+    monkeypatch.setenv("COLUMNS", "200")
     return CliRunner()
 
 
