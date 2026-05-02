@@ -10,6 +10,12 @@ helps you take the right medication at the right time.
 - **pnpm** — `npm install -g pnpm`
 - **just** — [installation guide](https://github.com/casey/just#installation)
 - **Docker** & **Docker Compose** — for the local dev environment
+- **bash** — required by `justfile` recipes. macOS and Linux already
+  have it. **Windows users need [Git Bash](https://git-scm.com/downloads)
+  or [WSL](https://learn.microsoft.com/windows/wsl/install)** on
+  `PATH` so `just` can find `bash`. See
+  `specs/tech-stack.md` §"Scripts & cross-platform policy" for the
+  rationale.
 
 ## Quickstart
 
@@ -56,11 +62,16 @@ med-minder/
 
 ## Documentation
 
+- [Constitution](.specify/memory/constitution.md) — binding engineering principles
 - [Mission & Vision](specs/mission.md)
 - [Roadmap](specs/roadmap.md)
 - [Tech Stack](specs/tech-stack.md)
-- [ADR Template](docs/adr/0000-template.md)
+- [User Stories & Use Cases](docs/user_stories.md)
+- [Glossary](docs/glossary.md)
+- [Architecture Decision Records](docs/adr/)
+- [Design Notes](docs/design/)
 - [Deployment Guide](docs/deployment.md)
+- [Security Policy](SECURITY.md)
 
 ## License
 
