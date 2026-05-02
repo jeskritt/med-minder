@@ -62,6 +62,7 @@ med-minder/
 
 ## Documentation
 
+- [Constitution](.specify/memory/constitution.md) — binding engineering principles
 - [Mission & Vision](specs/mission.md)
 - [Roadmap](specs/roadmap.md)
 - [Tech Stack](specs/tech-stack.md)
