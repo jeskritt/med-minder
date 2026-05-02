@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, time
 from typing import Literal
 
-from sqlalchemy import Enum, Index, Select, Time, func, select
+from sqlalchemy import Enum, Index, Select, Text, Time, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from medminder.db import Base
@@ -19,14 +19,14 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    email: Mapped[str] = mapped_column(nullable=False)
-    password_hash: Mapped[str] = mapped_column(nullable=False)
-    name: Mapped[str] = mapped_column(nullable=False)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[UserRole] = mapped_column(
         Enum("admin", "user", name="user_role"),
         nullable=False,
     )
-    timezone: Mapped[str] = mapped_column(nullable=False)
+    timezone: Mapped[str] = mapped_column(Text, nullable=False)
     quiet_hours_start: Mapped[time | None] = mapped_column(Time, nullable=True)
     quiet_hours_end: Mapped[time | None] = mapped_column(Time, nullable=True)
     deleted_at: Mapped[datetime | None] = deleted_at_col()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,9 +23,9 @@ class PushSubscription(Base):
         nullable=False,
         index=True,
     )
-    endpoint: Mapped[str] = mapped_column(nullable=False)
-    p256dh: Mapped[str] = mapped_column(nullable=False)
-    auth: Mapped[str] = mapped_column(nullable=False)
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False)
+    p256dh: Mapped[str] = mapped_column(Text, nullable=False)
+    auth: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = created_at_col()
 
     __table_args__ = (

@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Select,
     SmallInteger,
+    Text,
     Time,
     select,
 )
@@ -34,7 +35,7 @@ class Schedule(Base):
     days_of_week: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, server_default="127"
     )
-    label: Mapped[str] = mapped_column(nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
     deleted_at: Mapped[datetime | None] = deleted_at_col()
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()

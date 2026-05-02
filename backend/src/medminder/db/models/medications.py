@@ -21,6 +21,7 @@ from sqlalchemy import (
     Numeric,
     Select,
     SmallInteger,
+    Text,
     select,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -42,12 +43,12 @@ class Medication(Base):
         nullable=False,
         index=True,
     )
-    name: Mapped[str] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     times_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     quantity_per_dose: Mapped[Decimal] = mapped_column(
         Numeric(10, 3), nullable=False
     )
-    unit: Mapped[str] = mapped_column(nullable=False)
+    unit: Mapped[str] = mapped_column(Text, nullable=False)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     total_doses: Mapped[int | None] = mapped_column(nullable=True)

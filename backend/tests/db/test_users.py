@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.exc import DataError, IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.db.models import User
@@ -57,8 +57,10 @@ async def test_role_enum_rejects_unknown(session: AsyncSession) -> None:
         timezone="UTC",
     )
     session.add(user)
-    with pytest.raises((IntegrityError, DataError)):
+    with pytest.raises(DBAPIError) as exc_info:
         await session.flush()
+    # Postgres SQLSTATE 22P02 = invalid_text_representation (bad enum input).
+    assert exc_info.value.orig.sqlstate == "22P02"
 
 
 async def test_active_helper_excludes_soft_deleted(
