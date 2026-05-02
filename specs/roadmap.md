@@ -62,7 +62,6 @@ Implements the "Registering for an account" use cases from `docs/user_stories.md
 - Login page; logout endpoint and button.
 - Auth-required route guards on both backend and frontend.
 - Sequence diagram for the login flow in `docs/diagrams/`.
-- ADR-0001 (sessions over JWTs) moves from `Proposed` to `Accepted`.
 
 ## Phase 3 — Medications CRUD (Granny baseline)
 

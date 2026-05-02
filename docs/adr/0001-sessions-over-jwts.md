@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed — moves to **Accepted** with the Phase 2 (Auth) PR.
+Accepted — Phase 1 commits to the `sessions` table shape; the
+middleware that consumes it lands in Phase 2.
 
 ## Context
 
