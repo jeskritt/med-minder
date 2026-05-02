@@ -125,14 +125,18 @@ async def update_user(
     user = await get_user_by_email(session, email=email)
     if user is None:
         raise UserNotFoundError(f"No active user with email {email!r}.")
-    if new_email is not None and new_email.lower() != email.lower():
-        clash = await get_user_by_email(
-            session, email=new_email, include_deleted=True
-        )
-        if clash is not None:
-            raise DuplicateEmailError(
-                f"A user with email {new_email!r} already exists."
+    if new_email is not None:
+        # Skip the clash query on case-only edits (the LOWER(email)
+        # uniqueness index would self-match), but still apply the new
+        # casing — D8 stores email as typed.
+        if new_email.lower() != email.lower():
+            clash = await get_user_by_email(
+                session, email=new_email, include_deleted=True
             )
+            if clash is not None:
+                raise DuplicateEmailError(
+                    f"A user with email {new_email!r} already exists."
+                )
         user.email = new_email
     if new_name is not None:
         user.name = new_name

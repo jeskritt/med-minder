@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from sqlalchemy.exc import IntegrityError, InternalError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.db.models import Dose
@@ -56,8 +56,9 @@ async def test_user_id_must_match_medication_user_id(
     )
     session.add(bad)
     # The trigger raises a generic Postgres exception which SQLAlchemy
-    # surfaces as InternalError or DBAPIError; either is acceptable.
-    with pytest.raises((InternalError, IntegrityError, Exception)):
+    # surfaces as some DBAPIError subclass (InternalError, IntegrityError,
+    # ...); DBAPIError is the common ancestor.
+    with pytest.raises(DBAPIError):
         await session.flush()
 
 

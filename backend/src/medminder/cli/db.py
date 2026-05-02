@@ -69,15 +69,22 @@ def backup(
     env.update(to_pg_env(settings.database_url))
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(  # noqa: S603 — list argv, shell=False
-        [pg_dump, "--format=custom", "--file", str(out)],
-        env=env,
-        check=True,
-    )
+    # Tighten umask so pg_dump creates the file at 0o600 from byte zero
+    # — chmod-after-the-fact leaves a TOCTOU window during the dump and
+    # is skipped entirely if pg_dump exits non-zero mid-write.  os.umask
+    # is a no-op on Windows but harmless; ACLs there must be set
+    # manually as documented in WINDOWS_ACL_WARNING.
+    old_umask = os.umask(0o077)
+    try:
+        subprocess.run(  # noqa: S603 — list argv, shell=False
+            [pg_dump, "--format=custom", "--file", str(out)],
+            env=env,
+            check=True,
+        )
+    finally:
+        os.umask(old_umask)
 
-    if not _is_windows():
-        os.chmod(out, 0o600)
-    else:
+    if _is_windows():
         typer.secho(WINDOWS_ACL_WARNING, fg=typer.colors.YELLOW)
 
     typer.secho(PHI_WARNING, fg=typer.colors.YELLOW)

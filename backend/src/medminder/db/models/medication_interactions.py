@@ -3,9 +3,9 @@
 A single row ``(A, B, N)`` carries both directions semantically.  Phase 6
 enforces the actual cooldown logic; Phase 1 just stores the table.
 
-Uniqueness on the *unordered* pair is enforced via an expression index
-(``LEAST/GREATEST``) added in the Alembic migration — autogenerate
-cannot emit that, so the migration is hand-edited.
+Uniqueness on the *unordered* pair is enforced via a UNIQUE expression
+index on ``(LEAST, GREATEST)``.  Declared on the model so ``alembic
+check`` does not see it as drift.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,3 +49,20 @@ class MedicationInteraction(Base):
             name="ck_interactions_distinct_pair",
         ),
     )
+
+
+# UNIQUE on the unordered pair (LEAST, GREATEST).  Declared at module
+# scope (not inside __table_args__) so the column references resolve to
+# the post-class Column objects, matching ``ix_users_email_lower``.
+Index(
+    "ix_medication_interactions_pair",
+    func.least(
+        MedicationInteraction.medication_id,
+        MedicationInteraction.conflicting_medication_id,
+    ),
+    func.greatest(
+        MedicationInteraction.medication_id,
+        MedicationInteraction.conflicting_medication_id,
+    ),
+    unique=True,
+)

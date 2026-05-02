@@ -111,6 +111,27 @@ async def test_update_changes_each_field(session: AsyncSession) -> None:
     assert user.email == "A2@example.com"
 
 
+async def test_update_persists_case_only_email_change(
+    session: AsyncSession,
+) -> None:
+    """D8: case-only edits keep the casing as typed even though the
+    LOWER(email) identity is unchanged."""
+    user = await create_user(
+        session,
+        email="Foo@example.com",
+        name="A",
+        role="user",
+        password="correct horse battery staple",
+    )
+    await update_user(
+        session,
+        email="Foo@example.com",
+        new_email="FOO@EXAMPLE.com",
+    )
+    await session.refresh(user)
+    assert user.email == "FOO@EXAMPLE.com"
+
+
 async def test_update_missing_user(session: AsyncSession) -> None:
     with pytest.raises(UserNotFoundError):
         await update_user(

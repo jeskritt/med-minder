@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest_asyncio
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
-from medminder.db import make_async_engine
 from medminder.settings import Settings
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -47,7 +47,22 @@ async def settings() -> Settings:
 
 @pytest_asyncio.fixture(scope="session")
 async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
-    eng = make_async_engine(settings)
+    # NullPool: tests sometimes call ``asyncio.run()`` multiple times in
+    # a single test (e.g. backup/restore round-trip), each spinning up
+    # and tearing down its own loop.  asyncpg connections are bound to
+    # the loop they were created in, so a pooled connection from a
+    # closed loop blows up the next checkout with "Future attached to
+    # a different loop".  NullPool sidesteps that by opening a fresh
+    # connection per checkout.
+    eng = create_async_engine(
+        settings.database_url,
+        connect_args={
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0,
+        },
+        poolclass=NullPool,
+        future=True,
+    )
     try:
         yield eng
     finally:

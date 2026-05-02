@@ -16,9 +16,14 @@ Instead, email the maintainer with:
 - Steps to reproduce, including any proof-of-concept code.
 - Your assessment of impact.
 
-Maintainer contact: see the `Maintainer` field of the most recent
-`pyproject.toml`, or open a GitHub Discussion asking for the security
-contact email (without disclosing the vulnerability).
+Preferred channel: open a private report via the repository's GitHub
+Security Advisories
+(<https://github.com/jeskritt/med-minder/security/advisories/new>).
+This keeps the report private until a fix is coordinated.
+
+Email fallback: <jeskritt@gmail.com>. Use the GitHub channel when
+possible — email is unencrypted in transit unless you arrange S/MIME
+or PGP out of band.
 
 You should expect:
 
