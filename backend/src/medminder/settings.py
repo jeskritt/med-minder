@@ -13,12 +13,29 @@ class Settings(BaseSettings):
     env: str = "development"
     """Runtime environment: ``development`` | ``production``."""
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/medminder"
-    """SQLAlchemy-style database URL.  Not used in Phase 0, but wired
-    now to prove config plumbing for Phase 1."""
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/medminder"
+    )
+    """SQLAlchemy async DB URL used by the FastAPI app at runtime."""
 
     cors_origins: list[str] = ["http://localhost:5173"]
     """Allowed CORS origins.  Defaults to the Vite dev server.
     Set to your production frontend URL in deployment."""
 
     model_config = {"env_prefix": "", "case_sensitive": False}
+
+    @property
+    def database_url_sync(self) -> str:
+        """Synchronous variant of ``database_url`` used by Alembic.
+
+        Alembic's migration runner is synchronous, so we swap the
+        ``+asyncpg`` driver for ``+psycopg``.  The rest of the URL
+        (host, port, credentials, database) is unchanged, keeping
+        ``DATABASE_URL`` the single source of truth.
+        """
+        url = self.database_url
+        if url.startswith("postgresql+asyncpg://"):
+            return "postgresql+psycopg://" + url[len("postgresql+asyncpg://") :]
+        if url.startswith("postgresql://"):
+            return "postgresql+psycopg://" + url[len("postgresql://") :]
+        return url

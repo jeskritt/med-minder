@@ -67,9 +67,17 @@ typecheck-frontend:
 # Database migrations (Phase 1+)
 # ---------------------------------------------------------------------------
 
-# Run database migrations (not yet wired — Phase 1)
+# Run database migrations
 migrate:
-    @echo "migrate: not yet wired — deferred to Phase 1"
+    cd backend && python -m alembic upgrade head
+
+# Create a new migration revision
+migrate-rev message:
+    cd backend && python -m alembic revision --autogenerate -m "{{message}}"
+
+# Roll back the most recent migration
+migrate-down:
+    cd backend && python -m alembic downgrade -1
 
 # ---------------------------------------------------------------------------
 # Code generation
