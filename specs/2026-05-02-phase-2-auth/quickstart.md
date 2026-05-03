@@ -42,6 +42,7 @@ Expected:
 - The browser is redirected to `/medications`. The page renders a placeholder ("Phase 3 will populate this").
 - DevTools → Application → Cookies shows `mm_session` with `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` ≈ 30 d. In production builds it also has `Secure`.
 - DevTools → Network shows `GET /api/me` returning `200` with `{ id, name, role }`.
+- The login → `/medications` round trip completes in ≤ 2 s on the developer's local network (SC-001). Capture the wall-clock from form submit to DOMContentLoaded (DevTools → Network) and paste it into the PR description.
 
 Backend log shows exactly one INFO line per attempt with `outcome=success`, the user's `user_id`, the source IP, and the user agent. **No email, password, or token material appears in the line.**
 
