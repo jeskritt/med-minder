@@ -1,4 +1,27 @@
 <!--
+Sync Impact Report — 2026-05-03
+
+Version change: 1.0.0 → 1.1.0
+Bump rationale: MINOR — expanded Principle IV and the
+"Phase spec triplet" / "Validation file" workflow bullets to
+recognize the spec-kit artifact set adopted from Phase 2 onward
+(blessed in CLAUDE.md). No principle removed or redefined; Phases 0
+and 1 retain the legacy triplet shape, so existing artifacts remain
+compliant.
+
+Templates / docs requiring updates:
+- ✅ checked, no changes needed: `CLAUDE.md` already documents the
+  Phase 2+ convention switch.
+- ✅ checked, no changes needed: `.specify/templates/plan-template.md`
+  Constitution Check section.
+- ✅ updated: `specs/2026-05-02-phase-2-auth/plan.md` —
+  Constitution Check §IV no longer carries an "out of scope"
+  deferral now that the constitution recognizes the new shape.
+
+Follow-up TODOs: none.
+-->
+
+<!--
 Sync Impact Report — 2026-05-02
 
 Version change: (template, unfilled placeholders) → 1.0.0
@@ -107,12 +130,20 @@ duplication-between-transports bug class.
 - State machines (timer modes, reminder lifecycle) MUST have state
   diagrams.
 - Key user flows MUST have sequence diagrams.
-- Each delivery phase MUST commit `requirements.md` (what & why),
-  `plan.md` (how, numbered tasks), and `validation.md` (mechanical
-  merge gate) under `specs/<YYYY-MM-DD>-phase-<N>-<name>/` BEFORE
-  implementation begins. The phase merges only when every check in
-  `validation.md` is green or explicitly deferred to a PR-time
-  artifact.
+- Each delivery phase MUST commit a complete artifact set under
+  `specs/<YYYY-MM-DD>-phase-<N>-<name>/` BEFORE implementation
+  begins. Phases 2 and onward use the spec-kit set: `spec.md` (what
+  & why, with Clarifications), `plan.md` (how, with the spec-kit
+  Constitution Check), `research.md`, `data-model.md`,
+  `quickstart.md`, and `contracts/`. Phases 0 and 1 used the legacy
+  triplet (`requirements.md` + `plan.md` + `validation.md`) and are
+  not retro-converted. Every phase MUST also commit at least one
+  merge-gate checklist under `checklists/` (typically
+  `requirements.md`; phases with security-sensitive surface area
+  also commit `security.md`). The phase merges only when every item
+  in the merge-gate checklist(s) is `[x]` or `[~]` (PR/CI-runtime,
+  with a one-line link). For Phases 0 and 1, `validation.md`
+  continues to play this role.
 
 **Rationale**: Spec-first delivery makes scope reviewable, decisions
 challengeable, and "done" mechanical rather than negotiable.
@@ -164,15 +195,19 @@ phase:
 - **Phase-based delivery.** `specs/roadmap.md` enumerates phases.
   Each phase ends with something runnable, typed, tested, and
   documented.
-- **Phase spec triplet.** Every phase MUST have
-  `requirements.md`, `plan.md`, and `validation.md` under
-  `specs/<YYYY-MM-DD>-phase-<N>-<name>/`, copied from
-  `specs/_template/`.
+- **Phase spec set.** Phases 2+ commit the spec-kit set
+  (`spec.md`, `plan.md`, `research.md`, `data-model.md`,
+  `quickstart.md`, `contracts/`). Phases 0 and 1 use the legacy
+  `requirements.md` + `plan.md` + `validation.md` triplet and are
+  not retro-converted.
 - **Coverage gate.** `pytest-cov` enforces ≥ 85% across
   `backend/src/` from Phase 1 onward; no module sits below 70%.
-- **Validation file is the merge gate.** Every check in the phase's
-  `validation.md` MUST be marked `[x]` (verified done) or `[~]`
-  (PR/CI-runtime, verified at PR open) before merge.
+- **Merge gate.** For Phases 0 and 1, `validation.md` is the merge
+  gate. For Phases 2+, the merge gate is the union of the
+  `checklists/` files (at minimum `checklists/requirements.md`;
+  security-sensitive phases also commit `checklists/security.md`).
+  Every item MUST be `[x]` or `[~]` (PR/CI-runtime, with a one-line
+  link) before merge.
 - **Security note in the PR.** Every phase PR description MUST
   include a "Security considerations" section enumerating new
   surface area and the decisions made about it, per Principle I.
@@ -210,9 +245,11 @@ document. Silent divergence is a violation.
   semantic refinements.
 
 **Compliance review.** Every phase PR's reviewer MUST verify that
-the phase's `validation.md` covers each principle that the phase
-touches (typing, tests, coverage, security note, ADRs, diagrams).
-The phase merges only when validation is green per Principle IV.
+the phase's merge-gate artifact (Phases 0/1: `validation.md`;
+Phases 2+: the `checklists/` set) covers each principle that the
+phase touches (typing, tests, coverage, security note, ADRs,
+diagrams). The phase merges only when the gate is green per
+Principle IV.
 
 **Runtime guidance.** Day-to-day delivery context lives in:
 
@@ -224,4 +261,4 @@ The phase merges only when validation is green per Principle IV.
 This constitution distills the binding rules from those documents;
 the documents themselves remain the long-form references.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-02 | **Last Amended**: 2026-05-02
+**Version**: 1.1.0 | **Ratified**: 2026-05-02 | **Last Amended**: 2026-05-03

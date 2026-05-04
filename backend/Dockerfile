@@ -2,15 +2,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Copy project metadata and source together so the editable install
+# can find the package.  We copy pyproject.toml + src/ first so that
+# Docker can cache the pip install layer when only test/config files change.
 COPY pyproject.toml ./
+COPY src/ ./src/
+
+# Install the package (editable) with dev extras
 RUN pip install --no-cache-dir -e ".[dev]"
 
-# Copy source
+# Copy everything else (tests, alembic, etc.)
 COPY . .
-
-# Install the package in editable mode
-RUN pip install --no-cache-dir -e .
 
 EXPOSE 8000
 

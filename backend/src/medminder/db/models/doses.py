@@ -42,12 +42,8 @@ class Dose(Base):
         nullable=True,
         index=True,
     )
-    taken_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     created_at: Mapped[datetime] = created_at_col()
 
-    __table_args__ = (
-        CheckConstraint("quantity > 0", name="ck_doses_quantity_pos"),
-    )
+    __table_args__ = (CheckConstraint("quantity > 0", name="ck_doses_quantity_pos"),)

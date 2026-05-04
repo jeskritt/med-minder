@@ -109,9 +109,7 @@ def delete(
 @app.command("update")
 def update(
     email: Annotated[str, typer.Option("--email")],
-    new_email: Annotated[
-        str | None, typer.Option("--new-email")
-    ] = None,
+    new_email: Annotated[str | None, typer.Option("--new-email")] = None,
     name: Annotated[str | None, typer.Option("--name")] = None,
     role: Annotated[Role | None, typer.Option("--role")] = None,
     password_stdin: Annotated[

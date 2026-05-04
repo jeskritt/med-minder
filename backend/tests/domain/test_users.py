@@ -134,9 +134,7 @@ async def test_update_persists_case_only_email_change(
 
 async def test_update_missing_user(session: AsyncSession) -> None:
     with pytest.raises(UserNotFoundError):
-        await update_user(
-            session, email="nope@example.com", new_name="x"
-        )
+        await update_user(session, email="nope@example.com", new_name="x")
 
 
 async def test_update_short_password_rejected(session: AsyncSession) -> None:

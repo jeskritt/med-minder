@@ -1,6 +1,16 @@
 """Application settings loaded from environment variables."""
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
+
+DEV_SESSION_SECRET_FALLBACK = "dev-only-insecure-session-secret-do-not-use-in-prod"  # noqa: S105
+"""Fixed dev-only fallback for ``SESSION_SECRET``.
+
+Used when ``ENV=development`` and no ``SESSION_SECRET`` env var is set,
+so a fresh checkout of the repo can boot without configuration.  Any
+non-development environment that boots with this value will refuse to
+start (see ``Settings.model_validator``).
+"""
 
 
 class Settings(BaseSettings):
@@ -22,6 +32,26 @@ class Settings(BaseSettings):
     """Allowed CORS origins.  Defaults to the Vite dev server.
     Set to your production frontend URL in deployment."""
 
+    session_secret: str = DEV_SESSION_SECRET_FALLBACK
+    """HMAC key used by ``itsdangerous`` to sign the session cookie.
+
+    Must be set explicitly in any non-development environment.  Rotating
+    the value invalidates every outstanding cookie on next request — by
+    design.
+    """
+
+    session_cookie_name: str = "mm_session"
+    """Name of the signed session cookie set by ``POST /auth/login``."""
+
+    trusted_proxy_count: int = 0
+    """Number of trusted reverse proxies in front of the app.
+
+    When > 0, ``_client_ip`` reads the real client IP from the
+    ``X-Forwarded-For`` header, taking the Nth-from-rightmost entry
+    where N = trusted_proxy_count.  Koyeb adds one proxy layer, so
+    set to 1 in production.  When 0, the raw peer address is used.
+    """
+
     model_config = {"env_prefix": "", "case_sensitive": False}
 
     @property
@@ -39,3 +69,25 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://"):
             return "postgresql+psycopg://" + url[len("postgresql://") :]
         return url
+
+    @property
+    def session_cookie_secure(self) -> bool:
+        """Whether the ``Secure`` cookie attribute should be set.
+
+        ``True`` outside development so cookies only travel over HTTPS;
+        ``False`` in development so the Vite dev server (HTTP) works.
+        """
+        return self.env != "development"
+
+    @model_validator(mode="after")
+    def _require_session_secret_outside_dev(self) -> "Settings":
+        """Refuse to boot if a non-dev env still has the dev fallback secret."""
+        if (
+            self.env != "development"
+            and self.session_secret == DEV_SESSION_SECRET_FALLBACK
+        ):
+            raise ValueError(
+                "SESSION_SECRET must be set to a strong, environment-specific "
+                "value when ENV is not 'development'."
+            )
+        return self

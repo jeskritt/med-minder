@@ -25,9 +25,7 @@ def test_user_help_does_not_offer_password_flag(cli_runner: CliRunner) -> None:
     assert "--password=" not in result.stdout
 
 
-def test_add_then_list(
-    cli_runner: CliRunner, truncate_users: None
-) -> None:
+def test_add_then_list(cli_runner: CliRunner, truncate_users: None) -> None:
     add = cli_runner.invoke(
         app,
         ["user", "add", "--email", "a@example.com", "--name", "A", "--role", "user"],
@@ -94,53 +92,37 @@ def test_role_rejects_unknown_value(
     assert result.exit_code != 0
 
 
-def test_delete_soft_deletes(
-    cli_runner: CliRunner, truncate_users: None
-) -> None:
+def test_delete_soft_deletes(cli_runner: CliRunner, truncate_users: None) -> None:
     cli_runner.invoke(
         app,
         ["user", "add", "--email", "a@example.com", "--name", "A", "--role", "user"],
         input=GOOD_PASSWORD + "\n",
     )
-    deleted = cli_runner.invoke(
-        app, ["user", "delete", "--email", "a@example.com"]
-    )
+    deleted = cli_runner.invoke(app, ["user", "delete", "--email", "a@example.com"])
     assert deleted.exit_code == 0
     listing = cli_runner.invoke(app, ["user", "list"])
     assert "a@example.com" not in listing.stdout
-    listing_all = cli_runner.invoke(
-        app, ["user", "list", "--include-deleted"]
-    )
+    listing_all = cli_runner.invoke(app, ["user", "list", "--include-deleted"])
     assert "a@example.com" in listing_all.stdout
 
 
-def test_delete_missing_user(
-    cli_runner: CliRunner, truncate_users: None
-) -> None:
-    result = cli_runner.invoke(
-        app, ["user", "delete", "--email", "nope@example.com"]
-    )
+def test_delete_missing_user(cli_runner: CliRunner, truncate_users: None) -> None:
+    result = cli_runner.invoke(app, ["user", "delete", "--email", "nope@example.com"])
     assert result.exit_code != 0
 
 
-def test_update_no_changes(
-    cli_runner: CliRunner, truncate_users: None
-) -> None:
+def test_update_no_changes(cli_runner: CliRunner, truncate_users: None) -> None:
     cli_runner.invoke(
         app,
         ["user", "add", "--email", "a@example.com", "--name", "A", "--role", "user"],
         input=GOOD_PASSWORD + "\n",
     )
-    result = cli_runner.invoke(
-        app, ["user", "update", "--email", "a@example.com"]
-    )
+    result = cli_runner.invoke(app, ["user", "update", "--email", "a@example.com"])
     assert result.exit_code != 0
     assert "no changes" in (result.stderr + result.stdout).lower()
 
 
-def test_update_changes_name(
-    cli_runner: CliRunner, truncate_users: None
-) -> None:
+def test_update_changes_name(cli_runner: CliRunner, truncate_users: None) -> None:
     cli_runner.invoke(
         app,
         ["user", "add", "--email", "a@example.com", "--name", "A", "--role", "user"],

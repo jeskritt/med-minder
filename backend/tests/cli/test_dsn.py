@@ -8,9 +8,7 @@ from medminder.cli._dsn import to_pg_env
 
 
 def test_basic_url_translates_to_pg_env_vars() -> None:
-    env = to_pg_env(
-        "postgresql+asyncpg://alice:secret@db.example:5433/medminder"
-    )
+    env = to_pg_env("postgresql+asyncpg://alice:secret@db.example:5433/medminder")
     assert env == {
         "PGHOST": "db.example",
         "PGPORT": "5433",
@@ -21,17 +19,13 @@ def test_basic_url_translates_to_pg_env_vars() -> None:
 
 
 def test_psycopg_driver_is_also_accepted() -> None:
-    env = to_pg_env(
-        "postgresql+psycopg://alice:secret@db.example:5433/medminder"
-    )
+    env = to_pg_env("postgresql+psycopg://alice:secret@db.example:5433/medminder")
     assert env["PGHOST"] == "db.example"
     assert env["PGDATABASE"] == "medminder"
 
 
 def test_sslmode_propagates_to_pgsslmode() -> None:
-    env = to_pg_env(
-        "postgresql+asyncpg://u:p@h/medminder?sslmode=require"
-    )
+    env = to_pg_env("postgresql+asyncpg://u:p@h/medminder?sslmode=require")
     assert env["PGSSLMODE"] == "require"
 
 

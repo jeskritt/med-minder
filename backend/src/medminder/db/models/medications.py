@@ -45,9 +45,7 @@ class Medication(Base):
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     times_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    quantity_per_dose: Mapped[Decimal] = mapped_column(
-        Numeric(10, 3), nullable=False
-    )
+    quantity_per_dose: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     unit: Mapped[str] = mapped_column(Text, nullable=False)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -64,12 +62,8 @@ class Medication(Base):
     )
     min_interval_minutes: Mapped[int | None] = mapped_column(nullable=True)
     window_duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
-    total_doses_filled: Mapped[int] = mapped_column(
-        nullable=False, server_default="0"
-    )
-    doses_remaining: Mapped[int] = mapped_column(
-        nullable=False, server_default="0"
-    )
+    total_doses_filled: Mapped[int] = mapped_column(nullable=False, server_default="0")
+    doses_remaining: Mapped[int] = mapped_column(nullable=False, server_default="0")
     deleted_at: Mapped[datetime | None] = deleted_at_col()
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()

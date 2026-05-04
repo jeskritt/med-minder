@@ -1,0 +1,179 @@
+openapi: 3.1.0
+info:
+  title: MedMinder Auth (Phase 2)
+  version: "0.2.0"
+  description: |
+    Contract fragment for the three endpoints Phase 2 introduces: login, logout, and the
+    canonical protected route /me. The authoritative API document is the FastAPI-emitted
+    OpenAPI spec at runtime; this file documents the agreed shape pre-implementation so
+    reviewers can challenge it before any code is written. The implementation MUST
+    conform to this contract; CI fails if the regenerated frontend client drifts.
+
+servers:
+  - url: /
+    description: Backend, served at the root. The frontend reaches it via the dev proxy
+      (Vite strips the `/api` prefix) or via the production reverse proxy.
+
+paths:
+  /auth/login:
+    post:
+      operationId: auth_login
+      summary: Establish a session
+      description: |
+        Verifies the supplied credentials against the `users` table and, on success,
+        creates a new row in `sessions` and sets a signed `mm_session` cookie on the
+        response. Failure modes (wrong password, unknown email, soft-deleted user) all
+        return the same generic 401 with an identical body and observably identical
+        timing — see FR-004 / SC-002.
+
+        If the request arrives with an existing valid `mm_session` cookie, the matching
+        `sessions` row is deleted *before* a new row is created (FR-016). A failed login
+        does NOT delete any pre-existing session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "204":
+          description: |
+            Login successful. The response body is empty; the new session is conveyed
+            entirely via the `Set-Cookie` header.
+          headers:
+            Set-Cookie:
+              description: |
+                `mm_session=<itsdangerous-signed token>; HttpOnly; SameSite=Lax;
+                Path=/; Max-Age=2592000` and `Secure` when env != development.
+              schema:
+                type: string
+        "400":
+          description: Malformed request body (e.g. missing field).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: |
+            Generic authentication failure. Returned uniformly for wrong password,
+            unknown email, and soft-deleted user. Body and observable timing are
+            identical across these three cases.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                detail: "Email or password is incorrect."
+
+  /auth/logout:
+    post:
+      operationId: auth_logout
+      summary: End the current session
+      description: |
+        Deletes the `sessions` row whose `token_hash` matches the cookie on the request
+        (if any). Always succeeds; idempotent under repeated calls — FR-006. The
+        response clears the `mm_session` cookie regardless of whether a row was found.
+      security:
+        - mmSession: []
+      responses:
+        "204":
+          description: Logout successful (or no-op if no valid session was attached).
+          headers:
+            Set-Cookie:
+              description: "`mm_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax` (and `Secure` when env != development)."
+              schema:
+                type: string
+
+  /me:
+    get:
+      operationId: me_get
+      summary: Return the authenticated user
+      description: |
+        Returns the authenticated user's id, name, and role. This endpoint is the
+        canonical target for route-guard automated tests in Phase 2 (FR-018). It is
+        also the read used by the frontend's `beforeLoad` route guard and by
+        `useCurrentUser`.
+      security:
+        - mmSession: []
+      responses:
+        "200":
+          description: Authenticated.
+          headers:
+            Set-Cookie:
+              description: |
+                Refreshed `mm_session` cookie with extended `Max-Age` so the client-
+                side expiry tracks the server-side rolling expiry (FR-003 + FR-009).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          description: |
+            No valid session. Returned for missing, tampered, or expired cookies; the
+            three cases are indistinguishable by body or status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    mmSession:
+      type: apiKey
+      in: cookie
+      name: mm_session
+      description: |
+        Opaque, server-side session. The cookie value is an `itsdangerous`-signed
+        random token; the SHA-256 of the token is the lookup key in the `sessions`
+        table. Cookie attributes: HttpOnly; SameSite=Lax; Secure (in non-dev);
+        Max-Age=30 days, refreshed on every authenticated response.
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+          description: |
+            Lookup is case-insensitive and applied to the lowercased + trimmed value.
+            The original casing supplied here is not retained; the database holds the
+            casing originally provided at user-creation time.
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+          description: Compared exactly with no normalization. Never logged.
+
+    Me:
+      type: object
+      required: [id, name, role]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+
+    Error:
+      type: object
+      required: [detail]
+      additionalProperties: false
+      properties:
+        detail:
+          type: string
+          description: |
+            Human-readable, generic message. The login endpoint always returns the
+            same string for wrong-password, unknown-email, and soft-deleted cases —
+            "Email or password is incorrect." — so callers cannot enumerate users
+            by reading the error body.

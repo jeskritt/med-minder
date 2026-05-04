@@ -41,9 +41,7 @@ class MedicationInteraction(Base):
     created_at: Mapped[datetime] = created_at_col()
 
     __table_args__ = (
-        CheckConstraint(
-            "cooldown_minutes > 0", name="ck_interactions_cooldown_pos"
-        ),
+        CheckConstraint("cooldown_minutes > 0", name="ck_interactions_cooldown_pos"),
         CheckConstraint(
             "medication_id <> conflicting_medication_id",
             name="ck_interactions_distinct_pair",

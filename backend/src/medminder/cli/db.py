@@ -57,9 +57,7 @@ def _require_tool(name: str) -> str:
 
 @app.command("backup")
 def backup(
-    out: Annotated[
-        Path, typer.Option("--out", help="Destination dump file")
-    ],
+    out: Annotated[Path, typer.Option("--out", help="Destination dump file")],
 ) -> None:
     """Run ``pg_dump --format=custom`` against ``DATABASE_URL``."""
     pg_dump = _require_tool("pg_dump")
@@ -93,9 +91,7 @@ def backup(
 
 @app.command("restore")
 def restore(
-    in_file: Annotated[
-        Path, typer.Option("--in", help="Source dump file")
-    ],
+    in_file: Annotated[Path, typer.Option("--in", help="Source dump file")],
     yes: Annotated[
         bool,
         typer.Option(
@@ -121,9 +117,7 @@ def restore(
     pg_restore = _require_tool("pg_restore")
 
     if not in_file.exists():
-        typer.secho(
-            f"Backup file not found: {in_file}", fg=typer.colors.RED, err=True
-        )
+        typer.secho(f"Backup file not found: {in_file}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=2)
 
     settings = Settings()

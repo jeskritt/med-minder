@@ -120,8 +120,6 @@ async def test_schedule_delete_cascades_reminder(session: AsyncSession) -> None:
     await session.delete(sched)
     await session.flush()
     rows = (
-        await session.execute(
-            select(Reminder).where(Reminder.user_id == user.id)
-        )
+        await session.execute(select(Reminder).where(Reminder.user_id == user.id))
     ).all()
     assert rows == []

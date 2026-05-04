@@ -25,9 +25,7 @@ async def test_insert_minimal(session: AsyncSession) -> None:
     "field",
     ["email", "password_hash", "name", "role", "timezone"],
 )
-async def test_required_field_rejects_null(
-    session: AsyncSession, field: str
-) -> None:
+async def test_required_field_rejects_null(session: AsyncSession, field: str) -> None:
     user = User(
         email="x@example.com",
         password_hash="h",
