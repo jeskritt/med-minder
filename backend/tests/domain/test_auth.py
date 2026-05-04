@@ -95,7 +95,8 @@ async def test_attempt_login_soft_deleted(session: AsyncSession) -> None:
         ip=TEST_IP,
         user_agent=TEST_UA,
     )
-    assert outcome is LoginOutcome.SOFT_DELETED
+    # FR-005 / FR-014: soft-deleted users are indistinguishable from unknown.
+    assert outcome is LoginOutcome.UNKNOWN_EMAIL
     assert result_user is None
 
 
@@ -103,7 +104,10 @@ async def test_attempt_login_log_lines_are_pii_free(
     session: AsyncSession,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """FR-019: one INFO line per attempt; no email / password / token in any record."""
+    """FR-019: one INFO line per attempt; no email / password / token in any record.
+
+    User-agent IS logged (FR-019 requires the actual value).
+    """
     sensitive_email = "alice@example.com"
     await create_user(
         session,
@@ -114,7 +118,7 @@ async def test_attempt_login_log_lines_are_pii_free(
     )
 
     with caplog.at_level(logging.INFO, logger="medminder.auth.login"):
-        # Drive all four outcomes.
+        # Drive three distinct outcomes (SOFT_DELETED now maps to UNKNOWN_EMAIL).
         await attempt_login(
             session,
             email=sensitive_email,
@@ -136,7 +140,7 @@ async def test_attempt_login_log_lines_are_pii_free(
             ip=TEST_IP,
             user_agent=TEST_UA,
         )
-        # soft-deleted
+        # soft-deleted → UNKNOWN_EMAIL (FR-005)
         from sqlalchemy import update
 
         from medminder.db.models import User
@@ -169,14 +173,16 @@ async def test_attempt_login_log_lines_are_pii_free(
             assert forbidden not in rendered, (
                 f"PII leaked into log: {forbidden!r} in {rendered!r}"
             )
+        # FR-019: user-agent value IS logged (not just its length).
+        assert "user_agent=" in rendered
 
     outcomes = {
         record.getMessage().split("outcome=", 1)[1].split(" ", 1)[0]
         for record in login_records
     }
+    # SOFT_DELETED no longer emitted; the deleted-user attempt yields UNKNOWN_EMAIL.
     assert outcomes == {
         LoginOutcome.SUCCESS.value,
         LoginOutcome.WRONG_PASSWORD.value,
         LoginOutcome.UNKNOWN_EMAIL.value,
-        LoginOutcome.SOFT_DELETED.value,
     }

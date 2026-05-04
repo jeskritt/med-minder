@@ -53,17 +53,14 @@ async def attempt_login(
     """
     normalized_email = email.strip().lower()
     user = await get_user_by_email(
-        session, email=normalized_email, include_deleted=True
+        session, email=normalized_email, include_deleted=False
     )
 
     if user is None:
+        # Covers both unknown-email and soft-deleted users (FR-005 / FR-014).
         verify_password(DUMMY_HASH, password)
         outcome = LoginOutcome.UNKNOWN_EMAIL
         result_user: User | None = None
-    elif user.deleted_at is not None:
-        verify_password(DUMMY_HASH, password)
-        outcome = LoginOutcome.SOFT_DELETED
-        result_user = None
     elif not verify_password(user.password_hash, password):
         outcome = LoginOutcome.WRONG_PASSWORD
         result_user = None
@@ -73,10 +70,10 @@ async def attempt_login(
 
     user_id_str = str(user.id) if user is not None else "none"
     logger.info(
-        "auth.login outcome=%s user_id=%s source_ip=%s user_agent_len=%d",
+        "auth.login outcome=%s user_id=%s source_ip=%s user_agent=%s",
         outcome.value,
         user_id_str,
         ip,
-        len(user_agent),
+        user_agent,
     )
     return result_user, outcome

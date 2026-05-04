@@ -36,12 +36,20 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=1024)
 
 
-def _client_ip(request: Request) -> str:
+def _client_ip(request: Request, *, trusted_proxy_count: int = 0) -> str:
     """Server-derived source IP for the FR-019 audit log.
 
-    We never trust ``X-Forwarded-For`` here — that would let attackers
-    forge IPs in the audit log.
+    When ``trusted_proxy_count`` is 0, we use the raw peer address.
+    When > 0, we read the Nth-from-rightmost entry of
+    ``X-Forwarded-For``, where N = ``trusted_proxy_count``.  This
+    trusts only the entries appended by known reverse proxies
+    (e.g. Koyeb) and ignores any client-injected prefix.
     """
+    if trusted_proxy_count > 0:
+        xff = request.headers.get("x-forwarded-for", "")
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        if len(parts) >= trusted_proxy_count:
+            return parts[-trusted_proxy_count]
     if request.client is None:
         return ""
     return request.client.host
@@ -59,7 +67,7 @@ async def login(
         db,
         email=payload.email,
         password=payload.password,
-        ip=_client_ip(request),
+        ip=_client_ip(request, trusted_proxy_count=settings.trusted_proxy_count),
         user_agent=request.headers.get("user-agent", ""),
     )
 

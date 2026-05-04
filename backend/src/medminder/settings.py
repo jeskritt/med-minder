@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     session_cookie_name: str = "mm_session"
     """Name of the signed session cookie set by ``POST /auth/login``."""
 
+    trusted_proxy_count: int = 0
+    """Number of trusted reverse proxies in front of the app.
+
+    When > 0, ``_client_ip`` reads the real client IP from the
+    ``X-Forwarded-For`` header, taking the Nth-from-rightmost entry
+    where N = trusted_proxy_count.  Koyeb adds one proxy layer, so
+    set to 1 in production.  When 0, the raw peer address is used.
+    """
+
     model_config = {"env_prefix": "", "case_sensitive": False}
 
     @property

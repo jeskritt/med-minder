@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from fastapi import Depends, HTTPException, Request, Response, status
-from itsdangerous import BadSignature, URLSafeSerializer
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medminder.db.models import User
@@ -15,9 +15,9 @@ from medminder.settings import Settings
 _COOKIE_SALT = "mm_session"
 
 
-def cookie_serializer(settings: Settings) -> URLSafeSerializer:
+def cookie_serializer(settings: Settings) -> URLSafeTimedSerializer:
     """Build the ``itsdangerous`` serializer used to sign session cookies."""
-    return URLSafeSerializer(settings.session_secret, salt=_COOKIE_SALT)
+    return URLSafeTimedSerializer(settings.session_secret, salt=_COOKIE_SALT)
 
 
 def get_settings(request: Request) -> Settings:

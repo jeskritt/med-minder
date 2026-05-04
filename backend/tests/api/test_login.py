@@ -14,7 +14,11 @@ async def test_login_success_sets_cookie(
     client: AsyncClient, session: AsyncSession
 ) -> None:
     await create_user(
-        session, email="login@example.com", name="Login", role="user", password=_PASSWORD
+        session,
+        email="login@example.com",
+        name="Login",
+        role="user",
+        password=_PASSWORD,
     )
 
     resp = await client.post(
@@ -29,7 +33,11 @@ async def test_login_wrong_password(
     client: AsyncClient, session: AsyncSession
 ) -> None:
     await create_user(
-        session, email="login2@example.com", name="Login2", role="user", password=_PASSWORD
+        session,
+        email="login2@example.com",
+        name="Login2",
+        role="user",
+        password=_PASSWORD,
     )
 
     resp = await client.post(
@@ -88,3 +96,36 @@ async def test_login_with_tampered_cookie(
     )
     assert resp.status_code == 204
     assert "mm_session" in resp.cookies
+
+
+async def test_failed_relogin_preserves_existing_session(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """FR-016: a failed re-login must NOT invalidate the existing session."""
+    await create_user(
+        session, email="keeper@example.com", name="K", role="user", password=_PASSWORD
+    )
+
+    # Login successfully.
+    resp1 = await client.post(
+        "/auth/login",
+        json={"email": "keeper@example.com", "password": _PASSWORD},
+    )
+    assert resp1.status_code == 204
+    cookie1 = resp1.cookies.get("mm_session")
+    assert cookie1
+
+    # Attempt a re-login with the wrong password while carrying the valid cookie.
+    client.cookies.set("mm_session", cookie1)
+    resp2 = await client.post(
+        "/auth/login",
+        json={"email": "keeper@example.com", "password": "wrong-password-value"},
+    )
+    assert resp2.status_code == 401
+
+    # The original session must still be valid — verify via /me.
+    client.cookies.set("mm_session", cookie1)
+    me_resp = await client.get("/me")
+    assert me_resp.status_code == 200
+    assert me_resp.json()["name"] == "K"
+

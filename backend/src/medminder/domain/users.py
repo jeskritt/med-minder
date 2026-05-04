@@ -26,6 +26,7 @@ from medminder.domain.passwords import (
     password_too_short,
     verify_password,
 )
+from medminder.domain.sessions import revoke_all_user_sessions
 
 
 class DomainError(Exception):
@@ -58,8 +59,9 @@ async def get_user_by_email(
     email: str,
     include_deleted: bool = False,
 ) -> User | None:
-    """Case-insensitive lookup; returns ``None`` if no match."""
-    stmt = select(User).where(func.lower(User.email) == email.lower())
+    """Case-insensitive, whitespace-trimmed lookup; returns ``None`` if no match."""
+    normalized = email.strip().lower()
+    stmt = select(User).where(func.lower(User.email) == normalized)
     if not include_deleted:
         stmt = stmt.where(User.deleted_at.is_(None))
     return (await session.execute(stmt)).scalar_one_or_none()
@@ -144,7 +146,11 @@ async def update_user(
                 f"Password must be at least 12 characters (got {len(new_password)})."
             )
         user.password_hash = hash_password(new_password)
-    await session.flush()
+        await session.flush()
+        # FR-010: revoke every active session on password change.
+        await revoke_all_user_sessions(session, user_id=user.id)
+    else:
+        await session.flush()
     return user
 
 
@@ -154,6 +160,8 @@ async def soft_delete_user(session: AsyncSession, *, email: str) -> uuid.UUID:
         raise UserNotFoundError(f"No active user with email {email!r}.")
     user.deleted_at = _utcnow()
     await session.flush()
+    # FR-011: revoke every active session on soft-delete.
+    await revoke_all_user_sessions(session, user_id=user.id)
     return user.id
 
 

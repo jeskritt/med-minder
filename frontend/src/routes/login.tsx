@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,9 @@ function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginInput>();
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+  });
 
   const loginMutation = useMutation({
     mutationFn: async (input: LoginInput) => {
@@ -50,12 +53,8 @@ function LoginPage() {
   });
 
   const onSubmit = (input: LoginInput) => {
-    const parsed = loginSchema.safeParse(input);
-    if (!parsed.success) {
-      return;
-    }
     setServerError(null);
-    loginMutation.mutate(parsed.data);
+    loginMutation.mutate(input);
   };
 
   return (
@@ -77,7 +76,7 @@ function LoginPage() {
             type="email"
             autoComplete="username"
             className="mt-1 w-full rounded border px-3 py-2"
-            {...register("email", { required: "Email is required" })}
+            {...register("email")}
           />
           {errors.email && (
             <p role="alert" className="mt-1 text-sm text-red-600">
@@ -95,7 +94,7 @@ function LoginPage() {
             type="password"
             autoComplete="current-password"
             className="mt-1 w-full rounded border px-3 py-2"
-            {...register("password", { required: "Password is required" })}
+            {...register("password")}
           />
           {errors.password && (
             <p role="alert" className="mt-1 text-sm text-red-600">

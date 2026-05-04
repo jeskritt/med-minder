@@ -163,3 +163,45 @@ async def test_revoke_all_user_sessions_returns_zero_when_none(
 
     count = await revoke_all_user_sessions(session, user_id=uuid.uuid4())
     assert count == 0
+
+
+# --- Rolling expiry acceptance scenarios (User Story 7) --------------------
+
+
+async def test_rolling_expiry_at_29_days(session: AsyncSession) -> None:
+    """Acceptance 7.1: request at T+29d succeeds and extends to ~T+59d."""
+    user = await create_user(
+        session,
+        email="roll1@example.com",
+        name="Roll1",
+        role="user",
+        password=_PASSWORD,
+    )
+    row, plaintext = await create_session(session, user_id=user.id)
+
+    with freeze_time(datetime.now(UTC) + timedelta(days=29)):
+        result = await authenticate_token(session, plaintext_token=plaintext)
+        assert result is not None
+        assert result.id == user.id
+        # expires_at should now be ~29d + 30d = ~59d from original creation
+        assert row.expires_at > datetime.now(UTC) + timedelta(days=29)
+
+
+async def test_expired_session_not_extended(session: AsyncSession) -> None:
+    """Acceptance 7.2: request after expiry returns None; row is not extended."""
+    user = await create_user(
+        session,
+        email="roll2@example.com",
+        name="Roll2",
+        role="user",
+        password=_PASSWORD,
+    )
+    row, plaintext = await create_session(session, user_id=user.id)
+    original_expiry = row.expires_at
+
+    with freeze_time(datetime.now(UTC) + timedelta(days=31)):
+        result = await authenticate_token(session, plaintext_token=plaintext)
+        assert result is None
+        # expires_at must NOT have been extended.
+        assert row.expires_at == original_expiry
+
