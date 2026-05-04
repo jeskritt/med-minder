@@ -119,6 +119,23 @@ The `db backup` / `db restore` CLI commands and their tests require
   directory to `PATH` or check the *Command Line Tools* component
   during install.  Verify with `pg_dump --version`.
 
+## Session cookie configuration (Phase 2+)
+
+Auth uses a signed, HTTP-only session cookie minted by ``POST
+/auth/login``.  The signing key is read from ``SESSION_SECRET``.
+
+- **Development** (`ENV=development`): a fixed insecure fallback is used
+  if ``SESSION_SECRET`` is unset, so a fresh checkout boots without
+  extra config.  The cookie is set with ``Secure=False`` so it works
+  over the Vite dev server's plain-HTTP origin.
+- **Any other environment**: ``SESSION_SECRET`` **must** be set
+  explicitly to a strong random value (e.g. ``openssl rand -hex 32``).
+  The app refuses to start otherwise.  ``Secure=True`` is enforced.
+
+Cookie name is controlled by ``SESSION_COOKIE_NAME`` (default
+``mm_session``).  See ``docs/diagrams/login-sequence.md`` for the
+end-to-end login flow.
+
 ## CORS policy
 
 - **Development:** CORS is permissive for the local Vite dev server origin

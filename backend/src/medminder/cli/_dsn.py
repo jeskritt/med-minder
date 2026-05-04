@@ -62,9 +62,7 @@ def to_pg_env(database_url: str) -> dict[str, str]:
     for key, value in parse_qsl(parsed.query, keep_blank_values=False):
         target = _QUERY_TO_ENV.get(key)
         if target is None:
-            raise ValueError(
-                f"Unsupported DATABASE_URL query parameter: {key!r}"
-            )
+            raise ValueError(f"Unsupported DATABASE_URL query parameter: {key!r}")
         env[target] = value
 
     return env

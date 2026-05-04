@@ -92,9 +92,7 @@ async def create_user(
         raise PasswordTooShortError(
             f"Password must be at least 12 characters (got {len(password)})."
         )
-    existing = await get_user_by_email(
-        session, email=email, include_deleted=True
-    )
+    existing = await get_user_by_email(session, email=email, include_deleted=True)
     if existing is not None:
         raise DuplicateEmailError(f"A user with email {email!r} already exists.")
     user = User(
@@ -118,9 +116,7 @@ async def update_user(
     new_role: UserRole | None = None,
     new_password: str | None = None,
 ) -> User:
-    if all(
-        v is None for v in (new_email, new_name, new_role, new_password)
-    ):
+    if all(v is None for v in (new_email, new_name, new_role, new_password)):
         raise NoChangesSpecifiedError("No changes specified.")
     user = await get_user_by_email(session, email=email)
     if user is None:
@@ -145,17 +141,14 @@ async def update_user(
     if new_password is not None:
         if password_too_short(new_password):
             raise PasswordTooShortError(
-                "Password must be at least 12 characters "
-                f"(got {len(new_password)})."
+                f"Password must be at least 12 characters (got {len(new_password)})."
             )
         user.password_hash = hash_password(new_password)
     await session.flush()
     return user
 
 
-async def soft_delete_user(
-    session: AsyncSession, *, email: str
-) -> uuid.UUID:
+async def soft_delete_user(session: AsyncSession, *, email: str) -> uuid.UUID:
     user = await get_user_by_email(session, email=email)
     if user is None:
         raise UserNotFoundError(f"No active user with email {email!r}.")

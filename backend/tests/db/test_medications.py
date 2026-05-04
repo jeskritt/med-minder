@@ -125,8 +125,6 @@ async def test_times_per_day_independent_of_schedule_count(
     await session.refresh(med)
     assert med.times_per_day == 3
     fetched = (
-        await session.execute(
-            select(Medication).where(Medication.id == med.id)
-        )
+        await session.execute(select(Medication).where(Medication.id == med.id))
     ).scalar_one()
     assert fetched.times_per_day == 3

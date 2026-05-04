@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
+import { setApiContext } from "@/lib/api";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -18,6 +19,15 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+// Wire the api-client middleware so 401s on non-/auth endpoints clear
+// the cache and bounce the user to /login (FR-008).
+setApiContext({
+  queryClient,
+  onUnauthenticated: () => {
+    void router.navigate({ to: "/login" });
+  },
+});
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");

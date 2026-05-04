@@ -27,10 +27,10 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 **Purpose**: Pull in the new dependencies and add the cookie-related settings the rest of the phase will read.
 
-- [ ] T001 Add `itsdangerous>=2.2.0,<3.0` to `[project.dependencies]` in `backend/pyproject.toml`.
-- [ ] T002 Add `freezegun>=1.5.0,<2.0` to `[project.optional-dependencies].dev` in `backend/pyproject.toml`.
-- [ ] T003 [P] Extend `backend/src/medminder/settings.py` with `SESSION_SECRET: str` (required when `env != "development"`, with a documented dev-only fallback), `SESSION_COOKIE_NAME: str = "mm_session"`, and a derived `session_cookie_secure` property (true when `env != "development"`).
-- [ ] T004 [P] Document the new `SESSION_SECRET` (dev fallback + production requirement) and link the forthcoming login sequence diagram in `backend/README.md`.
+- [X] T001 Add `itsdangerous>=2.2.0,<3.0` to `[project.dependencies]` in `backend/pyproject.toml`.
+- [X] T002 Add `freezegun>=1.5.0,<2.0` to `[project.optional-dependencies].dev` in `backend/pyproject.toml`.
+- [X] T003 [P] Extend `backend/src/medminder/settings.py` with `SESSION_SECRET: str` (required when `env != "development"`, with a documented dev-only fallback), `SESSION_COOKIE_NAME: str = "mm_session"`, and a derived `session_cookie_secure` property (true when `env != "development"`).
+- [X] T004 [P] Document the new `SESSION_SECRET` (dev fallback + production requirement) and link the forthcoming login sequence diagram in `backend/README.md`.
 
 ---
 
@@ -40,12 +40,12 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Implement `backend/src/medminder/api/deps.py` with `get_session` (yields an `AsyncSession` from `app.state.session_factory`) and the `get_current_user` dependency that reads the `mm_session` cookie via `itsdangerous.URLSafeTimedSerializer.loads(...)`, calls `domain.sessions.authenticate_token`, raises `HTTPException(401)` on miss / expired / tampered, and refreshes the `Set-Cookie` `Max-Age` on the outgoing response (FR-003 + FR-009).
-- [ ] T006 Implement `backend/src/medminder/domain/sessions.py` with `SESSION_LIFETIME = timedelta(days=30)`, `generate_token() -> str` (`secrets.token_urlsafe(32)`), `hash_token(plaintext) -> str` (SHA-256 hex), `async create_session(session, user_id) -> tuple[Session, str]` returning the row + plaintext token, `async authenticate_token(session, plaintext_token) -> User | None` (lookup by `token_hash`, reject when `expires_at <= now()` without mutation, otherwise mutate `expires_at = now() + SESSION_LIFETIME` and return the `User`), `async delete_session_by_token_hash(session, token_hash) -> bool`, and `async revoke_all_user_sessions(session, user_id) -> int`.
-- [ ] T007 [P] Implement `backend/src/medminder/domain/auth.py` with the `LoginOutcome` enum (`success | wrong_password | unknown_email | soft_deleted`), a module-level `DUMMY_HASH` (a real Argon2id hash precomputed at import to keep failure timings uniform — D5), and `async attempt_login(session, *, email, password, ip, user_agent) -> tuple[User | None, LoginOutcome]` that runs Argon2id verification on every path (against the user hash on found, against `DUMMY_HASH` otherwise) and emits exactly one INFO log line per attempt with `outcome`, `user_id` (or `None`), `source_ip`, `user_agent` (FR-019, no email / password / token material).
-- [ ] T008 [P] Create empty `APIRouter()` instances in `backend/src/medminder/api/auth.py` and `backend/src/medminder/api/me.py`, then wire `backend/src/medminder/app.py` to `include_router` both. T011, T012, and T021 attach handlers to these router instances; scaffolding the registration here means handlers added later light up automatically without further `app.py` edits.
-- [ ] T009 [P] Unit tests `backend/tests/domain/test_sessions.py` covering token mint/hash, create + lookup round-trip, rolling-expiry mutation on a successful authenticate, expired-row rejection without mutation, single delete by hash, bulk delete by user_id.
-- [ ] T010 [P] Unit tests `backend/tests/domain/test_auth.py` covering all four `LoginOutcome` paths, dummy-hash timing parity, and the FR-019 log shape via `caplog` (assert no email / password / token / hash substring appears in any record).
+- [X] T005 Implement `backend/src/medminder/api/deps.py` with `get_session` (yields an `AsyncSession` from `app.state.session_factory`) and the `get_current_user` dependency that reads the `mm_session` cookie via `itsdangerous.URLSafeTimedSerializer.loads(...)`, calls `domain.sessions.authenticate_token`, raises `HTTPException(401)` on miss / expired / tampered, and refreshes the `Set-Cookie` `Max-Age` on the outgoing response (FR-003 + FR-009).
+- [X] T006 Implement `backend/src/medminder/domain/sessions.py` with `SESSION_LIFETIME = timedelta(days=30)`, `generate_token() -> str` (`secrets.token_urlsafe(32)`), `hash_token(plaintext) -> str` (SHA-256 hex), `async create_session(session, user_id) -> tuple[Session, str]` returning the row + plaintext token, `async authenticate_token(session, plaintext_token) -> User | None` (lookup by `token_hash`, reject when `expires_at <= now()` without mutation, otherwise mutate `expires_at = now() + SESSION_LIFETIME` and return the `User`), `async delete_session_by_token_hash(session, token_hash) -> bool`, and `async revoke_all_user_sessions(session, user_id) -> int`.
+- [X] T007 [P] Implement `backend/src/medminder/domain/auth.py` with the `LoginOutcome` enum (`success | wrong_password | unknown_email | soft_deleted`), a module-level `DUMMY_HASH` (a real Argon2id hash precomputed at import to keep failure timings uniform — D5), and `async attempt_login(session, *, email, password, ip, user_agent) -> tuple[User | None, LoginOutcome]` that runs Argon2id verification on every path (against the user hash on found, against `DUMMY_HASH` otherwise) and emits exactly one INFO log line per attempt with `outcome`, `user_id` (or `None`), `source_ip`, `user_agent` (FR-019, no email / password / token material).
+- [X] T008 [P] Create empty `APIRouter()` instances in `backend/src/medminder/api/auth.py` and `backend/src/medminder/api/me.py`, then wire `backend/src/medminder/app.py` to `include_router` both. T011, T012, and T021 attach handlers to these router instances; scaffolding the registration here means handlers added later light up automatically without further `app.py` edits.
+- [X] T009 [P] Unit tests `backend/tests/domain/test_sessions.py` covering token mint/hash, create + lookup round-trip, rolling-expiry mutation on a successful authenticate, expired-row rejection without mutation, single delete by hash, bulk delete by user_id.
+- [X] T010 [P] Unit tests `backend/tests/domain/test_auth.py` covering all four `LoginOutcome` paths, dummy-hash timing parity, and the FR-019 log shape via `caplog` (assert no email / password / token / hash substring appears in any record).
 
 **Checkpoint**: Domain layer + auth dependency + router scaffolding ready — story phases can now begin.
 
@@ -59,18 +59,18 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T011 [US1] Implement `POST /auth/login` in `backend/src/medminder/api/auth.py` per `contracts/auth.openapi.yaml` — pydantic `LoginRequest` (email lowercased + trimmed, password not normalized), call `domain.auth.attempt_login`, on success delete any pre-existing session keyed by the inbound cookie (FR-016), `create_session`, sign the plaintext token with `itsdangerous`, set the `mm_session` cookie (`HttpOnly`, `SameSite=Lax`, `Max-Age=2592000`, `Secure` from settings), return `204 No Content`. Reuses `domain.users.get_user_by_email(include_deleted=False)` (FR-014) and `domain.passwords.verify_password` (FR-013) inside `attempt_login`.
-- [ ] T012 [US1] Implement `GET /me` in `backend/src/medminder/api/me.py` — depends on `get_current_user`, returns the `Me` schema (`id`, `name`, `role`); the `get_current_user` dependency from T005 already refreshes the `Set-Cookie` `Max-Age` (FR-003 + FR-009 cookie half, FR-018).
-- [ ] T013 [US1] Integration test `backend/tests/api/test_login.py::test_login_success` — seeds a user, posts credentials, asserts 204, asserts exactly one new row in `sessions` for the user, asserts the response `Set-Cookie` carries `HttpOnly`, `SameSite=Lax`, `Max-Age=2592000`, and `Secure` matches `settings.session_cookie_secure`.
-- [ ] T013a [US1] Integration test `backend/tests/api/test_login.py::test_relogin_replaces_existing_session` — log in user A and capture the resulting `mm_session` cookie and the new `sessions.id`. Submit a second valid login for user A with the cookie still attached on the inbound request. Assert: the original `sessions` row is gone, exactly one new `sessions` row exists for user A (different `id`), the response carries a fresh `Set-Cookie` whose signed value differs from the original, and `GET /me` with the new cookie succeeds while `GET /me` with the original cookie returns 401 (FR-016).
-- [ ] T013b [US1] Integration test `backend/tests/api/test_login.py::test_failed_relogin_preserves_existing_session` — log in user A. Submit a second login carrying user A's cookie but with the wrong password. Assert: response is 401 with the generic FR-004 body, the original `sessions` row is still present with `expires_at` unchanged, no `Set-Cookie` is set on the failure response (research D9 — a typo must not log the user out).
-- [ ] T014 [P] [US1] Integration test `backend/tests/api/test_me.py::test_me_with_valid_session` — round-trips login → `GET /me`, asserts 200 with the expected `{ id, name, role }`, asserts the response refreshes the `mm_session` `Set-Cookie`.
-- [ ] T015 [US1] Run `just generate-client` and commit the regenerated `frontend/src/api/v1.d.ts` so subsequent frontend tasks can import the new operations.
-- [ ] T016 [US1] Modify `frontend/src/lib/api.ts` — set `credentials: "include"` on the `openapi-fetch` client; add a response middleware that, on a 401 from any non-`/auth/*` endpoint, calls `queryClient.clear()` and `router.navigate({ to: "/login" })` (FR-008).
-- [ ] T017 [P] [US1] Create `frontend/src/lib/auth.ts` with `useCurrentUser()` (TanStack Query around `GET /me`) and `useLogout()` (TanStack mutation around `POST /auth/logout`).
-- [ ] T018 [US1] Create `frontend/src/routes/login.tsx` — react-hook-form + zod schema (email, password); on success `queryClient.invalidateQueries({ queryKey: ["me"] })` then `navigate({ to: "/medications" })`; renders the generic FR-004 error (`"Email or password is incorrect."`) on any 401 from `/auth/login`.
-- [ ] T019 [P] [US1] Create `frontend/src/routes/medications.tsx` — Phase 2 stub body indicating "Phase 3 will populate this list"; `beforeLoad` awaits `GET /me` and throws `redirect({ to: "/login" })` on 401 (FR-017). The logout button placeholder is wired in T024.
-- [ ] T020 [P] [US1] Vitest `frontend/src/__tests__/login.test.tsx` — renders the form, validates required fields, submits successfully and asserts the `navigate` to `/medications`, asserts the generic error renders on a mocked 401.
+- [X] T011 [US1] Implement `POST /auth/login` in `backend/src/medminder/api/auth.py` per `contracts/auth.openapi.yaml` — pydantic `LoginRequest` (email lowercased + trimmed, password not normalized), call `domain.auth.attempt_login`, on success delete any pre-existing session keyed by the inbound cookie (FR-016), `create_session`, sign the plaintext token with `itsdangerous`, set the `mm_session` cookie (`HttpOnly`, `SameSite=Lax`, `Max-Age=2592000`, `Secure` from settings), return `204 No Content`. Reuses `domain.users.get_user_by_email(include_deleted=False)` (FR-014) and `domain.passwords.verify_password` (FR-013) inside `attempt_login`.
+- [X] T012 [US1] Implement `GET /me` in `backend/src/medminder/api/me.py` — depends on `get_current_user`, returns the `Me` schema (`id`, `name`, `role`); the `get_current_user` dependency from T005 already refreshes the `Set-Cookie` `Max-Age` (FR-003 + FR-009 cookie half, FR-018).
+- [X] T013 [US1] Integration test `backend/tests/api/test_login.py::test_login_success` — seeds a user, posts credentials, asserts 204, asserts exactly one new row in `sessions` for the user, asserts the response `Set-Cookie` carries `HttpOnly`, `SameSite=Lax`, `Max-Age=2592000`, and `Secure` matches `settings.session_cookie_secure`.
+- [X] T013a [US1] Integration test `backend/tests/api/test_login.py::test_relogin_replaces_existing_session` — log in user A and capture the resulting `mm_session` cookie and the new `sessions.id`. Submit a second valid login for user A with the cookie still attached on the inbound request. Assert: the original `sessions` row is gone, exactly one new `sessions` row exists for user A (different `id`), the response carries a fresh `Set-Cookie` whose signed value differs from the original, and `GET /me` with the new cookie succeeds while `GET /me` with the original cookie returns 401 (FR-016).
+- [X] T013b [US1] Integration test `backend/tests/api/test_login.py::test_failed_relogin_preserves_existing_session` — log in user A. Submit a second login carrying user A's cookie but with the wrong password. Assert: response is 401 with the generic FR-004 body, the original `sessions` row is still present with `expires_at` unchanged, no `Set-Cookie` is set on the failure response (research D9 — a typo must not log the user out).
+- [X] T014 [P] [US1] Integration test `backend/tests/api/test_me.py::test_me_with_valid_session` — round-trips login → `GET /me`, asserts 200 with the expected `{ id, name, role }`, asserts the response refreshes the `mm_session` `Set-Cookie`.
+- [X] T015 [US1] Run `just generate-client` and commit the regenerated `frontend/src/api/v1.d.ts` so subsequent frontend tasks can import the new operations.
+- [X] T016 [US1] Modify `frontend/src/lib/api.ts` — set `credentials: "include"` on the `openapi-fetch` client; add a response middleware that, on a 401 from any non-`/auth/*` endpoint, calls `queryClient.clear()` and `router.navigate({ to: "/login" })` (FR-008).
+- [X] T017 [P] [US1] Create `frontend/src/lib/auth.ts` with `useCurrentUser()` (TanStack Query around `GET /me`) and `useLogout()` (TanStack mutation around `POST /auth/logout`).
+- [X] T018 [US1] Create `frontend/src/routes/login.tsx` — react-hook-form + zod schema (email, password); on success `queryClient.invalidateQueries({ queryKey: ["me"] })` then `navigate({ to: "/medications" })`; renders the generic FR-004 error (`"Email or password is incorrect."`) on any 401 from `/auth/login`.
+- [X] T019 [P] [US1] Create `frontend/src/routes/medications.tsx` — Phase 2 stub body indicating "Phase 3 will populate this list"; `beforeLoad` awaits `GET /me` and throws `redirect({ to: "/login" })` on 401 (FR-017). The logout button placeholder is wired in T024.
+- [X] T020 [P] [US1] Vitest `frontend/src/__tests__/login.test.tsx` — renders the form, validates required fields, submits successfully and asserts the `navigate` to `/medications`, asserts the generic error renders on a mocked 401.
 
 **Checkpoint**: Login → cookie → protected `/me` → stub `/medications` happy path is fully exercised.
 
@@ -84,11 +84,11 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T021 [US2] Implement `POST /auth/logout` in `backend/src/medminder/api/auth.py` — read the `mm_session` cookie (best-effort; ignore signature failure), `delete_session_by_token_hash`, set the clearing cookie (`mm_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax` plus `Secure` per settings), return 204; idempotent under repeated calls (FR-006).
-- [ ] T021b [US2] Run `just generate-client` and commit the regenerated `frontend/src/api/v1.d.ts` (now including the `auth_logout` operation). Required before T024 so the frontend can import the operation. Also re-confirms the OpenAPI-drift CI gate stays green after the new endpoint.
-- [ ] T022 [US2] Integration test `backend/tests/api/test_logout.py::test_logout_deletes_row_and_clears_cookie` — login, logout, assert 204, assert the `sessions` row is gone, assert the `Set-Cookie` clears the cookie.
-- [ ] T023 [P] [US2] Integration test `backend/tests/api/test_logout.py::test_logout_is_idempotent` — call logout twice; the second call still returns 204 with the clearing cookie.
-- [ ] T024 [US2] Modify `frontend/src/routes/medications.tsx` to render a logout button wired to `useLogout`; on success call `queryClient.clear()` then `navigate({ to: "/login" })`.
+- [X] T021 [US2] Implement `POST /auth/logout` in `backend/src/medminder/api/auth.py` — read the `mm_session` cookie (best-effort; ignore signature failure), `delete_session_by_token_hash`, set the clearing cookie (`mm_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax` plus `Secure` per settings), return 204; idempotent under repeated calls (FR-006).
+- [X] T021b [US2] Run `just generate-client` and commit the regenerated `frontend/src/api/v1.d.ts` (now including the `auth_logout` operation). Required before T024 so the frontend can import the operation. Also re-confirms the OpenAPI-drift CI gate stays green after the new endpoint.
+- [X] T022 [US2] Integration test `backend/tests/api/test_logout.py::test_logout_deletes_row_and_clears_cookie` — login, logout, assert 204, assert the `sessions` row is gone, assert the `Set-Cookie` clears the cookie.
+- [X] T023 [P] [US2] Integration test `backend/tests/api/test_logout.py::test_logout_is_idempotent` — call logout twice; the second call still returns 204 with the clearing cookie.
+- [X] T024 [US2] Modify `frontend/src/routes/medications.tsx` to render a logout button wired to `useLogout`; on success call `queryClient.clear()` then `navigate({ to: "/login" })`.
 
 **Checkpoint**: Login + logout together complete the user-facing session lifecycle.
 
@@ -102,9 +102,9 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T025 [US3] Integration test `backend/tests/api/test_login.py::test_failed_login_outcomes_have_identical_body_and_status` — wrong password, unknown email, and soft-deleted user all return 401 with `{"detail":"Email or password is incorrect."}` and no `Set-Cookie`.
-- [ ] T026 [US3] Integration test `backend/tests/api/test_login.py::test_failed_login_outcomes_have_uniform_timing` — 100 paired trials per pair against the real Argon2id verifier (matching SC-002), asserts the wall-clock p95 delta across {wrong-password, unknown-email, soft-deleted} is < 50 ms (mark `@pytest.mark.slow`).
-- [ ] T027 [P] [US3] Integration test `backend/tests/api/test_login.py::test_log_line_omits_pii` — drives all four outcomes (success + the three failures) and uses `caplog` to assert no email substring, no password substring, no plaintext token, and no token-hash substring appears in any FR-019 log record.
+- [X] T025 [US3] Integration test `backend/tests/api/test_login.py::test_failed_login_outcomes_have_identical_body_and_status` — wrong password, unknown email, and soft-deleted user all return 401 with `{"detail":"Email or password is incorrect."}` and no `Set-Cookie`.
+- [X] T026 [US3] Integration test `backend/tests/api/test_login.py::test_failed_login_outcomes_have_uniform_timing` — 100 paired trials per pair against the real Argon2id verifier (matching SC-002), asserts the wall-clock p95 delta across {wrong-password, unknown-email, soft-deleted} is < 50 ms (mark `@pytest.mark.slow`).
+- [X] T027 [P] [US3] Integration test `backend/tests/api/test_login.py::test_log_line_omits_pii` — drives all four outcomes (success + the three failures) and uses `caplog` to assert no email substring, no password substring, no plaintext token, and no token-hash substring appears in any FR-019 log record.
 
 **Checkpoint**: User-enumeration oracle is closed; logs are scrubbed (Constitution Principle I satisfied for this surface).
 
@@ -118,10 +118,10 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T028 [US4] Integration test `backend/tests/api/test_me.py::test_me_returns_401_without_cookie`.
-- [ ] T029 [P] [US4] Integration test `backend/tests/api/test_me.py::test_me_returns_401_with_tampered_cookie` — a cookie that fails the `itsdangerous` signature check produces 401 with the same body as the no-cookie case.
-- [ ] T030 [P] [US4] Integration test `backend/tests/api/test_me.py::test_me_returns_401_with_expired_session_and_does_not_extend` — uses `freezegun` to advance past `expires_at`; asserts 401 and asserts the row's `expires_at` is unchanged.
-- [ ] T031 [P] [US4] Vitest `frontend/src/__tests__/medications.guard.test.tsx` — unauthenticated navigation to `/medications` redirects to `/login`; the protected content does not render.
+- [X] T028 [US4] Integration test `backend/tests/api/test_me.py::test_me_returns_401_without_cookie`.
+- [X] T029 [P] [US4] Integration test `backend/tests/api/test_me.py::test_me_returns_401_with_tampered_cookie` — a cookie that fails the `itsdangerous` signature check produces 401 with the same body as the no-cookie case.
+- [X] T030 [P] [US4] Integration test `backend/tests/api/test_me.py::test_me_returns_401_with_expired_session_and_does_not_extend` — uses `freezegun` to advance past `expires_at`; asserts 401 and asserts the row's `expires_at` is unchanged.
+- [X] T031 [P] [US4] Vitest `frontend/src/__tests__/medications.guard.test.tsx` — unauthenticated navigation to `/medications` redirects to `/login`; the protected content does not render.
 
 **Checkpoint**: The cookie does real work on both ends of the wire.
 
@@ -135,10 +135,10 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T032 [US5] Modify `backend/src/medminder/cli/users.py` — in the `update` command, when `new_password is not None`, call `domain.sessions.revoke_all_user_sessions(session, user.id)` after `update_user(...)` inside the same `async with session.begin()` transaction.
-- [ ] T033 [US5] Test `backend/tests/cli/test_user_commands.py::test_update_password_revokes_sessions` — seed a user with two sessions, run `user update --password-stdin`, assert 0 `sessions` rows remain for that user.
-- [ ] T033b [P] [US5] Integration test `backend/tests/api/test_revocation.py::test_password_change_invalidates_existing_cookies` — log in user X via `POST /auth/login` and capture the cookie, then run the same in-transaction sequence T032 wires (`update_user(..., new_password=...)` followed by `revoke_all_user_sessions(...)` inside one `async with session.begin()`). Assert `GET /me` with the original cookie returns 401 (SC-004).
-- [ ] T034 [P] [US5] Test `backend/tests/cli/test_user_commands.py::test_update_name_only_does_not_revoke_sessions` — seed a user with two sessions, run `user update --name "New Name"`, assert both `sessions` rows are still present (guards against over-broad revocation).
+- [X] T032 [US5] Modify `backend/src/medminder/cli/users.py` — in the `update` command, when `new_password is not None`, call `domain.sessions.revoke_all_user_sessions(session, user.id)` after `update_user(...)` inside the same `async with session.begin()` transaction.
+- [X] T033 [US5] Test `backend/tests/cli/test_user_commands.py::test_update_password_revokes_sessions` — seed a user with two sessions, run `user update --password-stdin`, assert 0 `sessions` rows remain for that user.
+- [X] T033b [P] [US5] Integration test `backend/tests/api/test_revocation.py::test_password_change_invalidates_existing_cookies` — log in user X via `POST /auth/login` and capture the cookie, then run the same in-transaction sequence T032 wires (`update_user(..., new_password=...)` followed by `revoke_all_user_sessions(...)` inside one `async with session.begin()`). Assert `GET /me` with the original cookie returns 401 (SC-004).
+- [X] T034 [P] [US5] Test `backend/tests/cli/test_user_commands.py::test_update_name_only_does_not_revoke_sessions` — seed a user with two sessions, run `user update --name "New Name"`, assert both `sessions` rows are still present (guards against over-broad revocation).
 
 **Checkpoint**: Half #1 of the constitution's revocation guarantee is in place.
 
@@ -152,10 +152,10 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T035 [US6] Modify `backend/src/medminder/cli/users.py` — in the `delete` command, after `soft_delete_user(...)` call `domain.sessions.revoke_all_user_sessions(session, user.id)` inside the same `async with session.begin()` transaction.
-- [ ] T036 [US6] Test `backend/tests/cli/test_user_commands.py::test_delete_revokes_sessions` — seed a user with two sessions, run `user delete`, assert 0 `sessions` rows remain.
-- [ ] T036b [P] [US6] Integration test `backend/tests/api/test_revocation.py::test_soft_delete_invalidates_existing_cookies` — log in user X via `POST /auth/login` and capture the cookie, then run the same in-transaction sequence T035 wires (`soft_delete_user(...)` followed by `revoke_all_user_sessions(...)` inside one `async with session.begin()`). Assert `GET /me` with the original cookie returns 401 (SC-004).
-- [ ] T037 [P] [US6] Integration test `backend/tests/api/test_login.py::test_soft_deleted_user_login_matches_unknown_email` — soft-delete a previously-existing user via the CLI path, then attempt login; assert the response is byte-identical to the unknown-email case.
+- [X] T035 [US6] Modify `backend/src/medminder/cli/users.py` — in the `delete` command, after `soft_delete_user(...)` call `domain.sessions.revoke_all_user_sessions(session, user.id)` inside the same `async with session.begin()` transaction.
+- [X] T036 [US6] Test `backend/tests/cli/test_user_commands.py::test_delete_revokes_sessions` — seed a user with two sessions, run `user delete`, assert 0 `sessions` rows remain.
+- [X] T036b [P] [US6] Integration test `backend/tests/api/test_revocation.py::test_soft_delete_invalidates_existing_cookies` — log in user X via `POST /auth/login` and capture the cookie, then run the same in-transaction sequence T035 wires (`soft_delete_user(...)` followed by `revoke_all_user_sessions(...)` inside one `async with session.begin()`). Assert `GET /me` with the original cookie returns 401 (SC-004).
+- [X] T037 [P] [US6] Integration test `backend/tests/api/test_login.py::test_soft_deleted_user_login_matches_unknown_email` — soft-delete a previously-existing user via the CLI path, then attempt login; assert the response is byte-identical to the unknown-email case.
 
 **Checkpoint**: Constitution revocation guarantee is fully satisfied (both halves).
 
@@ -169,8 +169,8 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 ### Implementation
 
-- [ ] T038 [US7] Test `backend/tests/api/test_rolling_expiry.py::test_rolling_expiry_extends_at_29_days` — `freezegun.freeze_time` to T+29d, `GET /me` succeeds, asserts the row's `expires_at` is now > the pre-request value.
-- [ ] T039 [P] [US7] Test `backend/tests/api/test_rolling_expiry.py::test_expired_session_is_rejected_and_not_extended` — `freezegun.freeze_time` to T+31d, `GET /me` returns 401, asserts the row's `expires_at` is unchanged from before the request.
+- [X] T038 [US7] Test `backend/tests/api/test_rolling_expiry.py::test_rolling_expiry_extends_at_29_days` — `freezegun.freeze_time` to T+29d, `GET /me` succeeds, asserts the row's `expires_at` is now > the pre-request value.
+- [X] T039 [P] [US7] Test `backend/tests/api/test_rolling_expiry.py::test_expired_session_is_rejected_and_not_extended` — `freezegun.freeze_time` to T+31d, `GET /me` returns 401, asserts the row's `expires_at` is unchanged from before the request.
 
 **Checkpoint**: Production session-lifetime policy is committed and enforced.
 
@@ -180,12 +180,12 @@ description: "Tasks for Phase 2 — Auth (login / logout)"
 
 **Purpose**: Documentation, gates, and the manual smoke pass.
 
-- [ ] T040 Add `docs/diagrams/login-sequence.md` — Mermaid `sequenceDiagram` covering the login → cookie → `/me` flow (FR-015, SC-007); link from `backend/README.md`.
-- [ ] T041 [P] Run `just lint` and address any findings introduced by Phase 2 code.
-- [ ] T042 [P] Run `just typecheck` (`mypy --strict` + `tsc --noEmit`) and address any findings.
-- [ ] T043 [P] Run `just test` and confirm the backend coverage gate (≥ 85 %) stays green.
-- [ ] T044 Run the `quickstart.md` end-to-end smoke test against `just dev` (steps 0–8). During step 2, time the login → `/medications` round trip (form submit → DOMContentLoaded on `/medications`) and record the value in the PR description; assert ≤ 2 s as the SC-001 verification.
-- [ ] T045 During the smoke test, run `docker compose logs backend | grep -iE 'password|email|token|hash'` and confirm zero hits (SC-006).
+- [X] T040 Add `docs/diagrams/login-sequence.md` — Mermaid `sequenceDiagram` covering the login → cookie → `/me` flow (FR-015, SC-007); link from `backend/README.md`.
+- [X] T041 [P] Run `just lint` and address any findings introduced by Phase 2 code.
+- [X] T042 [P] Run `just typecheck` (`mypy --strict` + `tsc --noEmit`) and address any findings.
+- [X] T043 [P] Run `just test` and confirm the backend coverage gate (≥ 85 %) stays green.
+- [X] T044 Run the `quickstart.md` end-to-end smoke test against `just dev` (steps 0–8). During step 2, time the login → `/medications` round trip (form submit → DOMContentLoaded on `/medications`) and record the value in the PR description; assert ≤ 2 s as the SC-001 verification.
+- [X] T045 During the smoke test, run `docker compose logs backend | grep -iE 'password|email|token|hash'` and confirm zero hits (SC-006).
 
 ---
 

@@ -22,9 +22,7 @@ async def test_insert_minimal(session: AsyncSession) -> None:
 
 
 @pytest.mark.parametrize("days", [0, 1, 64, 127])
-async def test_days_of_week_in_range(
-    session: AsyncSession, days: int
-) -> None:
+async def test_days_of_week_in_range(session: AsyncSession, days: int) -> None:
     user = await make_user(session)
     sched = Schedule(
         user_id=user.id,
@@ -37,9 +35,7 @@ async def test_days_of_week_in_range(
 
 
 @pytest.mark.parametrize("days", [-1, 128, 200])
-async def test_days_of_week_out_of_range(
-    session: AsyncSession, days: int
-) -> None:
+async def test_days_of_week_out_of_range(session: AsyncSession, days: int) -> None:
     user = await make_user(session)
     sched = Schedule(
         user_id=user.id,

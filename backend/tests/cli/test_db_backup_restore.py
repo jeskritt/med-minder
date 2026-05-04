@@ -25,12 +25,11 @@ from medminder.domain.users import (
 
 GOOD_PASSWORD = "correct horse battery staple"
 
+
 @pytest.fixture(autouse=True)
 def _require_pg_client_tools() -> None:
     """Fail loudly (don't silently skip) if pg_dump/pg_restore are absent."""
-    missing = [
-        tool for tool in ("pg_dump", "pg_restore") if shutil.which(tool) is None
-    ]
+    missing = [tool for tool in ("pg_dump", "pg_restore") if shutil.which(tool) is None]
     if missing:
         pytest.fail(
             f"{', '.join(missing)} not found on PATH. Install Postgres "
@@ -66,14 +65,10 @@ def test_backup_writes_file_with_phi_warning(
         assert mode == 0o600
 
 
-def test_restore_requires_yes(
-    cli_runner: CliRunner, tmp_path: Path
-) -> None:
+def test_restore_requires_yes(cli_runner: CliRunner, tmp_path: Path) -> None:
     fake = tmp_path / "any.dump"
     fake.write_bytes(b"x")
-    result = cli_runner.invoke(
-        app, ["db", "restore", "--in", str(fake)]
-    )
+    result = cli_runner.invoke(app, ["db", "restore", "--in", str(fake)])
     assert result.exit_code != 0
 
 
@@ -123,9 +118,7 @@ def test_round_trip(
     asyncio.run(_wipe())
     assert asyncio.run(_row_count(engine, "users")) == 0
 
-    restored = cli_runner.invoke(
-        app, ["db", "restore", "--in", str(out), "--yes"]
-    )
+    restored = cli_runner.invoke(app, ["db", "restore", "--in", str(out), "--yes"])
     assert restored.exit_code == 0, restored.stdout + restored.stderr
     assert asyncio.run(_row_count(engine, "users")) == 2
 

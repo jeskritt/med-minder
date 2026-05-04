@@ -33,9 +33,7 @@ def cli_app():  # type: ignore[no-untyped-def]
 
 
 @pytest_asyncio.fixture
-async def truncate_users(
-    engine: AsyncEngine, migrated_db: None
-) -> AsyncIterator[None]:
+async def truncate_users(engine: AsyncEngine, migrated_db: None) -> AsyncIterator[None]:
     """Wipe ``users`` (cascading to dependent tables) after each test."""
     yield
     async with engine.begin() as conn:
