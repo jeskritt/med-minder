@@ -35,7 +35,7 @@ A top-level `justfile` provides single-word commands for common workflows: `just
 - **Web framework:** FastAPI.
 - **Validation / schemas:** Pydantic v2, strict mode.
 - **ORM / migrations:** SQLAlchemy 2.0 (typed `Mapped[...]` style) + Alembic.
-- **Database:** PostgreSQL 16 (run via Docker for local dev).
+- **Database:** PostgreSQL 17 (run via Docker for local dev).
 - **Authentication:** Database-backed server-side sessions with signed, HTTP-only cookies. Password hashing with Argon2id via `argon2-cffi`. Session token hashing with SHA-256 (random tokens are high-entropy; no KDF needed). No JWTs in v1 — see ADR-0001.
 - **Admin CLI:** Typer (`medminder-admin`); same domain layer as the web app, no duplicated logic. Includes `db backup|restore` wrappers around `pg_dump`/`pg_restore`. Lands in Phase 1b.
 - **Reminders & push:** Web Push (VAPID) via `pywebpush`. Background scheduling via APScheduler running in-process — see ADR-0002.

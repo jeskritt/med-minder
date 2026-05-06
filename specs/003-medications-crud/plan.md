@@ -13,7 +13,7 @@ Implement the core ability for users to manage their medications. Users can add,
 
 **Language/Version**: Python 3.12 (Backend), TypeScript / Node 20+ (Frontend)
 **Primary Dependencies**: FastAPI, Pydantic v2, SQLAlchemy 2.0, React 18, Vite, TanStack Router/Query, react-hook-form, zod
-**Storage**: PostgreSQL 16 (via asyncpg / SQLAlchemy)
+**Storage**: PostgreSQL 17 (via asyncpg / SQLAlchemy)
 **Testing**: pytest, pytest-cov (Backend); Vitest, React Testing Library (Frontend)
 **Target Platform**: Linux server (Backend), Browsers / PWA (Frontend)
 **Project Type**: Web Application

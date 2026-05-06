@@ -8,7 +8,7 @@ Phase 1 PR is opened.
 
 ## A. Migrations
 
-[x] 1. `just migrate` against an empty Postgres 16 instance applies
+[x] 1. `just migrate` against an empty Postgres 17 instance applies
    cleanly with no errors.
 [x] 2. `alembic check` reports zero pending autogen changes after the
    migration is applied.
