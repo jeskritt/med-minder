@@ -62,3 +62,8 @@ CI gate worth knowing about: `alembic upgrade head` then `alembic check` runs ag
 - `routeTree.gen.ts` and `api/v1.d.ts` are generated. Edits will be overwritten.
 - `CORS_ORIGINS` defaults to deny-all in production — set it explicitly when deploying.
 - `just` recipes assume bash; on Windows use Git Bash or WSL, not PowerShell.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
