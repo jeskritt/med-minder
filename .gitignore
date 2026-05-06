@@ -270,3 +270,7 @@ Desktop.ini
 CLAUDE.md
 .claude/
 
+.agents/
+.specify/integrations/agy.manifest.json
+AGENTS.md
+
