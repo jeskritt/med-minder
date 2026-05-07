@@ -267,10 +267,6 @@ Desktop.ini
 # frontend/src/api/    — Generated OpenAPI TypeScript client (source of truth)
 # pnpm-lock.yaml       — Frontend lockfile for reproducible builds
 
-CLAUDE.md
 .claude/
-
 .agents/
-.specify/integrations/agy.manifest.json
-AGENTS.md
 

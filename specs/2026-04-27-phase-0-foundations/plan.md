@@ -87,7 +87,7 @@ both. Two rules:
 
 ## 5. Docker Compose dev environment
 
-5.1 `docker-compose.yml` services: `db` (Postgres 16), `backend` (FastAPI
+5.1 `docker-compose.yml` services: `db` (Postgres 17), `backend` (FastAPI
     via uvicorn with hot reload), `frontend` (Vite dev server).
 5.2 Backend reads `DATABASE_URL` from env even though Phase 0 doesn't query
     the DB — this proves config plumbing works for Phase 1.

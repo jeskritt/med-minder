@@ -9,38 +9,116 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MedicationsRouteImport } from './routes/medications'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MedicationsIndexRouteImport } from './routes/medications.index'
+import { Route as MedicationsNewRouteImport } from './routes/medications.new'
+import { Route as MedicationsIdEditRouteImport } from './routes/medications.$id.edit'
 
+const MedicationsRoute = MedicationsRouteImport.update({
+  id: '/medications',
+  path: '/medications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MedicationsIndexRoute = MedicationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MedicationsRoute,
+} as any)
+const MedicationsNewRoute = MedicationsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => MedicationsRoute,
+} as any)
+const MedicationsIdEditRoute = MedicationsIdEditRouteImport.update({
+  id: '/$id/edit',
+  path: '/$id/edit',
+  getParentRoute: () => MedicationsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/medications': typeof MedicationsRouteWithChildren
+  '/medications/new': typeof MedicationsNewRoute
+  '/medications/': typeof MedicationsIndexRoute
+  '/medications/$id/edit': typeof MedicationsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/medications/new': typeof MedicationsNewRoute
+  '/medications': typeof MedicationsIndexRoute
+  '/medications/$id/edit': typeof MedicationsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/medications': typeof MedicationsRouteWithChildren
+  '/medications/new': typeof MedicationsNewRoute
+  '/medications/': typeof MedicationsIndexRoute
+  '/medications/$id/edit': typeof MedicationsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/medications'
+    | '/medications/new'
+    | '/medications/'
+    | '/medications/$id/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/medications/new'
+    | '/medications'
+    | '/medications/$id/edit'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/medications'
+    | '/medications/new'
+    | '/medications/'
+    | '/medications/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  MedicationsRoute: typeof MedicationsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/medications': {
+      id: '/medications'
+      path: '/medications'
+      fullPath: '/medications'
+      preLoaderRoute: typeof MedicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +126,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/medications/': {
+      id: '/medications/'
+      path: '/'
+      fullPath: '/medications/'
+      preLoaderRoute: typeof MedicationsIndexRouteImport
+      parentRoute: typeof MedicationsRoute
+    }
+    '/medications/new': {
+      id: '/medications/new'
+      path: '/new'
+      fullPath: '/medications/new'
+      preLoaderRoute: typeof MedicationsNewRouteImport
+      parentRoute: typeof MedicationsRoute
+    }
+    '/medications/$id/edit': {
+      id: '/medications/$id/edit'
+      path: '/$id/edit'
+      fullPath: '/medications/$id/edit'
+      preLoaderRoute: typeof MedicationsIdEditRouteImport
+      parentRoute: typeof MedicationsRoute
+    }
   }
 }
 
+interface MedicationsRouteChildren {
+  MedicationsNewRoute: typeof MedicationsNewRoute
+  MedicationsIndexRoute: typeof MedicationsIndexRoute
+  MedicationsIdEditRoute: typeof MedicationsIdEditRoute
+}
+
+const MedicationsRouteChildren: MedicationsRouteChildren = {
+  MedicationsNewRoute: MedicationsNewRoute,
+  MedicationsIndexRoute: MedicationsIndexRoute,
+  MedicationsIdEditRoute: MedicationsIdEditRoute,
+}
+
+const MedicationsRouteWithChildren = MedicationsRoute._addFileChildren(
+  MedicationsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  MedicationsRoute: MedicationsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

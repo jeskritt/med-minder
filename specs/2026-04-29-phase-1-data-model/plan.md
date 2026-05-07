@@ -13,7 +13,7 @@ Sub-phase 1a is the data layer; sub-phase 1b is the CLI on top of it.
     `--cov=medminder --cov-report=term-missing --cov-fail-under=85`.
     The threshold is intentionally not 100 — Phase 1 is models + a
     thin CLI; coverage is meaningful at this level.
-[x] 0.3 Extend `.github/workflows/ci.yml` with a Postgres 16 service
+[x] 0.3 Extend `.github/workflows/ci.yml` with a Postgres 17 service
     container on the `backend-tests` job. Wire `DATABASE_URL` to the
     service. Phase 0 deferred this; Phase 1 owns it.
 [x] 0.4 Add a CI gate that runs `alembic upgrade head` against a fresh DB

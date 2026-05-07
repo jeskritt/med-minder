@@ -18,7 +18,7 @@ repo layout, dev tooling, CI, and dev-environment plumbing described in
   "Hello MedMinder" page that fetches `/healthz` and renders the result.
 - OpenAPI → TypeScript client generation pipeline, with the generated client
   committed under `frontend/src/api/` and a CI drift check.
-- `docker-compose.yml` brings up Postgres 16, the FastAPI backend, and the
+- `docker-compose.yml` brings up Postgres 17, the FastAPI backend, and the
   Vite dev server.
 - `justfile` with `dev`, `test`, `lint`, `typecheck`, `migrate` targets.
 - Pre-commit hooks: ruff, mypy, eslint, prettier, `tsc --noEmit`.

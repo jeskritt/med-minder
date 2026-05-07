@@ -17,7 +17,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import { client } from "@/lib/api";
-import { Route as MedicationsRoute } from "@/routes/medications";
+import { Route as MedicationsRoute } from "@/routes/medications.index";
 
 const mockGet = vi.mocked(client.GET);
 
@@ -79,7 +79,7 @@ describe("Medications Route Guard", () => {
 
     // The protected content should not be rendered
     expect(
-      screen.queryByText("Phase 3 will populate this list with real data."),
+      screen.queryByRole("heading", { name: /^medications$/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("login-stub")).toBeInTheDocument();
   });
@@ -99,7 +99,7 @@ describe("Medications Route Guard", () => {
     });
 
     expect(
-      screen.getByText("Phase 3 will populate this list with real data."),
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: /^medications$/i }).length,
+    ).toBeGreaterThan(0);
   });
 });
