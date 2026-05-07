@@ -38,7 +38,11 @@ const authMiddleware: Middleware = {
     if (response.status === 401) {
       // Use a placeholder base so relative URLs parse cleanly.
       const path = new URL(request.url, "http://placeholder").pathname;
-      if (!path.startsWith("/auth/")) {
+      // /auth/* are the login/logout endpoints themselves; /me is the
+      // logged-in probe used by useCurrentUser() — a 401 there means
+      // "logged out" and is the caller's signal, not a session-expiry
+      // event that should boot the user to /login.
+      if (!path.startsWith("/auth/") && path !== "/me") {
         apiContext?.queryClient.clear();
         apiContext?.onUnauthenticated();
       }

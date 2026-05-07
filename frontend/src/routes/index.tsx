@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchHealthz } from "@/lib/api";
+import { useCurrentUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -13,6 +14,7 @@ function HomePage() {
     retry: 1,
     refetchInterval: 30_000,
   });
+  const { data: user, isLoading: userLoading } = useCurrentUser();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
@@ -46,6 +48,26 @@ function HomePage() {
             </span>
           )}
         </div>
+
+        {!userLoading && (
+          <div className="mt-8">
+            {user ? (
+              <Link
+                to="/medications"
+                className="rounded bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Open my medications
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Sign in
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

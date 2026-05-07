@@ -17,7 +17,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import { client } from "@/lib/api";
-import { Route as MedicationsRoute } from "@/routes/medications";
+import { Route as MedicationsRoute } from "@/routes/medications.index";
 
 const mockGet = vi.mocked(client.GET);
 
