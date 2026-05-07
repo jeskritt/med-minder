@@ -64,6 +64,8 @@ class Medication(Base):
     window_duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
     total_doses_filled: Mapped[int] = mapped_column(nullable=False, server_default="0")
     doses_remaining: Mapped[int] = mapped_column(nullable=False, server_default="0")
+    refill_count: Mapped[int | None] = mapped_column(nullable=True)
+    refill_threshold: Mapped[int | None] = mapped_column(nullable=True)
     deleted_at: Mapped[datetime | None] = deleted_at_col()
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
@@ -85,6 +87,14 @@ class Medication(Base):
         ),
         CheckConstraint(
             "doses_remaining >= 0", name="ck_medications_doses_remaining_nonneg"
+        ),
+        CheckConstraint(
+            "refill_count IS NULL OR refill_count >= 0",
+            name="ck_medications_refill_count_nonneg",
+        ),
+        CheckConstraint(
+            "refill_threshold IS NULL OR refill_threshold >= 0",
+            name="ck_medications_refill_threshold_nonneg",
         ),
         CheckConstraint(
             "(timer_preference <> 'count_down') "

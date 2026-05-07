@@ -93,6 +93,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/medications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Meds
+         * @description Return every active medication for the calling user.
+         */
+        get: operations["list_meds_api_v1_medications_get"];
+        put?: never;
+        /**
+         * Create Med
+         * @description Create a medication and its inline schedules.
+         */
+        post: operations["create_med_api_v1_medications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/medications/{medication_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Med
+         * @description Replace a medication's fields and schedules.
+         */
+        put: operations["update_med_api_v1_medications__medication_id__put"];
+        post?: never;
+        /**
+         * Delete Med
+         * @description Soft-delete a medication owned by the caller.
+         */
+        delete: operations["delete_med_api_v1_medications__medication_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -132,6 +180,87 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "user";
+        };
+        /**
+         * MedicationBody
+         * @description Inbound payload shared by ``POST`` and ``PUT``.
+         */
+        MedicationBody: {
+            /** Name */
+            name: string;
+            /** Quantity Per Dose */
+            quantity_per_dose: number | string;
+            /** Unit */
+            unit: string;
+            /** Times Per Day */
+            times_per_day: number;
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Total Doses */
+            total_doses?: number | null;
+            /** Schedules */
+            schedules?: string[];
+            /** Refill Count */
+            refill_count?: number | null;
+            /** Refill Threshold */
+            refill_threshold?: number | null;
+        };
+        /**
+         * MedicationListOut
+         * @description Envelope for ``GET /api/v1/medications``.
+         */
+        MedicationListOut: {
+            /** Items */
+            items: components["schemas"]["MedicationOut"][];
+        };
+        /**
+         * MedicationOut
+         * @description Public view of a Medication plus its schedules.
+         */
+        MedicationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Quantity Per Dose */
+            quantity_per_dose: string;
+            /** Unit */
+            unit: string;
+            /** Times Per Day */
+            times_per_day: number;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Total Doses */
+            total_doses: number | null;
+            /** Refill Count */
+            refill_count: number | null;
+            /** Refill Threshold */
+            refill_threshold: number | null;
+            /** Schedules */
+            schedules: components["schemas"]["ScheduleOut"][];
+        };
+        /**
+         * ScheduleOut
+         * @description Public view of a Schedule attached to a medication.
+         */
+        ScheduleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Time Of Day
+             * Format: time
+             */
+            time_of_day: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -242,6 +371,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    list_meds_api_v1_medications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationListOut"];
+                };
+            };
+        };
+    };
+    create_med_api_v1_medications_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MedicationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_med_api_v1_medications__medication_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MedicationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_med_api_v1_medications__medication_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

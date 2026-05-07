@@ -13,8 +13,8 @@ description: "Task list for Medications CRUD implementation"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create component directories in `frontend/src/components/medications/` and `frontend/tests/components/medications/`
-- [ ] T002 [P] Create backend route directories in `backend/src/medminder/api/routes/` (if missing) and ensure they are ready to be linked to `app.py`
+- [X] T001 Create component directories in `frontend/src/components/medications/` and `frontend/tests/components/medications/`
+- [X] T002 [P] Create backend route directories in `backend/src/medminder/api/routes/` (if missing) and ensure they are ready to be linked to `app.py`
 
 ---
 
@@ -24,10 +24,10 @@ description: "Task list for Medications CRUD implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 [P] Create `Medication` and `Schedule` SQLAlchemy models in `backend/src/medminder/db/models/medications.py`
-- [ ] T004 Generate Alembic migration for medications and schedules using `just migrate-rev` and apply using `just migrate`
-- [ ] T005 [P] Create Pydantic schemas and business logic validation (e.g. "end date before start date", untracked total_doses as NULL) in `backend/src/medminder/domain/medications.py` to ensure domain logic is testable without DB/HTTP
-- [ ] T006 Register medications router in `backend/src/medminder/api/routes/medications.py` and mount in main app
+- [X] T003 [P] Add `refill_count` and `refill_threshold` columns to the existing `Medication` model in `backend/src/medminder/db/models/medications.py` (the `Medication`, `Schedule`, and `schedule_medications` tables already shipped in Phase 1; this phase reuses them — see data-model.md reconciliation note)
+- [X] T004 Generate Alembic migration for the new refill columns using `just migrate-rev` and apply using `just migrate`
+- [X] T005 [P] Create domain logic and validation (e.g. "end date before start date", untracked total_doses as NULL) in `backend/src/medminder/domain/medications.py` so logic is testable without DB/HTTP
+- [X] T006 Create medications router in `backend/src/medminder/api/medications.py` and mount in `app.py`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -41,11 +41,11 @@ description: "Task list for Medications CRUD implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implement `POST /api/v1/medications` endpoint in `backend/src/medminder/api/routes/medications.py` utilizing the domain logic functions
-- [ ] T008 [US1] Regenerate frontend OpenAPI client definitions by running `just generate-client`
-- [ ] T009 [P] [US1] Create `ScheduleInput` component for managing schedules inline in `frontend/src/components/medications/ScheduleInput.tsx`
-- [ ] T010 [US1] Create `MedicationForm` component (Add mode) utilizing react-hook-form and zod in `frontend/src/components/medications/MedicationForm.tsx`. Ensure schema validation handles "end date before start date" and provides an "Untracked / As Needed" checkbox for 0 total doses
-- [ ] T011 [US1] Create `frontend/src/routes/medications.new.tsx` to mount the `MedicationForm` and handle submission via TanStack Query
+- [X] T007 [US1] Implement `POST /api/v1/medications` endpoint in `backend/src/medminder/api/medications.py` utilizing the domain logic functions
+- [X] T008 [US1] Regenerate frontend OpenAPI client definitions by running `just generate-client`
+- [X] T009 [P] [US1] Create `ScheduleInput` component for managing schedules inline in `frontend/src/components/medications/ScheduleInput.tsx`
+- [X] T010 [US1] Create `MedicationForm` component (Add mode) utilizing react-hook-form and zod in `frontend/src/components/medications/MedicationForm.tsx`. Ensure schema validation handles "end date before start date" and provides an "Untracked / As Needed" checkbox for 0 total doses
+- [X] T011 [US1] Create `frontend/src/routes/medications.new.tsx` to mount the `MedicationForm` and handle submission via TanStack Query
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -59,9 +59,9 @@ description: "Task list for Medications CRUD implementation"
 
 ### Implementation for User Story 2
 
-- [ ] T012 [P] [US2] Implement `GET /api/v1/medications` endpoint in `backend/src/medminder/api/routes/medications.py`
-- [ ] T013 [P] [US2] Create `MedicationList` component for rendering the list of medications in `frontend/src/components/medications/MedicationList.tsx`
-- [ ] T014 [US2] Create `frontend/src/routes/medications.tsx` page to fetch data via TanStack Query and display `MedicationList`
+- [X] T012 [P] [US2] Implement `GET /api/v1/medications` endpoint in `backend/src/medminder/api/medications.py`
+- [X] T013 [P] [US2] Create `MedicationList` component for rendering the list of medications in `frontend/src/components/medications/MedicationList.tsx`
+- [X] T014 [US2] Create `frontend/src/routes/medications.tsx` page to fetch data via TanStack Query and display `MedicationList`
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -75,9 +75,9 @@ description: "Task list for Medications CRUD implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T015 [P] [US3] Implement `PUT /api/v1/medications/{id}` endpoint in `backend/src/medminder/api/routes/medications.py`
-- [ ] T016 [US3] Update `MedicationForm` to support editing mode with pre-filled default values in `frontend/src/components/medications/MedicationForm.tsx`
-- [ ] T017 [US3] Create `frontend/src/routes/medications.$id.edit.tsx` page to fetch a single medication and mount the pre-filled form
+- [X] T015 [P] [US3] Implement `PUT /api/v1/medications/{id}` endpoint in `backend/src/medminder/api/medications.py`
+- [X] T016 [US3] Update `MedicationForm` to support editing mode with pre-filled default values in `frontend/src/components/medications/MedicationForm.tsx`
+- [X] T017 [US3] Create `frontend/src/routes/medications.$id.edit.tsx` page to fetch a single medication and mount the pre-filled form
 
 **Checkpoint**: All core CRUD features for adding, listing, and editing are now functional.
 
@@ -91,8 +91,8 @@ description: "Task list for Medications CRUD implementation"
 
 ### Implementation for User Story 4
 
-- [ ] T018 [P] [US4] Implement `DELETE /api/v1/medications/{id}` (soft-delete) endpoint in `backend/src/medminder/api/routes/medications.py`
-- [ ] T019 [US4] Add a delete button to the `MedicationList` items that triggers a TanStack mutation and invalidates the list query in `frontend/src/components/medications/MedicationList.tsx`
+- [X] T018 [P] [US4] Implement `DELETE /api/v1/medications/{id}` (soft-delete) endpoint in `backend/src/medminder/api/medications.py`
+- [X] T019 [US4] Add a delete button to the `MedicationList` items that triggers a TanStack mutation and invalidates the list query in `frontend/src/components/medications/MedicationList.tsx`
 
 ---
 
@@ -104,7 +104,7 @@ description: "Task list for Medications CRUD implementation"
 
 ### Implementation for User Story 5
 
-- [ ] T020 [P] [US5] Add a Print button and Tailwind print modifiers (`print:hidden`, `print:block`) to `MedicationList` and `medications.tsx` layout in `frontend/src/components/medications/MedicationList.tsx`
+- [X] T020 [P] [US5] Add a Print button and Tailwind print modifiers (`print:hidden`, `print:block`) to `MedicationList` and `medications.tsx` layout in `frontend/src/components/medications/MedicationList.tsx`
 
 ---
 
@@ -116,7 +116,7 @@ description: "Task list for Medications CRUD implementation"
 
 ### Implementation for User Story 6
 
-- [ ] T021 [P] [US6] Add reactive validation warning in `MedicationForm` when the `times_per_day` value differs from the number of elements in the `schedules` array in `frontend/src/components/medications/MedicationForm.tsx`
+- [X] T021 [P] [US6] Add reactive validation warning in `MedicationForm` when the `times_per_day` value differs from the number of elements in the `schedules` array in `frontend/src/components/medications/MedicationForm.tsx`
 
 ---
 
@@ -124,10 +124,10 @@ description: "Task list for Medications CRUD implementation"
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T022 [P] Write backend API tests covering CRUD operations in `backend/tests/test_medications_api.py`
-- [ ] T023 [P] Write backend domain unit tests in `backend/tests/domain/test_medications.py` to test validation logic (e.g., dates, doses) independently of HTTP/DB and maintain >=85% `pytest-cov` coverage
-- [ ] T024 [P] Write frontend component tests for form logic in `frontend/tests/components/medications/MedicationForm.test.tsx`
-- [ ] T025 Run `just typecheck` and `just lint` to ensure fully-typed correctness across the stack
+- [X] T022 [P] Write backend API tests covering CRUD operations in `backend/tests/test_medications_api.py`
+- [X] T023 [P] Write backend domain unit tests in `backend/tests/domain/test_medications.py` to test validation logic (e.g., dates, doses) independently of HTTP/DB and maintain >=85% `pytest-cov` coverage
+- [X] T024 [P] Write frontend component tests for form logic in `frontend/tests/components/medications/MedicationForm.test.tsx`
+- [X] T025 Run `just typecheck` and `just lint` to ensure fully-typed correctness across the stack
 - [ ] T026 Run `/speckit-checklist` to generate `checklists/requirements.md` to satisfy the Constitution Phase 2+ merge gate requirement
 - [ ] T027 Draft PR description including the required explicit threat consideration for new API endpoints and database fields, per Constitution Principle I
 
