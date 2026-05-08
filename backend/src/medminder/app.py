@@ -9,8 +9,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from medminder.api import auth as auth_api
+from medminder.api import doses as doses_api
 from medminder.api import me as me_api
 from medminder.api import medications as medications_api
+from medminder.api import schedules as schedules_api
 from medminder.db import make_async_engine, make_async_session_factory
 from medminder.settings import Settings
 
@@ -69,5 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_api.router)
     app.include_router(me_api.router)
     app.include_router(medications_api.router)
+    app.include_router(doses_api.router)
+    app.include_router(schedules_api.router)
 
     return app

@@ -14,6 +14,8 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.db.models import (
+    Dose,
+    DoseVoid,
     Medication,
     Schedule,
     User,
@@ -81,6 +83,44 @@ async def make_schedule(
     session.add(sched)
     await session.flush()
     return sched
+
+
+async def make_dose(
+    session: AsyncSession,
+    *,
+    user: User,
+    medication: Medication,
+    schedule: Schedule | None = None,
+    taken_at: datetime | None = None,
+    quantity: Decimal | None = None,
+) -> Dose:
+    dose = Dose(
+        user_id=user.id,
+        medication_id=medication.id,
+        schedule_id=schedule.id if schedule is not None else None,
+        taken_at=taken_at or datetime.now(UTC),
+        quantity=quantity if quantity is not None else Decimal("1.000"),
+    )
+    session.add(dose)
+    await session.flush()
+    return dose
+
+
+async def make_dose_void(
+    session: AsyncSession,
+    *,
+    dose: Dose,
+    voided_by: User | None = None,
+    voided_at: datetime | None = None,
+) -> DoseVoid:
+    void = DoseVoid(
+        dose_id=dose.id,
+        voided_by_user_id=(voided_by.id if voided_by is not None else dose.user_id),
+        voided_at=voided_at or datetime.now(UTC),
+    )
+    session.add(void)
+    await session.flush()
+    return void
 
 
 def utcnow() -> datetime:

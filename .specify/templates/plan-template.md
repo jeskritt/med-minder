@@ -31,28 +31,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Verify the planned phase upholds each principle in
-`.specify/memory/constitution.md`. Flag violations under "Complexity
-Tracking" with explicit justification, or revise the plan.
-
-- **I. Security-Conscious by Default** — does the phase introduce new
-  surface area (endpoints, fields, dependencies, third-party calls,
-  log lines)? If yes, a threat consideration must be drafted for the
-  PR. Argon2id for credentials, server-side sessions, and least-
-  privilege DB roles preserved.
-- **II. Fully Typed Across the Stack** — `mypy --strict` and
-  `tsc --noEmit` clean across changed code; OpenAPI client
-  regenerated and committed when the API changes.
-- **III. Loose Coupling, Testable Units** — domain logic for new
-  features lives in modules testable without a DB or HTTP server;
-  no duplicated logic between CLI and web transports.
-- **IV. Documented Decisions** — phase has `requirements.md`,
-  `plan.md`, `validation.md`. ADRs drafted for non-obvious decisions.
-  ER / state / sequence diagrams updated when the data model, a
-  state machine, or a key flow changes.
-- **V. Cross-Platform Tooling Integrity** — new scripts are Python
-  (no `.sh`/`.ps1` pairs); new dependencies pinned with upper bounds;
-  CI gates green; no `continue-on-error: true` on required jobs.
+[Gates determined based on constitution file]
 
 ## Project Structure
 
