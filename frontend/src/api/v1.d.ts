@@ -141,10 +141,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/doses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Dose
+         * @description Record a medication-taken event.
+         */
+        post: operations["post_dose_api_doses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/doses/{dose_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Dose Void
+         * @description Record a compensating un-take row in ``dose_voids``.
+         */
+        post: operations["post_dose_void_api_doses__dose_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schedules/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Today
+         * @description List the user's scheduled slots for "today" plus any effective dose.
+         */
+        get: operations["get_today_api_schedules_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * DoseCreate
+         * @description Inbound payload for ``POST /api/doses``.
+         *
+         *     ``user_id`` is intentionally absent — derived from the session.
+         *     ``quantity`` defaults to ``medications.quantity_per_dose`` server-side
+         *     when omitted.
+         */
+        DoseCreate: {
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /** Schedule Id */
+            schedule_id?: string | null;
+            /**
+             * Taken At
+             * Format: date-time
+             */
+            taken_at: string;
+            /** Quantity */
+            quantity?: number | string | null;
+        };
+        /**
+         * DoseRead
+         * @description Response shape for ``POST /api/doses`` and embedded under Today items.
+         */
+        DoseRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /** Schedule Id */
+            schedule_id: string | null;
+            /**
+             * Taken At
+             * Format: date-time
+             */
+            taken_at: string;
+            /** Quantity */
+            quantity: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -261,6 +375,65 @@ export interface components {
              * Format: time
              */
             time_of_day: string;
+        };
+        /**
+         * TodayDose
+         * @description The minimal slice of a dose surfaced under a Today item.
+         */
+        TodayDose: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Taken At
+             * Format: date-time
+             */
+            taken_at: string;
+        };
+        /**
+         * TodayItem
+         * @description One scheduled slot. The UI keys rows on ``(schedule_id, medication_id)``.
+         */
+        TodayItem: {
+            /**
+             * Schedule Id
+             * Format: uuid
+             */
+            schedule_id: string;
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Scheduled Time
+             * Format: time
+             */
+            scheduled_time: string;
+            /** Quantity Per Dose */
+            quantity_per_dose: string;
+            /** Unit */
+            unit: string;
+            dose: components["schemas"]["TodayDose"] | null;
+        };
+        /**
+         * TodayResponse
+         * @description Body of ``GET /api/schedules/today``.
+         */
+        TodayResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Timezone */
+            timezone: string;
+            /** Items */
+            items: components["schemas"]["TodayItem"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -480,6 +653,100 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_dose_api_doses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_dose_void_api_doses__dose_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dose_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_today_api_schedules_today_get: {
+        parameters: {
+            query?: {
+                timezone?: string | null;
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
