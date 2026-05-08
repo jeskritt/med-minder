@@ -1,8 +1,11 @@
 # MedMinder — Entity-Relationship Diagram
 
-The schema below is the v1 data model committed in Phase 1. Every
-table, column, and relationship matches `backend/alembic/versions/0001_phase_1_baseline.py`
-and the SQLAlchemy models under `backend/src/medminder/db/models/`.
+The schema below is the v1 data model committed in Phase 1, plus the
+`dose_voids` table added in Phase 4. Every table, column, and
+relationship matches the committed Alembic migrations
+(`backend/alembic/versions/0001_phase_1_baseline.py` and
+`backend/alembic/versions/XXXX_add_dose_voids_table.py`) and the
+SQLAlchemy models under `backend/src/medminder/db/models/`.
 
 For the rationale behind individual choices, see the **Decisions
 (D1–D12)** table in
@@ -20,6 +23,10 @@ that don't render cleanly in Mermaid:
   duplicates.
 - **D6** — `users`, `medications`, `schedules` are soft-deleted via
   `deleted_at`; `doses` are append-only.
+- **D6 (Phase 4)** — un-take is recorded as a compensating row in
+  `dose_voids` with `UNIQUE(dose_id)`. Readers (Today view,
+  adherence) `LEFT JOIN dose_voids` and ignore doses with a matching
+  void. `doses` rows themselves are never updated or deleted.
 - **D8** — `users.email` uniqueness is enforced via a functional
   unique index on `LOWER(email)`.
 - **D10** — `push_subscriptions` has UNIQUE `(user_id, endpoint)`.
@@ -40,6 +47,9 @@ erDiagram
 
     medications ||--o{ doses : "logged"
     schedules  ||--o{ doses : "slot"
+
+    doses ||--o| dose_voids : "voided_by"
+    users ||--o{ dose_voids : "voids"
 
     medications ||--o{ reminders : "refill_of"
     schedules  ||--o{ reminders : "dose_of"
@@ -127,6 +137,14 @@ erDiagram
         uuid schedule_id FK "nullable"
         timestamptz taken_at
         numeric quantity "10,3 CHECK > 0"
+        timestamptz created_at
+    }
+
+    dose_voids {
+        uuid id PK
+        uuid dose_id FK "UNIQUE; ON DELETE RESTRICT"
+        uuid voided_by_user_id FK "ON DELETE RESTRICT"
+        timestamptz voided_at
         timestamptz created_at
     }
 
