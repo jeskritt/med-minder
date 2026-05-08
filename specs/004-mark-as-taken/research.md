@@ -112,3 +112,13 @@
 - **Alternatives considered**: Cypress — rejected, slower in CI and
   weaker parallelism. Selenium-via-Python — rejected; the test
   exercises a frontend flow, so it should live with the frontend.
+- **Server orchestration detail**: The `playwright.config.ts`
+  `webServer` array contains two entries: (1) `pnpm dev` for the
+  frontend, (2) `docker compose up -d backend` (or, in CI, the
+  existing service-container backend already running on the
+  workflow). Locally, Playwright reuses an already-running backend if
+  `reuseExistingServer: true` resolves the health check on
+  `http://localhost:8000/healthz`. CI sets
+  `reuseExistingServer: false` and lets the backend service container
+  act as the upstream — the second `webServer` entry is `cmd: 'true'`
+  (no-op) in CI via env-gated config.

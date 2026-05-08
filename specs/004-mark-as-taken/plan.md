@@ -90,9 +90,9 @@ revisited:
 - **IV. Documented Decisions** — Yes. Phase spec, plan, research,
   data-model, contracts, and quickstart are committed under
   `specs/004-mark-as-taken/`. ER diagram updated to show
-  `dose_voids`. ADR is written only if a non-obvious decision lands
-  (e.g., the void-table design is the candidate; if not promoted to
-  an ADR, the rationale stays in `research.md`).
+  `dose_voids`. ADR-0005 (`docs/adr/0005-dose-voids.md`) captures the
+  compensating-row decision per Principle IV. `research.md` retains
+  the deeper exploration of alternatives.
 - **V. Cross-Platform Tooling Integrity** — Yes. Playwright smoke is
   added to the CI gate without `continue-on-error`. Any helper
   scripts are Python under `scripts/` (per project memory: no

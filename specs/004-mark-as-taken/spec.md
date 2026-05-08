@@ -5,6 +5,10 @@
 **Status**: Draft  
 **Input**: User description: "read @[specs/roadmap.md]and implement phase 4. make sure to include testion to keep coverage high"
 
+## Overview
+
+**The "Granny flow"**: The end-to-end user journey this phase delivers — log in → see today's medications → tap Taken → see the row marked taken with the time. Named in `specs/roadmap.md` as the Phase 4 acceptance demo. References to "Granny flow" in `plan.md` and `tasks.md` (T039) point to this scenario.
+
 ## Clarifications
 
 ### Session 2026-05-07
@@ -64,8 +68,8 @@ Users occasionally make mistakes and click "Taken" accidentally, so they need a 
 
 ### Edge Cases
 
-- What happens when a user travels across timezones and the definition of "today" changes?
-- How does the system handle rapid, repeated clicking of the "Taken" toggle?
+- **Timezone travel**: handled by FR-004's `?timezone=` override; the user's stored `users.timezone` is not auto-updated by travel. Behavior beyond the override (auto-detect, suggest update) is out of scope for Phase 4.
+- **Rapid, repeated clicking of the "Taken" toggle**: The toggle MUST be disabled while a `POST /api/doses` mutation is in flight (`useMutation.isPending`). The optimistic update flips the row to "taken" on first click; subsequent clicks during the in-flight window are no-ops. Backend has no per-slot uniqueness constraint — the UI is the contract.
 - Network failure during action: The system handles this via optimistic UI updates with automatic rollback and user notification (see FR-008).
 
 ## Requirements *(mandatory)*
@@ -78,8 +82,8 @@ Users occasionally make mistakes and click "Taken" accidentally, so they need a 
 - **FR-004**: System MUST determine "today" based on the user's configured timezone preference, with an optional override accepted from the client.
 - **FR-005**: System MUST present a confirmation modal before allowing a user to remove a "taken" status. The text is exactly "This med has already been taken. Remove the 'taken' status?".
 - **FR-006**: System MUST include an end-to-end (E2E) smoke test covering the core flow: login, add medication, mark as taken, view in today's list.
-- **FR-007**: System MUST maintain high testing coverage by including unit and integration tests for all new behaviors.
-- **FR-008**: System MUST use optimistic UI updates when marking a dose as taken, instantly showing success and rolling back with an error notification if the server request fails.
+- **FR-007**: System MUST include unit and integration tests for all new behaviors. Backend coverage gate (≥85% across `backend/src/`, no module < 70%) is enforced by the constitution. Frontend new files added in this phase (`TakenToggle.tsx`, `UntakeConfirmModal.tsx`, `useTakeDose.ts`, `useUntakeDose.ts`, `useToday.ts`, `routes/today.tsx`) MUST each carry at least one Vitest test.
+- **FR-008**: System MUST use optimistic UI updates for both marking a dose as taken and un-taking it: instantly reflect the change in the Today view, roll back on server error, and emit an error toast on rollback.
 - **FR-009**: System MUST preserve `doses` rows as append-only history. Un-taking MUST be recorded as a separate compensating event, not as an update or delete of the original record.
 - **FR-010**: System MUST link a dose to the scheduled slot it satisfies (when one applies), so per-slot adherence can be reported by the Today view.
 - **FR-011**: System MUST scope all reads and writes to the session user; cross-user access MUST return `403`.
@@ -96,8 +100,8 @@ Users occasionally make mistakes and click "Taken" accidentally, so they need a 
 
 - **SC-001**: Users can successfully mark a medication as taken with a single click from the "Today" view.
 - **SC-002**: The end-to-end smoke test for the Granny flow runs in CI without human intervention.
-- **SC-003**: Accidentally un-taking a medication is prevented 100% of the time via the confirmation modal.
-- **SC-004**: The "Today" view accurately reflects scheduled medications based on the user's timezone settings 100% of the time.
+- **SC-003**: An "un-take" never occurs without an explicit user confirmation: the un-take request fires only after the FR-005 modal's confirm button is clicked. Verified by `UntakeConfirmModal.test.tsx` (cancel keeps state) and the Playwright smoke (cancel branch in T039).
+- **SC-004**: The "Today" view computes the day window from the user's IANA timezone (or the `?timezone=` override). DST transitions, midnight wrap, and day-of-week selection are covered by `tests/domain/test_timezone.py`; integration coverage is in `tests/api/test_schedules_today.py`.
 
 ## Assumptions
 
