@@ -229,6 +229,41 @@ async def today_view(
     )
 
 
+async def load_non_voided_history_for_meds(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    medication_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, list[Dose]]:
+    """Return non-voided doses per medication, newest-first.
+
+    Used by the Phase 5 timer-state computation; filters on ``user_id``
+    (cross-user isolation) and excludes voided doses via the same
+    NOT EXISTS pattern ``today_view`` uses.
+    """
+    if not medication_ids:
+        return {}
+
+    voided_exists = (
+        select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+    )
+    stmt = (
+        select(Dose)
+        .where(
+            Dose.user_id == user_id,
+            Dose.medication_id.in_(medication_ids),
+            not_(voided_exists),
+        )
+        .order_by(Dose.taken_at.desc())
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+
+    out: dict[uuid.UUID, list[Dose]] = {mid: [] for mid in medication_ids}
+    for dose in rows:
+        out[dose.medication_id].append(dose)
+    return out
+
+
 __all__ = [
     "DoseAlreadyVoidedError",
     "DoseError",
@@ -238,6 +273,7 @@ __all__ = [
     "TodayItem",
     "TodayView",
     "create_dose",
+    "load_non_voided_history_for_meds",
     "today_view",
     "void_dose",
 ]

@@ -205,6 +205,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActiveWindow */
+        ActiveWindow: {
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /** Doses In Window */
+            doses_in_window: string[];
+            /** Slots Used */
+            slots_used: number;
+            /** Slots Remaining */
+            slots_remaining: number;
+        };
+        /** CountDownPayload */
+        CountDownPayload: {
+            /** Min Interval Seconds */
+            min_interval_seconds: number;
+            /** Next Allowed At */
+            next_allowed_at: string | null;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+        };
+        /** CountUpPayload */
+        CountUpPayload: {
+            /** Elapsed Seconds */
+            elapsed_seconds?: number | null;
+        };
         /**
          * DoseCreate
          * @description Inbound payload for ``POST /api/doses``.
@@ -359,6 +392,49 @@ export interface components {
             refill_threshold: number | null;
             /** Schedules */
             schedules: components["schemas"]["ScheduleOut"][];
+            /**
+             * Timer Preference
+             * @enum {string}
+             */
+            timer_preference: "none" | "count_up" | "count_down" | "multi_sub_dose";
+            /** Min Interval Minutes */
+            min_interval_minutes?: number | null;
+            /** Window Duration Minutes */
+            window_duration_minutes?: number | null;
+            timer_state?: components["schemas"]["TimerStateOut"] | null;
+        };
+        /**
+         * MinIntervalViolation
+         * @description HTTP 409 body when a count_down med's interval has not elapsed.
+         */
+        MinIntervalViolation: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "min_interval_not_elapsed";
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /**
+             * Next Allowed At
+             * Format: date-time
+             */
+            next_allowed_at: string;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+        };
+        /** MultiSubDosePayload */
+        MultiSubDosePayload: {
+            /** Window Duration Seconds */
+            window_duration_seconds: number;
+            /** Slots Total */
+            slots_total: number;
+            active_window: components["schemas"]["ActiveWindow"] | null;
+            /** Previous Window Unused Slots */
+            previous_window_unused_slots: number;
         };
         /**
          * ScheduleOut
@@ -375,6 +451,24 @@ export interface components {
              * Format: time
              */
             time_of_day: string;
+        };
+        /** TimerStateOut */
+        TimerStateOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "count_up" | "count_down" | "multi_sub_dose";
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Last Dose At */
+            last_dose_at: string | null;
+            count_up?: components["schemas"]["CountUpPayload"] | null;
+            count_down?: components["schemas"]["CountDownPayload"] | null;
+            multi_sub_dose?: components["schemas"]["MultiSubDosePayload"] | null;
         };
         /**
          * TodayDose
@@ -419,6 +513,7 @@ export interface components {
             /** Unit */
             unit: string;
             dose: components["schemas"]["TodayDose"] | null;
+            timer_state?: components["schemas"]["TimerStateOut"] | null;
         };
         /**
          * TodayResponse
@@ -685,6 +780,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DoseRead"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinIntervalViolation"];
                 };
             };
             /** @description Validation Error */

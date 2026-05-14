@@ -8,6 +8,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
+from medminder.api.schemas.timers import TimerStateOut
+
 
 class TodayDose(BaseModel):
     """The minimal slice of a dose surfaced under a Today item."""
@@ -30,6 +32,7 @@ class TodayItem(BaseModel):
     quantity_per_dose: Decimal
     unit: str
     dose: TodayDose | None
+    timer_state: TimerStateOut | None = None
 
 
 class TodayResponse(BaseModel):
