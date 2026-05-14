@@ -32,9 +32,9 @@ description: "Phase 5 — Timer Modes: actionable, dependency-ordered tasks"
 
 **Purpose**: Pre-flight sanity and skeleton files used by every story. Phase 5 introduces no new runtime deps and no migrations, so this phase is intentionally thin.
 
-- [ ] T001 Verify working branch is `2028-timer-modes`, then run `just migrate` and confirm `alembic check` reports an empty diff (Phase 5 ships zero schema changes — `data-model.md` "Migration impact: NONE").
-- [ ] T002 [P] Create empty shared fixture file `backend/tests/domain/fixtures/timer_cases.json` with `{ "count_up": [], "count_down": [], "multi_sub_dose": [] }` shape so each story can append its cases.
-- [ ] T003 [P] Create three empty Mermaid placeholder files: `docs/diagrams/timer-count-up.md`, `docs/diagrams/timer-count-down.md`, `docs/diagrams/timer-multi-sub-dose.md` (filled per-story per FR-012).
+- [x] T001 Verify working branch is `2028-timer-modes`, then run `just migrate` and confirm `alembic check` reports an empty diff (Phase 5 ships zero schema changes — `data-model.md` "Migration impact: NONE").
+- [x] T002 [P] Create empty shared fixture file `backend/tests/domain/fixtures/timer_cases.json` with `{ "count_up": [], "count_down": [], "multi_sub_dose": [] }` shape so each story can append its cases.
+- [x] T003 [P] Create three empty Mermaid placeholder files: `docs/diagrams/timer-count-up.md`, `docs/diagrams/timer-count-down.md`, `docs/diagrams/timer-multi-sub-dose.md` (filled per-story per FR-012).
 
 ---
 
