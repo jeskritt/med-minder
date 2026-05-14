@@ -8,6 +8,14 @@ const optionalIntString = z
     "Must be a non-negative whole number",
   );
 
+const positiveIntString = z
+  .string()
+  .trim()
+  .refine(
+    (v) => v === "" || (/^[0-9]+$/.test(v) && Number(v) > 0),
+    "Must be a whole number greater than zero",
+  );
+
 export const medicationFormSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(200),
@@ -30,6 +38,14 @@ export const medicationFormSchema = z
     total_doses: optionalIntString,
     refill_count: optionalIntString,
     refill_threshold: optionalIntString,
+    timer_preference: z.enum([
+      "none",
+      "count_up",
+      "count_down",
+      "multi_sub_dose",
+    ]),
+    min_interval_minutes: positiveIntString,
+    window_duration_minutes: positiveIntString,
     schedules: z.array(
       z.object({
         time_of_day: z.string().min(1, "Time is required"),
@@ -52,6 +68,26 @@ export const medicationFormSchema = z
     {
       message: "Total doses must be > 0, or check Untracked / As Needed",
       path: ["total_doses"],
+    },
+  )
+  .refine(
+    (v) =>
+      v.timer_preference !== "count_down" ||
+      (/^[0-9]+$/.test(v.min_interval_minutes) &&
+        Number(v.min_interval_minutes) > 0),
+    {
+      message: "count_down requires a minimum interval in minutes",
+      path: ["min_interval_minutes"],
+    },
+  )
+  .refine(
+    (v) =>
+      v.timer_preference !== "multi_sub_dose" ||
+      (/^[0-9]+$/.test(v.window_duration_minutes) &&
+        Number(v.window_duration_minutes) > 0),
+    {
+      message: "multi_sub_dose requires a window duration in minutes",
+      path: ["window_duration_minutes"],
     },
   );
 

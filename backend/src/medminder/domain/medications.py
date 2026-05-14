@@ -18,6 +18,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.db.models import Medication, Schedule, ScheduleMedication
+from medminder.db.models.medications import TimerPreference
 
 
 class InvalidMedicationError(ValueError):
@@ -38,6 +39,9 @@ class MedicationInput:
     total_doses: int | None = None
     refill_count: int | None = None
     refill_threshold: int | None = None
+    timer_preference: TimerPreference = "none"
+    min_interval_minutes: int | None = None
+    window_duration_minutes: int | None = None
 
 
 def validate_medication_input(payload: MedicationInput) -> None:
@@ -70,6 +74,19 @@ def validate_medication_input(payload: MedicationInput) -> None:
         raise InvalidMedicationError("refill_count must be >= 0")
     if payload.refill_threshold is not None and payload.refill_threshold < 0:
         raise InvalidMedicationError("refill_threshold must be >= 0")
+    if payload.timer_preference == "count_down" and (
+        payload.min_interval_minutes is None or payload.min_interval_minutes <= 0
+    ):
+        raise InvalidMedicationError(
+            "count_down timer_preference requires min_interval_minutes > 0"
+        )
+    if payload.timer_preference == "multi_sub_dose" and (
+        payload.window_duration_minutes is None
+        or payload.window_duration_minutes <= 0
+    ):
+        raise InvalidMedicationError(
+            "multi_sub_dose timer_preference requires window_duration_minutes > 0"
+        )
 
 
 def _utcnow() -> datetime:
@@ -86,6 +103,9 @@ def _set_writable_fields(med: Medication, payload: MedicationInput) -> None:
     med.total_doses = payload.total_doses
     med.refill_count = payload.refill_count
     med.refill_threshold = payload.refill_threshold
+    med.timer_preference = payload.timer_preference
+    med.min_interval_minutes = payload.min_interval_minutes
+    med.window_duration_minutes = payload.window_duration_minutes
 
 
 async def list_medications(
@@ -210,7 +230,9 @@ async def create_medication(
         start_date=payload.start_date,
         end_date=payload.end_date,
         total_doses=payload.total_doses,
-        timer_preference="none",
+        timer_preference=payload.timer_preference,
+        min_interval_minutes=payload.min_interval_minutes,
+        window_duration_minutes=payload.window_duration_minutes,
         refill_count=payload.refill_count,
         refill_threshold=payload.refill_threshold,
     )

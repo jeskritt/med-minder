@@ -353,6 +353,16 @@ export interface components {
             refill_count?: number | null;
             /** Refill Threshold */
             refill_threshold?: number | null;
+            /**
+             * Timer Preference
+             * @default none
+             * @enum {string}
+             */
+            timer_preference: "none" | "count_up" | "count_down" | "multi_sub_dose";
+            /** Min Interval Minutes */
+            min_interval_minutes?: number | null;
+            /** Window Duration Minutes */
+            window_duration_minutes?: number | null;
         };
         /**
          * MedicationListOut

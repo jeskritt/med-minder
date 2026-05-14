@@ -49,6 +49,9 @@ def _to_input(body: MedicationBody) -> MedicationInput:
         total_doses=body.total_doses,
         refill_count=body.refill_count,
         refill_threshold=body.refill_threshold,
+        timer_preference=body.timer_preference,
+        min_interval_minutes=body.min_interval_minutes,
+        window_duration_minutes=body.window_duration_minutes,
     )
 
 

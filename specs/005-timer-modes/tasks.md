@@ -69,21 +69,25 @@ description: "Phase 5 — Timer Modes: actionable, dependency-ordered tasks"
 
 > Write these tests FIRST and confirm they fail before T020 implementation.
 
-- [ ] T014 [P] [US1] Append `count_up` cases to `backend/tests/domain/fixtures/timer_cases.json`: (a) no doses, (b) 3-min-old dose, (c) most-recent dose voided (next-most-recent surfaces), (d) elapsed > 24h (server still emits full `elapsed_seconds`), (e) ±5s wall-clock parity case.
-- [ ] T015 [P] [US1] Create `backend/tests/domain/test_timers.py` with a `pytest.mark.parametrize` block over the `count_up` cases loaded from `fixtures/timer_cases.json`, asserting `compute_timer_state` returns the expected `TimerState` shape.
-- [ ] T016 [P] [US1] Create `backend/tests/api/test_today_timer_state.py::test_count_up_in_today_response` (real Postgres + AsyncClient): asserts `TodayResponse.items[*].timer_state.count_up.elapsed_seconds` populates correctly, soft-deleted meds are absent, and a second user's medication does NOT leak (FR-014 cross-user isolation).
-- [ ] T017 [P] [US1] Create `frontend/src/__tests__/timers.test.ts` parametrized over the same `count_up` JSON fixture: assert `tickFrom` advances `elapsed_seconds` correctly and `formatElapsed` produces the expected display string including the "over 24h ago" cap (FR-003).
-- [ ] T018 [P] [US1] Create `frontend/src/__tests__/CountUpDisplay.test.tsx`: (a) no-dose state shows "no doses recorded yet", (b) 3-min state shows "3m ago" and re-renders ≥ once per minute under fake timers, (c) > 24h shows "over 24h ago".
+- [x] T014 [P] [US1] Append `count_up` cases to `backend/tests/domain/fixtures/timer_cases.json`: (a) no doses, (b) 3-min-old dose, (c) most-recent dose voided (next-most-recent surfaces), (d) elapsed > 24h (server still emits full `elapsed_seconds`), (e) ±5s wall-clock parity case.
+- [x] T015 [P] [US1] Create `backend/tests/domain/test_timers.py` with a `pytest.mark.parametrize` block over the `count_up` cases loaded from `fixtures/timer_cases.json`, asserting `compute_timer_state` returns the expected `TimerState` shape.
+- [x] T016 [P] [US1] Create `backend/tests/api/test_today_timer_state.py::test_count_up_in_today_response` (real Postgres + AsyncClient): asserts `TodayResponse.items[*].timer_state.count_up.elapsed_seconds` populates correctly, soft-deleted meds are absent, and a second user's medication does NOT leak (FR-014 cross-user isolation). Two tests landed: cross-user isolation + soft-delete exclusion.
+- [x] T017 [P] [US1] Create `frontend/src/__tests__/timers.test.ts` parametrized over the same `count_up` JSON fixture: assert `tickFrom` advances `elapsed_seconds` correctly and `formatElapsed` produces the expected display string including the "over 24h ago" cap (FR-003).
+- [x] T018 [P] [US1] Create `frontend/src/__tests__/CountUpDisplay.test.tsx`: (a) no-dose state shows "no doses recorded yet", (b) 3-min state shows "3m ago" and re-renders ≥ once per minute under fake timers, (c) > 24h shows "over 24h ago".
+
+**Pre-US1 bundle (not originally in tasks.md, landed alongside US1):**
+- Backend input for timer fields — `MedicationInput` + `validate_medication_input` + `_set_writable_fields` + `create_medication` accept `timer_preference` / `min_interval_minutes` / `window_duration_minutes`. `MedicationBody` (Pydantic) accepts them too. Without this, no count_up medication could be created end-to-end.
+- Frontend form timer-mode picker — `medicationFormSchema.ts` + `MedicationForm.tsx` gained a `<select>` for the mode plus conditional integer inputs. `defaultsFromMedication` + `toApiBody` thread the three fields. Four new `MedicationForm.test.tsx` assertions cover the picker.
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Implement the `count_up` branch of `compute_timer_state` in `backend/src/medminder/domain/timers.py`: walk `doses` newest-first filtering voided, compute `elapsed_seconds = int((now - last.taken_at).total_seconds())`; emit `last_dose_at = None` and `elapsed_seconds = None` when no non-voided dose exists. Depends on T004.
-- [ ] T020 [US1] Implement `tickFrom` and `formatElapsed` bodies in `frontend/src/lib/timers.ts`. `formatElapsed` returns `"Xm ago"` / `"Xh Ym ago"` and caps at `"over 24h ago"` for `seconds > 86400`. Depends on T012.
-- [ ] T021 [P] [US1] Create `frontend/src/components/timers/CountUpDisplay.tsx`: seeds a monotonic clock from server `as_of`, advances via `setInterval(1000)` while the tab is focused, displays the formatted elapsed string, and re-syncs to server `elapsed_seconds` on each TanStack Query refetch.
-- [ ] T022 [US1] Render `CountUpDisplay` in `frontend/src/routes/today.tsx` (per `item.timer_state.mode === 'count_up'`) and per-row in `frontend/src/routes/medications.index.tsx`.
-- [ ] T023 [US1] Wire focus-driven refetch on the today + medication list TanStack queries (`refetchOnWindowFocus: true`); ensure NO periodic polling timer is added (FR-009).
-- [ ] T024 [US1] Author `docs/diagrams/timer-count-up.md` with a Mermaid state diagram covering: `no_doses → first_dose → ticking → (most_recent_voided → ticking_from_prior | no_doses)` (FR-012).
-- [ ] T025 [US1] Promote `docs/adr/0004-timer-state-machines.md` from `Status: Proposed` to `Status: Accepted` and ensure the US1 PR description references the promotion (FR-013).
+- [x] T019 [US1] Implement the `count_up` branch of `compute_timer_state` in `backend/src/medminder/domain/timers.py`: walk `doses` newest-first filtering voided, compute `elapsed_seconds = int((now - last.taken_at).total_seconds())`; emit `last_dose_at = None` and `elapsed_seconds = None` when no non-voided dose exists. Depends on T004. `load_non_voided_history_for_meds` (T011) already filters voided + sorts newest-first, so the branch is a one-liner per case.
+- [x] T020 [US1] Implement `tickFrom` and `formatElapsed` bodies in `frontend/src/lib/timers.ts`. `formatElapsed` returns `"Xm ago"` / `"Xh Ym ago"` and caps at `"over 24h ago"` for `seconds > 86400`. Depends on T012. `formatRemaining` and `windowProgress` remain stubs for US2 / US3.
+- [x] T021 [P] [US1] Create `frontend/src/components/timers/CountUpDisplay.tsx`: seeds a monotonic clock from server `as_of`, advances via `setInterval(1000)` while the tab is focused, displays the formatted elapsed string, and re-syncs to server `elapsed_seconds` on each TanStack Query refetch.
+- [x] T022 [US1] Render `CountUpDisplay` in `frontend/src/routes/today.tsx` (per `item.timer_state.mode === 'count_up'`) and per-row in `frontend/src/routes/medications.index.tsx` (rendered inside `MedicationList.tsx`).
+- [x] T023 [US1] Wire focus-driven refetch on the today + medication list TanStack queries (`refetchOnWindowFocus: true`); ensure NO periodic polling timer is added (FR-009). The pre-existing `refetchInterval` on the healthz check at `routes/index.tsx:15` is unrelated (not a timer/medication query).
+- [x] T024 [US1] Author `docs/diagrams/timer-count-up.md` with a Mermaid state diagram covering: `no_doses → first_dose → ticking → (most_recent_voided → ticking_from_prior | no_doses)` (FR-012).
+- [x] T025 [US1] Promote `docs/adr/0004-timer-state-machines.md` from `Status: Proposed` to `Status: Accepted` and ensure the US1 PR description references the promotion (FR-013).
 
 **Checkpoint**: Run the US1 quickstart recipe (`Sumatriptan` create → mark dose → today view shows `elapsed_seconds`). User Story 1 is fully functional and testable independently.
 

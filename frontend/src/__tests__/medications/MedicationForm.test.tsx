@@ -95,6 +95,71 @@ describe("MedicationForm (Add)", () => {
       times_per_day: 1,
       total_doses: null,
       schedules: ["08:00"],
+      timer_preference: "none",
+      min_interval_minutes: null,
+      window_duration_minutes: null,
+    });
+  });
+
+  it("hides timer-config inputs when timer mode is 'none'", () => {
+    renderForm();
+    expect(screen.getByLabelText(/timer mode/i)).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/minimum interval/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/window duration/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows min_interval input when count_down is selected", async () => {
+    const { user } = renderForm();
+    await user.selectOptions(
+      screen.getByLabelText(/timer mode/i),
+      "count_down",
+    );
+    expect(screen.getByLabelText(/minimum interval/i)).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/window duration/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("blocks count_down submission without min_interval_minutes", async () => {
+    const { user, onSubmit } = renderForm();
+    await user.type(screen.getByLabelText(/^name$/i), "Ibuprofen");
+    await user.type(screen.getByLabelText(/^dosage$/i), "200");
+    await user.type(screen.getByLabelText(/^unit$/i), "mg");
+    await user.click(screen.getByLabelText(/untracked/i));
+    await user.selectOptions(
+      screen.getByLabelText(/timer mode/i),
+      "count_down",
+    );
+    await user.click(screen.getByRole("button", { name: /add medication/i }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/count_down requires a minimum interval/i),
+    ).toBeInTheDocument();
+  });
+
+  it("submits count_up timer_preference cleanly", async () => {
+    const onSubmit = vi.fn();
+    const { user } = renderForm(onSubmit);
+    await user.type(screen.getByLabelText(/^name$/i), "Sumatriptan");
+    await user.type(screen.getByLabelText(/^dosage$/i), "1");
+    await user.type(screen.getByLabelText(/^unit$/i), "tablet");
+    await user.click(screen.getByLabelText(/untracked/i));
+    await user.selectOptions(
+      screen.getByLabelText(/timer mode/i),
+      "count_up",
+    );
+    await user.click(screen.getByRole("button", { name: /add medication/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      timer_preference: "count_up",
+      min_interval_minutes: null,
+      window_duration_minutes: null,
     });
   });
 });

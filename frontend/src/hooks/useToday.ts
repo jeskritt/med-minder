@@ -30,5 +30,6 @@ export function useToday(timezone?: string) {
       return data;
     },
     staleTime: 10_000,
+    refetchOnWindowFocus: true,
   });
 }

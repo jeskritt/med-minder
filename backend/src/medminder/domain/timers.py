@@ -93,7 +93,19 @@ def compute_timer_state(
     if pref == "none":
         return None
     if pref == "count_up":
-        raise NotImplementedError("count_up branch — see T019 (US1).")
+        last = doses[0] if doses else None
+        last_dose_at = last.taken_at if last is not None else None
+        elapsed = (
+            int((now - last_dose_at).total_seconds())
+            if last_dose_at is not None
+            else None
+        )
+        return TimerState(
+            mode="count_up",
+            as_of=now,
+            last_dose_at=last_dose_at,
+            count_up=CountUpPayload(elapsed_seconds=elapsed),
+        )
     if pref == "count_down":
         raise NotImplementedError("count_down branch — see T034 (US2).")
     if pref == "multi_sub_dose":

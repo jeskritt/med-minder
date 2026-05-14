@@ -1,5 +1,61 @@
 {
-  "count_up": [],
+  "count_up": [
+    {
+      "name": "no_doses",
+      "med": { "timer_preference": "count_up" },
+      "doses": [],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_up",
+        "last_dose_at": null,
+        "count_up": { "elapsed_seconds": null }
+      }
+    },
+    {
+      "name": "three_minutes_ago",
+      "med": { "timer_preference": "count_up" },
+      "doses": [{ "taken_at": "2026-05-14T11:57:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_up",
+        "last_dose_at": "2026-05-14T11:57:00Z",
+        "count_up": { "elapsed_seconds": 180 }
+      }
+    },
+    {
+      "name": "most_recent_voided_falls_back",
+      "med": { "timer_preference": "count_up" },
+      "doses": [{ "taken_at": "2026-05-14T08:00:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_up",
+        "last_dose_at": "2026-05-14T08:00:00Z",
+        "count_up": { "elapsed_seconds": 14400 }
+      }
+    },
+    {
+      "name": "over_24h_uncapped_on_wire",
+      "med": { "timer_preference": "count_up" },
+      "doses": [{ "taken_at": "2026-05-12T12:00:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_up",
+        "last_dose_at": "2026-05-12T12:00:00Z",
+        "count_up": { "elapsed_seconds": 172800 }
+      }
+    },
+    {
+      "name": "five_second_parity",
+      "med": { "timer_preference": "count_up" },
+      "doses": [{ "taken_at": "2026-05-14T11:59:55Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_up",
+        "last_dose_at": "2026-05-14T11:59:55Z",
+        "count_up": { "elapsed_seconds": 5 }
+      }
+    }
+  ],
   "count_down": [],
   "multi_sub_dose": []
 }

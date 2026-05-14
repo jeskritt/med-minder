@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { client } from "@/lib/api";
 import { useToday } from "@/hooks/useToday";
 import { TakenToggle } from "@/components/TakenToggle";
+import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 
 export const Route = createFileRoute("/today")({
   beforeLoad: async () => {
@@ -66,6 +67,11 @@ function TodayPage() {
                     {item.scheduled_time.slice(0, 5)} · {item.quantity_per_dose}{" "}
                     {item.unit}
                   </p>
+                  {item.timer_state?.mode === "count_up" && (
+                    <p className="text-sm text-gray-600">
+                      <CountUpDisplay state={item.timer_state} />
+                    </p>
+                  )}
                 </div>
                 <TakenToggle
                   scheduleId={item.schedule_id}

@@ -36,6 +36,11 @@ class MedicationBody(BaseModel):
     schedules: list[time] = Field(default_factory=list)
     refill_count: int | None = Field(default=None, ge=0)
     refill_threshold: int | None = Field(default=None, ge=0)
+    timer_preference: Literal[
+        "none", "count_up", "count_down", "multi_sub_dose"
+    ] = "none"
+    min_interval_minutes: int | None = Field(default=None, gt=0)
+    window_duration_minutes: int | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _check_dates(self) -> MedicationBody:
