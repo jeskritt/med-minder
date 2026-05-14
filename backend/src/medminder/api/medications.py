@@ -121,7 +121,7 @@ async def create_med(
         )
     except InvalidMedicationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
     return _to_out(med, list(schedules))
@@ -144,7 +144,7 @@ async def update_med(
         )
     except InvalidMedicationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
     if result is None:

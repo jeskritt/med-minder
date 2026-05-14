@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
 from sqlalchemy import and_, not_, select
@@ -32,6 +32,7 @@ from medminder.db.models import (
     ScheduleMedication,
     User,
 )
+from medminder.domain.timers import MinIntervalNotElapsedError
 from medminder.domain.timezone import resolve_today_bounds
 
 
@@ -91,6 +92,39 @@ async def create_dose(
             raise DoseValidationError(
                 "Schedule is not linked to the given medication.",
             )
+
+    if (
+        med.timer_preference == "count_down"
+        and med.min_interval_minutes is not None
+    ):
+        voided_exists = (
+            select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+        )
+        last = (
+            await session.execute(
+                select(Dose)
+                .where(
+                    Dose.user_id == user.id,
+                    Dose.medication_id == medication_id,
+                    not_(voided_exists),
+                )
+                .order_by(Dose.taken_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if last is not None:
+            next_allowed_at = last.taken_at + timedelta(
+                minutes=med.min_interval_minutes
+            )
+            if next_allowed_at > taken_at:
+                remaining = max(
+                    1, int((next_allowed_at - taken_at).total_seconds())
+                )
+                raise MinIntervalNotElapsedError(
+                    medication_id=medication_id,
+                    next_allowed_at=next_allowed_at,
+                    remaining_seconds=remaining,
+                )
 
     effective_quantity = quantity if quantity is not None else med.quantity_per_dose
 

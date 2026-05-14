@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { components } from "@/api/v1";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
+import { CountDownButton } from "@/components/timers/CountDownButton";
 
 type MedicationOut = components["schemas"]["MedicationOut"];
 
@@ -52,6 +53,14 @@ export function MedicationList({
             {med.timer_state?.mode === "count_up" && (
               <div className="text-sm text-gray-700">
                 <CountUpDisplay state={med.timer_state} />
+              </div>
+            )}
+            {med.timer_state?.mode === "count_down" && (
+              <div className="mt-1">
+                <CountDownButton
+                  state={med.timer_state}
+                  medicationId={med.id}
+                />
               </div>
             )}
             {(med.refill_count !== null || med.refill_threshold !== null) && (

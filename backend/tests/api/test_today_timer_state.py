@@ -110,6 +110,102 @@ async def test_count_up_in_today_response(
     )
 
 
+async def test_count_down_in_today_response(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """count_down timer surfaces remaining_seconds + next_allowed_at."""
+    today = datetime.now(UTC).date()
+
+    user = await create_user(
+        session,
+        email="harry-today@example.com",
+        name="Harry",
+        role="user",
+        password=_PASSWORD,
+        timezone_name="UTC",
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="Ibuprofen",
+        timer_preference="count_down",
+        min_interval_minutes=60,
+    )
+    sched = await make_schedule(
+        session, user=user, label="Morning", time_of_day=time(8, 0)
+    )
+    session.add(ScheduleMedication(schedule_id=sched.id, medication_id=med.id))
+
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime.now(UTC) - timedelta(minutes=10),
+    )
+    await session.flush()
+
+    await _login(client, "harry-today@example.com")
+    resp = await client.get(
+        "/api/schedules/today",
+        params={"timezone": "UTC", "date": today.isoformat()},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body["items"]) == 1
+    timer = body["items"][0]["timer_state"]
+    assert timer is not None
+    assert timer["mode"] == "count_down"
+    payload = timer["count_down"]
+    assert payload["min_interval_seconds"] == 3600
+    assert payload["next_allowed_at"] is not None
+    # ~50 minutes remaining (3000s), allow for test latency
+    assert 2950 <= payload["remaining_seconds"] <= 3000
+
+
+async def test_count_down_zero_clamp_in_today_response(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """remaining_seconds clamps to 0 once the interval has elapsed."""
+    today = datetime.now(UTC).date()
+
+    user = await create_user(
+        session,
+        email="harry-zero@example.com",
+        name="Harry",
+        role="user",
+        password=_PASSWORD,
+        timezone_name="UTC",
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="Ibuprofen",
+        timer_preference="count_down",
+        min_interval_minutes=60,
+    )
+    sched = await make_schedule(session, user=user)
+    session.add(ScheduleMedication(schedule_id=sched.id, medication_id=med.id))
+
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime.now(UTC) - timedelta(hours=2),
+    )
+    await session.flush()
+
+    await _login(client, "harry-zero@example.com")
+    resp = await client.get(
+        "/api/schedules/today",
+        params={"timezone": "UTC", "date": today.isoformat()},
+    )
+    assert resp.status_code == 200, resp.text
+    timer = resp.json()["items"][0]["timer_state"]
+    assert timer["count_down"]["remaining_seconds"] == 0
+
+
 async def test_count_up_soft_deleted_excluded(
     client: AsyncClient, session: AsyncSession
 ) -> None:

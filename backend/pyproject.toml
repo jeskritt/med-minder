@@ -92,6 +92,14 @@ disallow_untyped_decorators = false
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=medminder --cov-report=term-missing --cov-fail-under=85"
+filterwarnings = [
+    # pytest-asyncio 0.24.x triggers these via Python 3.14's deprecation of
+    # asyncio.{get,set}_event_loop_policy. Not ours to fix; v1.0+ addresses
+    # it. Tracked in specs/roadmap.md "Tooling backlog" — remove these
+    # filters when the bump lands.
+    "ignore:'asyncio\\.get_event_loop_policy' is deprecated:DeprecationWarning:pytest_asyncio",
+    "ignore:'asyncio\\.set_event_loop_policy' is deprecated:DeprecationWarning:pytest_asyncio",
+]
 
 [tool.coverage.run]
 branch = true

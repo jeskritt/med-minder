@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -107,7 +107,38 @@ def compute_timer_state(
             count_up=CountUpPayload(elapsed_seconds=elapsed),
         )
     if pref == "count_down":
-        raise NotImplementedError("count_down branch — see T034 (US2).")
+        if med.min_interval_minutes is None or med.min_interval_minutes <= 0:
+            raise ValueError(
+                "count_down timer_preference requires min_interval_minutes > 0"
+            )
+        min_interval_seconds = med.min_interval_minutes * 60
+        last = doses[0] if doses else None
+        last_dose_at = last.taken_at if last is not None else None
+        if last_dose_at is None:
+            return TimerState(
+                mode="count_down",
+                as_of=now,
+                last_dose_at=None,
+                count_down=CountDownPayload(
+                    min_interval_seconds=min_interval_seconds,
+                    next_allowed_at=None,
+                    remaining_seconds=0,
+                ),
+            )
+        next_allowed_at = last_dose_at + timedelta(
+            minutes=med.min_interval_minutes
+        )
+        remaining = max(0, int((next_allowed_at - now).total_seconds()))
+        return TimerState(
+            mode="count_down",
+            as_of=now,
+            last_dose_at=last_dose_at,
+            count_down=CountDownPayload(
+                min_interval_seconds=min_interval_seconds,
+                next_allowed_at=next_allowed_at,
+                remaining_seconds=remaining,
+            ),
+        )
     if pref == "multi_sub_dose":
         raise NotImplementedError("multi_sub_dose branch — see T048 (US3).")
     raise ValueError(f"Unknown timer_preference: {pref!r}")

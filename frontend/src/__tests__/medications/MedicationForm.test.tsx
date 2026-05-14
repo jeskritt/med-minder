@@ -107,9 +107,7 @@ describe("MedicationForm (Add)", () => {
     expect(
       screen.queryByLabelText(/minimum interval/i),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/window duration/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/window duration/i)).not.toBeInTheDocument();
   });
 
   it("shows min_interval input when count_down is selected", async () => {
@@ -119,9 +117,7 @@ describe("MedicationForm (Add)", () => {
       "count_down",
     );
     expect(screen.getByLabelText(/minimum interval/i)).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/window duration/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/window duration/i)).not.toBeInTheDocument();
   });
 
   it("blocks count_down submission without min_interval_minutes", async () => {
@@ -149,10 +145,7 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^dosage$/i), "1");
     await user.type(screen.getByLabelText(/^unit$/i), "tablet");
     await user.click(screen.getByLabelText(/untracked/i));
-    await user.selectOptions(
-      screen.getByLabelText(/timer mode/i),
-      "count_up",
-    );
+    await user.selectOptions(screen.getByLabelText(/timer mode/i), "count_up");
     await user.click(screen.getByRole("button", { name: /add medication/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);

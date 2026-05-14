@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, it, expect } from "vitest";
-import { formatElapsed, tickFrom } from "@/lib/timers";
+import { formatElapsed, formatRemaining, tickFrom } from "@/lib/timers";
 import type { components } from "@/api/v1";
 
 type TimerStateOut = components["schemas"]["TimerStateOut"];
@@ -19,6 +19,22 @@ interface CountUpCase {
   };
 }
 
+interface CountDownCase {
+  name: string;
+  med: { timer_preference: "count_down"; min_interval_minutes: number };
+  doses: { taken_at: string }[];
+  now: string;
+  expected: {
+    mode: "count_down";
+    last_dose_at: string | null;
+    count_down: {
+      min_interval_seconds: number;
+      next_allowed_at: string | null;
+      remaining_seconds: number;
+    };
+  };
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(
   __dirname,
@@ -26,6 +42,7 @@ const fixturePath = path.resolve(
 );
 const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as {
   count_up: CountUpCase[];
+  count_down: CountDownCase[];
 };
 
 describe("formatElapsed", () => {
@@ -92,5 +109,46 @@ describe("tickFrom", () => {
     };
     const ticked = tickFrom(state, Date.parse(state.as_of) + 60_000);
     expect(ticked.count_up?.elapsed_seconds).toBeNull();
+  });
+});
+
+describe("formatRemaining", () => {
+  it.each(fixture.count_down)(
+    "$name: produces a string the UI can render",
+    (c: CountDownCase) => {
+      const seconds = c.expected.count_down.remaining_seconds;
+      const rendered = formatRemaining(seconds);
+      if (seconds <= 0) {
+        expect(rendered).toBe("ready");
+      } else if (seconds < 60) {
+        expect(rendered).toBe("<1m");
+      } else if (seconds < 3600) {
+        expect(rendered).toBe(`${Math.floor(seconds / 60)}m`);
+      } else {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        expect(rendered).toBe(`${h}h ${m}m`);
+      }
+    },
+  );
+
+  it("renders 'ready' at zero or below", () => {
+    expect(formatRemaining(0)).toBe("ready");
+    expect(formatRemaining(-5)).toBe("ready");
+  });
+
+  it("renders '<1m' under 60 seconds", () => {
+    expect(formatRemaining(1)).toBe("<1m");
+    expect(formatRemaining(59)).toBe("<1m");
+  });
+
+  it("renders minutes-only under one hour", () => {
+    expect(formatRemaining(60)).toBe("1m");
+    expect(formatRemaining(3000)).toBe("50m");
+  });
+
+  it("renders Xh Ym at one hour or more", () => {
+    expect(formatRemaining(3600)).toBe("1h 0m");
+    expect(formatRemaining(7140)).toBe("1h 59m");
   });
 });

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useTakeDose } from "@/hooks/useTakeDose";
+import { MinIntervalError, useTakeDose } from "@/hooks/useTakeDose";
 import { useUntakeDose } from "@/hooks/useUntakeDose";
 import { UntakeConfirmModal } from "@/components/UntakeConfirmModal";
+import { formatRemaining } from "@/lib/timers";
 import type { TodayItem } from "@/hooks/useToday";
 
 export interface TakenToggleProps {
@@ -58,6 +59,9 @@ export function TakenToggle({
 
   const handleCancel = () => setConfirmOpen(false);
 
+  const minIntervalError =
+    take.error instanceof MinIntervalError ? take.error.body : null;
+
   return (
     <>
       <button
@@ -73,6 +77,11 @@ export function TakenToggle({
       >
         {isTaken ? "Taken" : "Mark taken"}
       </button>
+      {minIntervalError && (
+        <p role="alert" className="mt-1 text-xs text-red-600">
+          Next dose in {formatRemaining(minIntervalError.remaining_seconds)}
+        </p>
+      )}
       <UntakeConfirmModal
         open={confirmOpen}
         onConfirm={handleConfirm}

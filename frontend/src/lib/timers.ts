@@ -27,8 +27,12 @@ export function formatElapsed(seconds: number | null): string {
 }
 
 export function formatRemaining(seconds: number): string {
-  void seconds;
-  return "";
+  if (seconds <= 0) return "ready";
+  if (seconds < 60) return "<1m";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}h ${m}m`;
 }
 
 export function windowProgress(state: TimerStateOut): {

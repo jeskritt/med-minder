@@ -131,3 +131,19 @@ both directions.
 - Performance budgets enforced in CI (Lighthouse PWA score, bundle size).
 - Final, comprehensive security review covering session handling, CSRF, push key handling, input validation, dependency audit, and a sweep of audit logging — building on the per-phase reviews already required by the exit criteria.
 - Full Playwright suite covering every persona's primary flow from `docs/user_stories.md` (extends the Phase 4 smoke test).
+
+---
+
+## Tooling backlog
+
+Small infrastructure work tracked here so it does not get lost between
+feature phases. Items are pulled into the next phase that touches the
+same surface, or scheduled standalone when they grow risky to defer.
+
+- **Bump `pytest-asyncio` to 1.0+.** The 0.24.x line uses
+  `asyncio.{get,set}_event_loop_policy`, which Python 3.14 has
+  deprecated and 3.16 will remove. Currently silenced via
+  `filterwarnings` in `backend/pyproject.toml`. v1.0+ changes
+  test-discovery and fixture-scope semantics, so the bump needs its own
+  verification pass; do not bundle into a feature PR. Remove the
+  matching `filterwarnings` lines when the bump lands.

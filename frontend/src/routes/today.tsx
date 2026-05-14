@@ -3,6 +3,7 @@ import { client } from "@/lib/api";
 import { useToday } from "@/hooks/useToday";
 import { TakenToggle } from "@/components/TakenToggle";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
+import { CountDownButton } from "@/components/timers/CountDownButton";
 
 export const Route = createFileRoute("/today")({
   beforeLoad: async () => {
@@ -73,11 +74,19 @@ function TodayPage() {
                     </p>
                   )}
                 </div>
-                <TakenToggle
-                  scheduleId={item.schedule_id}
-                  medicationId={item.medication_id}
-                  dose={item.dose}
-                />
+                {item.timer_state?.mode === "count_down" ? (
+                  <CountDownButton
+                    state={item.timer_state}
+                    medicationId={item.medication_id}
+                    scheduleId={item.schedule_id}
+                  />
+                ) : (
+                  <TakenToggle
+                    scheduleId={item.schedule_id}
+                    medicationId={item.medication_id}
+                    dose={item.dose}
+                  />
+                )}
               </li>
             );
           })}

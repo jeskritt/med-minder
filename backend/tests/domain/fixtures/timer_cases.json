@@ -56,6 +56,82 @@
       }
     }
   ],
-  "count_down": [],
+  "count_down": [
+    {
+      "name": "no_doses_ready",
+      "med": { "timer_preference": "count_down", "min_interval_minutes": 60 },
+      "doses": [],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_down",
+        "last_dose_at": null,
+        "count_down": {
+          "min_interval_seconds": 3600,
+          "next_allowed_at": null,
+          "remaining_seconds": 0
+        }
+      }
+    },
+    {
+      "name": "ten_minutes_into_sixty",
+      "med": { "timer_preference": "count_down", "min_interval_minutes": 60 },
+      "doses": [{ "taken_at": "2026-05-14T11:50:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_down",
+        "last_dose_at": "2026-05-14T11:50:00Z",
+        "count_down": {
+          "min_interval_seconds": 3600,
+          "next_allowed_at": "2026-05-14T12:50:00Z",
+          "remaining_seconds": 3000
+        }
+      }
+    },
+    {
+      "name": "on_boundary_zero",
+      "med": { "timer_preference": "count_down", "min_interval_minutes": 60 },
+      "doses": [{ "taken_at": "2026-05-14T11:00:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_down",
+        "last_dose_at": "2026-05-14T11:00:00Z",
+        "count_down": {
+          "min_interval_seconds": 3600,
+          "next_allowed_at": "2026-05-14T12:00:00Z",
+          "remaining_seconds": 0
+        }
+      }
+    },
+    {
+      "name": "negative_clamped",
+      "med": { "timer_preference": "count_down", "min_interval_minutes": 60 },
+      "doses": [{ "taken_at": "2026-05-14T10:00:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_down",
+        "last_dose_at": "2026-05-14T10:00:00Z",
+        "count_down": {
+          "min_interval_seconds": 3600,
+          "next_allowed_at": "2026-05-14T11:00:00Z",
+          "remaining_seconds": 0
+        }
+      }
+    },
+    {
+      "name": "most_recent_voided_surfaces_older",
+      "med": { "timer_preference": "count_down", "min_interval_minutes": 60 },
+      "doses": [{ "taken_at": "2026-05-14T11:30:00Z" }],
+      "now": "2026-05-14T12:00:00Z",
+      "expected": {
+        "mode": "count_down",
+        "last_dose_at": "2026-05-14T11:30:00Z",
+        "count_down": {
+          "min_interval_seconds": 3600,
+          "next_allowed_at": "2026-05-14T12:30:00Z",
+          "remaining_seconds": 1800
+        }
+      }
+    }
+  ],
   "multi_sub_dose": []
 }
