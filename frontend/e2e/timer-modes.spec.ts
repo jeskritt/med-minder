@@ -139,11 +139,27 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
     await expect(page.getByRole("heading", { name: medName })).toBeVisible();
     const detail = page.getByRole("main");
 
-    // Tap the CTA three times; each tap consumes a slot.
+    // Tap the CTA three times; each tap consumes a slot. multi_sub_dose
+    // has no optimistic patch (no schedule context), so the card only
+    // moves after POST /api/doses → useTakeDose.onSettled invalidates
+    // ["medication", id] → useMedicationDetail refetches that GET →
+    // re-render. Await that exact refetch before asserting, instead of
+    // racing a bare text wait. (Verified live in Chrome: POST 201 then
+    // GET /api/v1/medications/<uuid> 200, card flips to "i of 3".)
     const cta = detail.getByRole("button", { name: /dose available/i });
     for (let i = 1; i <= 3; i++) {
       await expect(cta).toBeEnabled();
-      await cta.click();
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            /\/api\/v1\/medications\/[0-9a-f-]{36}$/.test(
+              new URL(r.url()).pathname,
+            ) &&
+            r.request().method() === "GET" &&
+            r.status() === 200,
+        ),
+        cta.click(),
+      ]);
       await expect(detail.getByText(`${i} of 3`)).toBeVisible();
     }
 
