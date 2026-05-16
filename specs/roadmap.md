@@ -147,3 +147,14 @@ same surface, or scheduled standalone when they grow risky to defer.
   test-discovery and fixture-scope semantics, so the bump needs its own
   verification pass; do not bundle into a feature PR. Remove the
   matching `filterwarnings` lines when the bump lands.
+
+- **Run the e2e smoke suite in CI.** `granny-smoke.spec.ts` and
+  `timer-modes.spec.ts` are reliably runnable locally (the
+  e2e-fragility fix added a shared `login()` helper and an idempotent
+  `e2e/global-setup.ts`), but stay skip-gated behind `E2E_RUN_GRANNY` /
+  `E2E_RUN_TIMER_MODES` because CI does not yet stand up the docker
+  stack. Wire the stack into GitHub Actions and drop the skip gates so
+  the smokes run on every PR. Phase 10 candidate ("Full Playwright
+  suite … enforced in CI"). Prerequisite: the two `timer-modes.spec.ts`
+  scenario selectors must first be made dev-DB-state-independent (see
+  the e2e-fragility follow-up note).

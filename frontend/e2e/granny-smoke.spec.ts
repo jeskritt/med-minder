@@ -1,24 +1,23 @@
 /**
- * FR-006: end-to-end smoke for the Granny flow.
+ * FR-006: end-to-end smoke for the Granny flow (mode `none`).
  *
- * Log in → create medication with one schedule → open `/today` → click
- * Taken → assert greyed out → open the FR-005 confirm modal → cancel
- * → confirm un-take → assert untaken.
+ * Log in → open `/today` → click Taken → assert greyed out → open the
+ * FR-005 confirm modal → cancel → confirm un-take → assert untaken.
  *
- * The medication+schedule fixture is created server-side via the
- * domain APIs once Phase 5 (medication CRUD) lands; for now this
- * smoke is gated behind a real test user that the dev environment
- * is expected to provide. Local runs:
+ * The granny user and a `none`-mode medication + 08:00 schedule are
+ * provisioned idempotently by `e2e/global-setup.ts`, so this spec is
+ * self-sufficient against a running stack. Local run:
  *
- *     just dev           # docker compose up
- *     pnpm test:e2e      # in another terminal, from frontend/
+ *     just dev                              # docker compose up
+ *     E2E_RUN_GRANNY=1 pnpm test:e2e        # from frontend/
  *
- * Skipped in CI until Phase 5 ships the medication CRUD endpoints
- * the smoke needs to seed its fixture (Phase 4 ships only the dose
- * endpoints).
+ * The skip gate is now purely "needs the live docker stack" (matching
+ * timer-modes.spec.ts's E2E_RUN_TIMER_MODES gate). Un-gating in CI —
+ * standing the stack up in GitHub Actions — is a Phase 10 roadmap item.
  */
 
 import { test, expect } from "@playwright/test";
+import { login } from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_USER_EMAIL ?? "granny@example.com";
 const TEST_PASSWORD =
@@ -27,14 +26,11 @@ const TEST_PASSWORD =
 test.describe("Granny flow", () => {
   test.skip(
     !process.env.E2E_RUN_GRANNY,
-    "Set E2E_RUN_GRANNY=1 once a dev medication+schedule fixture is provisioned for the test user.",
+    "Set E2E_RUN_GRANNY=1 to run; requires the live `just dev` docker stack (global-setup provisions the fixture).",
   );
 
   test("login, mark taken, cancel, then un-take", async ({ page }) => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(TEST_EMAIL);
-    await page.getByLabel("Password").fill(TEST_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await login(page, TEST_EMAIL, TEST_PASSWORD);
 
     await page.goto("/today");
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();

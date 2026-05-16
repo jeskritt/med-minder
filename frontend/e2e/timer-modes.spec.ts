@@ -19,8 +19,9 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { login } from "./helpers";
 
-const TEST_EMAIL = process.env.E2E_USER_EMAIL ?? "demo@example.com";
+const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
   process.env.E2E_USER_PASSWORD ?? "correct horse battery staple";
 
@@ -33,10 +34,7 @@ test.describe("Timer modes — count_down boundary", () => {
   test("button transitions from disabled to enabled at zero, no flicker", async ({
     page,
   }) => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(TEST_EMAIL);
-    await page.getByLabel("Password").fill(TEST_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await login(page, TEST_EMAIL, TEST_PASSWORD);
 
     // Create a count_down med with the smallest tractable interval (1 minute).
     await page.goto("/medications/new");
@@ -88,10 +86,7 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
   test("fills a window's slots then disables the control when full", async ({
     page,
   }) => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(TEST_EMAIL);
-    await page.getByLabel("Password").fill(TEST_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await login(page, TEST_EMAIL, TEST_PASSWORD);
 
     // Create a multi_sub_dose med: 3 sub-doses in a 6-hour window.
     await page.goto("/medications/new");
