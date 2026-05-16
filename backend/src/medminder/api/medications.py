@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from medminder.api.deps import get_current_user, get_session
 from medminder.api.schemas.medications import (
     MedicationBody,
+    MedicationDetailOut,
     MedicationListOut,
     MedicationOut,
     ScheduleOut,
@@ -27,6 +28,7 @@ from medminder.domain.medications import (
     InvalidMedicationError,
     MedicationInput,
     create_medication,
+    get_medication,
     list_medications,
     list_schedules_for_medication,
     soft_delete_medication,
@@ -102,6 +104,37 @@ async def list_meds(
         state = compute_timer_state(med, history.get(med.id, []), now=now)
         items.append(_to_out(med, scheds, timer_state=to_timer_state_out(state)))
     return MedicationListOut(items=items)
+
+
+@router.get("/{medication_id}", response_model=MedicationDetailOut)
+async def get_med(
+    medication_id: uuid.UUID,
+    user: User = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> MedicationDetailOut:
+    """Return a single medication owned by the caller.
+
+    Responds 404 (NOT 403) when the medication does not exist, is
+    soft-deleted, or belongs to another user. ``get_medication``
+    folds all three into a single ``None`` result, so the three cases
+    are observably indistinguishable — no existence leak (FR-014).
+    """
+    med = await get_medication(db, user_id=user.id, medication_id=medication_id)
+    if med is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not Found"
+        )
+    schedules = list(
+        await list_schedules_for_medication(db, medication_id=med.id)
+    )
+    history = await load_non_voided_history_for_meds(
+        db, user_id=user.id, medication_ids=[med.id]
+    )
+    state = compute_timer_state(
+        med, history.get(med.id, []), now=datetime.now(UTC)
+    )
+    base = _to_out(med, schedules, timer_state=to_timer_state_out(state))
+    return MedicationDetailOut(**base.model_dump())
 
 
 @router.post(

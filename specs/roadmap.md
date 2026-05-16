@@ -147,3 +147,19 @@ same surface, or scheduled standalone when they grow risky to defer.
   test-discovery and fixture-scope semantics, so the bump needs its own
   verification pass; do not bundle into a feature PR. Remove the
   matching `filterwarnings` lines when the bump lands.
+
+- **Fix `just typecheck-frontend` (currently a no-op).** It runs
+  `tsc --noEmit` against `frontend/tsconfig.json`, which has
+  `files: []` + project references — plain `tsc` (no `-b`) ignores
+  references and compiles nothing, so the gate has been green-by-doing-
+  nothing. Real type-checking only happens via `tsc -b` in `pnpm
+  build`. Fix: add a dedicated `frontend/tsconfig.test.json` (extends
+  app config, adds `node` + `vitest/globals` + jest-dom types, includes
+  `src/__tests__/**` + the test setup), exclude tests from
+  `tsconfig.app.json` so app code stays browser-pure, reference the new
+  project from `tsconfig.json`, and switch the justfile recipe to
+  `tsc -b`. This surfaces ~4 latent test-file type errors
+  (`timers.test.ts`, `MedicationForm.test.tsx`, `TakenToggle.test.tsx`,
+  `medications.guard.test.tsx`) — two predate Phase 5 — which must be
+  fixed in the same PR. Standalone follow-up; do not bundle into a
+  feature PR.

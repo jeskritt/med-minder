@@ -87,3 +87,54 @@ def test_count_down_cases(case: dict[str, Any]) -> None:
             expected_next
         )
     assert state.count_down.remaining_seconds == payload["remaining_seconds"]
+
+
+@pytest.mark.parametrize(
+    "case", _CASES["multi_sub_dose"], ids=lambda c: c["name"]
+)
+def test_multi_sub_dose_cases(case: dict[str, Any]) -> None:
+    med = _make_med(case["med"])
+    doses = _make_doses(case["doses"])
+    now = datetime.fromisoformat(case["now"])
+
+    state = compute_timer_state(med, doses, now=now)
+    assert state is not None
+    expected = case["expected"]
+    assert state.mode == expected["mode"]
+
+    expected_last = expected["last_dose_at"]
+    if expected_last is None:
+        assert state.last_dose_at is None
+    else:
+        assert state.last_dose_at == datetime.fromisoformat(expected_last)
+
+    assert state.multi_sub_dose is not None
+    payload = expected["multi_sub_dose"]
+    assert (
+        state.multi_sub_dose.window_duration_seconds
+        == payload["window_duration_seconds"]
+    )
+    assert state.multi_sub_dose.slots_total == payload["slots_total"]
+    assert (
+        state.multi_sub_dose.previous_window_unused_slots
+        == payload["previous_window_unused_slots"]
+    )
+
+    expected_window = payload["active_window"]
+    if expected_window is None:
+        assert state.multi_sub_dose.active_window is None
+    else:
+        win = state.multi_sub_dose.active_window
+        assert win is not None
+        assert win.window_start == datetime.fromisoformat(
+            expected_window["window_start"]
+        )
+        assert win.window_end == datetime.fromisoformat(
+            expected_window["window_end"]
+        )
+        assert win.doses_in_window == [
+            datetime.fromisoformat(d)
+            for d in expected_window["doses_in_window"]
+        ]
+        assert win.slots_used == expected_window["slots_used"]
+        assert win.slots_remaining == expected_window["slots_remaining"]

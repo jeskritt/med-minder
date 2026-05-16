@@ -1,9 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { client } from "@/lib/api";
 import { useToday } from "@/hooks/useToday";
 import { TakenToggle } from "@/components/TakenToggle";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
+import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
 
 export const Route = createFileRoute("/today")({
   beforeLoad: async () => {
@@ -57,7 +58,17 @@ function TodayPage() {
               >
                 <div>
                   <p className="font-medium">
-                    {item.name}
+                    {item.timer_state?.mode === "multi_sub_dose" ? (
+                      <Link
+                        to="/medications/$medicationId"
+                        params={{ medicationId: item.medication_id }}
+                        className="text-blue-600 underline"
+                      >
+                        {item.name}
+                      </Link>
+                    ) : (
+                      item.name
+                    )}
                     {item.dose !== null && (
                       <span className="ml-2 text-sm font-normal text-gray-500">
                         {formatTakenAt(item.dose.taken_at)}
@@ -76,6 +87,12 @@ function TodayPage() {
                 </div>
                 {item.timer_state?.mode === "count_down" ? (
                   <CountDownButton
+                    state={item.timer_state}
+                    medicationId={item.medication_id}
+                    scheduleId={item.schedule_id}
+                  />
+                ) : item.timer_state?.mode === "multi_sub_dose" ? (
+                  <MultiSubDoseCard
                     state={item.timer_state}
                     medicationId={item.medication_id}
                     scheduleId={item.schedule_id}

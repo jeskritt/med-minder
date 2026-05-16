@@ -206,6 +206,105 @@ async def test_count_down_zero_clamp_in_today_response(
     assert timer["count_down"]["remaining_seconds"] == 0
 
 
+async def test_multi_sub_dose_in_today_response(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """multi_sub_dose active-window payload surfaces in the today view."""
+    today = datetime.now(UTC).date()
+
+    user = await create_user(
+        session,
+        email="billy-today@example.com",
+        name="Billy",
+        role="user",
+        password=_PASSWORD,
+        timezone_name="UTC",
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="Tylenol 3",
+        timer_preference="multi_sub_dose",
+        window_duration_minutes=360,
+    )
+    med.times_per_day = 3
+    sched = await make_schedule(
+        session, user=user, label="Morning", time_of_day=time(8, 0)
+    )
+    session.add(ScheduleMedication(schedule_id=sched.id, medication_id=med.id))
+
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime.now(UTC) - timedelta(hours=2),
+    )
+    await session.flush()
+
+    await _login(client, "billy-today@example.com")
+    resp = await client.get(
+        "/api/schedules/today",
+        params={"timezone": "UTC", "date": today.isoformat()},
+    )
+    assert resp.status_code == 200, resp.text
+    timer = resp.json()["items"][0]["timer_state"]
+    assert timer is not None
+    assert timer["mode"] == "multi_sub_dose"
+    payload = timer["multi_sub_dose"]
+    assert payload["slots_total"] == 3
+    assert payload["previous_window_unused_slots"] == 0
+    assert payload["active_window"] is not None
+    assert payload["active_window"]["slots_used"] == 1
+    assert payload["active_window"]["slots_remaining"] == 2
+
+
+async def test_multi_sub_dose_expired_window_banner_counter(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """An expired window with unused slots reports previous_window_unused_slots."""
+    today = datetime.now(UTC).date()
+
+    user = await create_user(
+        session,
+        email="billy-banner@example.com",
+        name="Billy",
+        role="user",
+        password=_PASSWORD,
+        timezone_name="UTC",
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="Tylenol 3",
+        timer_preference="multi_sub_dose",
+        window_duration_minutes=360,
+    )
+    med.times_per_day = 3
+    sched = await make_schedule(session, user=user)
+    session.add(ScheduleMedication(schedule_id=sched.id, medication_id=med.id))
+
+    # Dose 8h ago → its 6h window expired 2h ago with 2 of 3 slots unused.
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime.now(UTC) - timedelta(hours=8),
+    )
+    await session.flush()
+
+    await _login(client, "billy-banner@example.com")
+    resp = await client.get(
+        "/api/schedules/today",
+        params={"timezone": "UTC", "date": today.isoformat()},
+    )
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()["items"][0]["timer_state"]["multi_sub_dose"]
+    assert payload["active_window"] is None
+    assert payload["previous_window_unused_slots"] == 2
+
+
 async def test_count_up_soft_deleted_excluded(
     client: AsyncClient, session: AsyncSession
 ) -> None:

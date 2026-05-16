@@ -83,8 +83,17 @@ class MedicationListOut(BaseModel):
     items: list[MedicationOut]
 
 
+class MedicationDetailOut(MedicationOut):
+    """Detail view; initially identical to ``MedicationOut``.
+
+    Kept distinct so Phase 6 can diverge (drug-interaction context)
+    without touching the list endpoint's shape.
+    """
+
+
 __all__ = [
     "MedicationBody",
+    "MedicationDetailOut",
     "MedicationListOut",
     "MedicationOut",
     "ScheduleOut",

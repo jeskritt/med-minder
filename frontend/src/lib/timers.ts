@@ -40,6 +40,13 @@ export function windowProgress(state: TimerStateOut): {
   total: number;
   expiredUnused: number;
 } {
-  void state;
-  return { used: 0, total: 0, expiredUnused: 0 };
+  if (state.mode !== "multi_sub_dose" || !state.multi_sub_dose) {
+    return { used: 0, total: 0, expiredUnused: 0 };
+  }
+  const payload = state.multi_sub_dose;
+  return {
+    used: payload.active_window?.slots_used ?? 0,
+    total: payload.slots_total,
+    expiredUnused: payload.previous_window_unused_slots,
+  };
 }

@@ -78,3 +78,49 @@ test.describe("Timer modes — count_down boundary", () => {
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 });
+
+test.describe("Timer modes — multi_sub_dose window fill", () => {
+  test.skip(
+    !process.env.E2E_RUN_TIMER_MODES,
+    "Set E2E_RUN_TIMER_MODES=1 to run; requires `just dev` + the seeded demo user.",
+  );
+
+  test("fills a window's slots then disables the control when full", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(TEST_EMAIL);
+    await page.getByLabel("Password").fill(TEST_PASSWORD);
+    await page.getByRole("button", { name: /sign in/i }).click();
+
+    // Create a multi_sub_dose med: 3 sub-doses in a 6-hour window.
+    await page.goto("/medications/new");
+    await page.getByLabel(/^name$/i).fill("Window Fill Test");
+    await page.getByLabel(/^dosage$/i).fill("1");
+    await page.getByLabel(/^unit$/i).fill("tab");
+    await page.getByLabel(/untracked/i).check();
+    await page.getByLabel(/times per day/i).fill("3");
+    await page
+      .getByLabel(/timer mode/i)
+      .selectOption({ value: "multi_sub_dose" });
+    await page.getByLabel(/window duration/i).fill("360");
+    await page.getByRole("button", { name: /add medication/i }).click();
+
+    // The medications list links multi_sub_dose meds to their detail page.
+    await page.goto("/medications");
+    await page.getByRole("link", { name: /window fill test/i }).click();
+
+    // Tap the CTA three times; each tap consumes a slot.
+    const cta = page.getByRole("button", { name: /dose available/i });
+    for (let i = 1; i <= 3; i++) {
+      await expect(cta).toBeEnabled();
+      await cta.click();
+      await expect(page.getByText(`${i} of 3`)).toBeVisible();
+    }
+
+    // Fourth attempt: window is full → control disabled, no overdose.
+    await expect(
+      page.getByRole("button", { name: /window full/i }),
+    ).toBeDisabled();
+  });
+});

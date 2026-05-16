@@ -124,7 +124,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Med
+         * @description Return a single medication owned by the caller.
+         *
+         *     Responds 404 (NOT 403) when the medication does not exist, is
+         *     soft-deleted, or belongs to another user. ``get_medication``
+         *     folds all three into a single ``None`` result, so the three cases
+         *     are observably indistinguishable — no existence leak (FR-014).
+         */
+        get: operations["get_med_api_v1_medications__medication_id__get"];
         /**
          * Update Med
          * @description Replace a medication's fields and schedules.
@@ -363,6 +372,50 @@ export interface components {
             min_interval_minutes?: number | null;
             /** Window Duration Minutes */
             window_duration_minutes?: number | null;
+        };
+        /**
+         * MedicationDetailOut
+         * @description Detail view; initially identical to ``MedicationOut``.
+         *
+         *     Kept distinct so Phase 6 can diverge (drug-interaction context)
+         *     without touching the list endpoint's shape.
+         */
+        MedicationDetailOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Quantity Per Dose */
+            quantity_per_dose: string;
+            /** Unit */
+            unit: string;
+            /** Times Per Day */
+            times_per_day: number;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Total Doses */
+            total_doses: number | null;
+            /** Refill Count */
+            refill_count: number | null;
+            /** Refill Threshold */
+            refill_threshold: number | null;
+            /** Schedules */
+            schedules: components["schemas"]["ScheduleOut"][];
+            /**
+             * Timer Preference
+             * @enum {string}
+             */
+            timer_preference: "none" | "count_up" | "count_down" | "multi_sub_dose";
+            /** Min Interval Minutes */
+            min_interval_minutes?: number | null;
+            /** Window Duration Minutes */
+            window_duration_minutes?: number | null;
+            timer_state?: components["schemas"]["TimerStateOut"] | null;
         };
         /**
          * MedicationListOut
@@ -693,6 +746,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MedicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_med_api_v1_medications__medication_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationDetailOut"];
                 };
             };
             /** @description Validation Error */

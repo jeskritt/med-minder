@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, it, expect } from "vitest";
-import { formatElapsed, formatRemaining, tickFrom } from "@/lib/timers";
+import {
+  formatElapsed,
+  formatRemaining,
+  tickFrom,
+  windowProgress,
+} from "@/lib/timers";
 import type { components } from "@/api/v1";
 
 type TimerStateOut = components["schemas"]["TimerStateOut"];
@@ -35,6 +40,33 @@ interface CountDownCase {
   };
 }
 
+interface MultiSubDoseCase {
+  name: string;
+  med: {
+    timer_preference: "multi_sub_dose";
+    window_duration_minutes: number;
+    times_per_day: number;
+  };
+  doses: { taken_at: string }[];
+  now: string;
+  expected: {
+    mode: "multi_sub_dose";
+    last_dose_at: string | null;
+    multi_sub_dose: {
+      window_duration_seconds: number;
+      slots_total: number;
+      active_window: {
+        window_start: string;
+        window_end: string;
+        doses_in_window: string[];
+        slots_used: number;
+        slots_remaining: number;
+      } | null;
+      previous_window_unused_slots: number;
+    };
+  };
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(
   __dirname,
@@ -43,6 +75,7 @@ const fixturePath = path.resolve(
 const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as {
   count_up: CountUpCase[];
   count_down: CountDownCase[];
+  multi_sub_dose: MultiSubDoseCase[];
 };
 
 describe("formatElapsed", () => {
@@ -150,5 +183,39 @@ describe("formatRemaining", () => {
   it("renders Xh Ym at one hour or more", () => {
     expect(formatRemaining(3600)).toBe("1h 0m");
     expect(formatRemaining(7140)).toBe("1h 59m");
+  });
+});
+
+describe("windowProgress", () => {
+  it.each(fixture.multi_sub_dose)(
+    "$name: reports used/total/expiredUnused",
+    (c: MultiSubDoseCase) => {
+      const p = c.expected.multi_sub_dose;
+      const state: TimerStateOut = {
+        mode: "multi_sub_dose",
+        as_of: c.now,
+        last_dose_at: c.expected.last_dose_at,
+        multi_sub_dose: p,
+      };
+      expect(windowProgress(state)).toEqual({
+        used: p.active_window?.slots_used ?? 0,
+        total: p.slots_total,
+        expiredUnused: p.previous_window_unused_slots,
+      });
+    },
+  );
+
+  it("returns zeros for a non-multi_sub_dose state", () => {
+    const state: TimerStateOut = {
+      mode: "count_up",
+      as_of: "2026-05-14T12:00:00Z",
+      last_dose_at: null,
+      count_up: { elapsed_seconds: null },
+    };
+    expect(windowProgress(state)).toEqual({
+      used: 0,
+      total: 0,
+      expiredUnused: 0,
+    });
   });
 });
