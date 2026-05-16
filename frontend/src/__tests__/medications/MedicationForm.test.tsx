@@ -1,9 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type Mock } from "vitest";
 import { MedicationForm } from "@/components/medications/MedicationForm";
+import type { components } from "@/api/v1";
 
-function renderForm(onSubmit: ReturnType<typeof vi.fn> = vi.fn()) {
+type MedicationBody = components["schemas"]["MedicationBody"];
+type OnSubmit = (body: MedicationBody) => void | Promise<void>;
+
+function renderForm(onSubmit: Mock<OnSubmit> = vi.fn<OnSubmit>()) {
   return {
     user: userEvent.setup(),
     onSubmit,
@@ -73,7 +77,7 @@ describe("MedicationForm (Add)", () => {
   });
 
   it("submits a valid payload as the API body shape", async () => {
-    const onSubmit = vi.fn();
+    const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
 
     await user.type(screen.getByLabelText(/^name$/i), "Ibuprofen");
@@ -139,7 +143,7 @@ describe("MedicationForm (Add)", () => {
   });
 
   it("submits count_up timer_preference cleanly", async () => {
-    const onSubmit = vi.fn();
+    const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
     await user.type(screen.getByLabelText(/^name$/i), "Sumatriptan");
     await user.type(screen.getByLabelText(/^dosage$/i), "1");

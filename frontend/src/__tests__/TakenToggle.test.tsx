@@ -135,7 +135,7 @@ describe("TakenToggle", () => {
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalled();
     });
-    const [path] = mockPost.mock.calls[0];
+    const path = mockPost.mock.calls[0][0];
     expect(path).toBe("/api/doses/{dose_id}/void");
   });
 
