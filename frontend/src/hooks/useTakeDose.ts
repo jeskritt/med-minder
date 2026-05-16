@@ -92,10 +92,18 @@ export function useTakeDose() {
         queryClient.setQueryData(context.key, context.previous);
       }
     },
-    onSettled: (_data, _err, _input, context) => {
+    onSettled: (_data, _err, input, context) => {
       if (context) {
         void queryClient.invalidateQueries({ queryKey: context.key });
       }
+      // The dose also changes timer state shown on the medications list
+      // and the single-medication detail page. Without these the
+      // count/CTA on those views stays stale after marking from there
+      // (no schedule context → no optimistic today patch either).
+      void queryClient.invalidateQueries({ queryKey: ["medications"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["medication", input.medicationId],
+      });
     },
   });
 }

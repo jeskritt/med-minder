@@ -34,6 +34,10 @@ test.describe("Timer modes — count_down boundary", () => {
   test("button transitions from disabled to enabled at zero, no flicker", async ({
     page,
   }) => {
+    // The smallest count_down interval is 1 minute, so this scenario
+    // must wait out a ~60s server-side cooldown. Playwright's default
+    // per-test timeout is 30s — extend it generously.
+    test.setTimeout(150_000);
     await login(page, TEST_EMAIL, TEST_PASSWORD);
 
     // Unique per-run name: the dev DB is shared/long-lived and this
@@ -61,6 +65,9 @@ test.describe("Timer modes — count_down boundary", () => {
     // renders exactly one control (<CountDownButton>).
     await page.goto("/today");
     const row = page.getByRole("listitem").filter({ hasText: medName });
+    // /today loads async (useToday); wait for THIS run's row to render
+    // before interacting. Unique medName ⇒ exactly one matching row.
+    await expect(row).toBeVisible();
     const doseBtn = row.getByRole("button");
 
     // Initial state (no doses): ready → label "Mark taken". Marking
@@ -123,17 +130,26 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
     await page.getByRole("link", { name: medName, exact: true }).click();
     await expect(page).toHaveURL(/\/medications\/[0-9a-f-]{36}$/);
 
+    // The detail data loads async (useMedicationDetail shows "Loading…").
+    // Await the med's heading so the list is fully unmounted and the
+    // single detail card is rendered, then scope every assertion to the
+    // detail <main> — immune to the transient list paint and to
+    // accumulated dev-DB meds (each of which renders its own CTA on the
+    // list, but never inside this detail main).
+    await expect(page.getByRole("heading", { name: medName })).toBeVisible();
+    const detail = page.getByRole("main");
+
     // Tap the CTA three times; each tap consumes a slot.
-    const cta = page.getByRole("button", { name: /dose available/i });
+    const cta = detail.getByRole("button", { name: /dose available/i });
     for (let i = 1; i <= 3; i++) {
       await expect(cta).toBeEnabled();
       await cta.click();
-      await expect(page.getByText(`${i} of 3`)).toBeVisible();
+      await expect(detail.getByText(`${i} of 3`)).toBeVisible();
     }
 
     // Fourth attempt: window is full → control disabled, no overdose.
     await expect(
-      page.getByRole("button", { name: /window full/i }),
+      detail.getByRole("button", { name: /window full/i }),
     ).toBeDisabled();
   });
 });
