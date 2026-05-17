@@ -140,14 +140,6 @@ Small infrastructure work tracked here so it does not get lost between
 feature phases. Items are pulled into the next phase that touches the
 same surface, or scheduled standalone when they grow risky to defer.
 
-- **Bump `pytest-asyncio` to 1.0+.** The 0.24.x line uses
-  `asyncio.{get,set}_event_loop_policy`, which Python 3.14 has
-  deprecated and 3.16 will remove. Currently silenced via
-  `filterwarnings` in `backend/pyproject.toml`. v1.0+ changes
-  test-discovery and fixture-scope semantics, so the bump needs its own
-  verification pass; do not bundle into a feature PR. Remove the
-  matching `filterwarnings` lines when the bump lands.
-
 - **Run the e2e smoke suite in CI.** `granny-smoke.spec.ts` and
   `timer-modes.spec.ts` are reliably runnable locally and **green +
   deterministic** (the e2e-fragility fix added a shared `login()`
