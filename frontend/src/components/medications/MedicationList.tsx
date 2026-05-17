@@ -1,5 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import type { components } from "@/api/v1";
+import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
+import { CountDownButton } from "@/components/timers/CountDownButton";
+import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
 
 type MedicationOut = components["schemas"]["MedicationOut"];
 
@@ -40,7 +43,17 @@ export function MedicationList({
         >
           <div>
             <div className="font-medium">
-              {med.name}{" "}
+              {med.timer_state?.mode === "multi_sub_dose" ? (
+                <Link
+                  to="/medications/$medicationId"
+                  params={{ medicationId: med.id }}
+                  className="text-blue-600 underline"
+                >
+                  {med.name}
+                </Link>
+              ) : (
+                med.name
+              )}{" "}
               <span className="text-sm text-gray-600">
                 ({med.quantity_per_dose} {med.unit})
               </span>
@@ -48,6 +61,27 @@ export function MedicationList({
             <div className="text-sm text-gray-700">
               {med.times_per_day}× daily — {formatTimes(med)}
             </div>
+            {med.timer_state?.mode === "count_up" && (
+              <div className="text-sm text-gray-700">
+                <CountUpDisplay state={med.timer_state} />
+              </div>
+            )}
+            {med.timer_state?.mode === "count_down" && (
+              <div className="mt-1">
+                <CountDownButton
+                  state={med.timer_state}
+                  medicationId={med.id}
+                />
+              </div>
+            )}
+            {med.timer_state?.mode === "multi_sub_dose" && (
+              <div className="mt-1">
+                <MultiSubDoseCard
+                  state={med.timer_state}
+                  medicationId={med.id}
+                />
+              </div>
+            )}
             {(med.refill_count !== null || med.refill_threshold !== null) && (
               <div className="text-xs text-gray-600">
                 Refill: {med.refill_count ?? "—"} on hand

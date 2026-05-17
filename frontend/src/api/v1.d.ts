@@ -124,7 +124,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Med
+         * @description Return a single medication owned by the caller.
+         *
+         *     Responds 404 (NOT 403) when the medication does not exist, is
+         *     soft-deleted, or belongs to another user. ``get_medication``
+         *     folds all three into a single ``None`` result, so the three cases
+         *     are observably indistinguishable — no existence leak (FR-014).
+         */
+        get: operations["get_med_api_v1_medications__medication_id__get"];
         /**
          * Update Med
          * @description Replace a medication's fields and schedules.
@@ -205,6 +214,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActiveWindow */
+        ActiveWindow: {
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /** Doses In Window */
+            doses_in_window: string[];
+            /** Slots Used */
+            slots_used: number;
+            /** Slots Remaining */
+            slots_remaining: number;
+        };
+        /** CountDownPayload */
+        CountDownPayload: {
+            /** Min Interval Seconds */
+            min_interval_seconds: number;
+            /** Next Allowed At */
+            next_allowed_at: string | null;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+        };
+        /** CountUpPayload */
+        CountUpPayload: {
+            /** Elapsed Seconds */
+            elapsed_seconds?: number | null;
+        };
         /**
          * DoseCreate
          * @description Inbound payload for ``POST /api/doses``.
@@ -221,11 +263,8 @@ export interface components {
             medication_id: string;
             /** Schedule Id */
             schedule_id?: string | null;
-            /**
-             * Taken At
-             * Format: date-time
-             */
-            taken_at: string;
+            /** Taken At */
+            taken_at?: string | null;
             /** Quantity */
             quantity?: number | string | null;
         };
@@ -320,6 +359,60 @@ export interface components {
             refill_count?: number | null;
             /** Refill Threshold */
             refill_threshold?: number | null;
+            /**
+             * Timer Preference
+             * @default none
+             * @enum {string}
+             */
+            timer_preference: "none" | "count_up" | "count_down" | "multi_sub_dose";
+            /** Min Interval Minutes */
+            min_interval_minutes?: number | null;
+            /** Window Duration Minutes */
+            window_duration_minutes?: number | null;
+        };
+        /**
+         * MedicationDetailOut
+         * @description Detail view; initially identical to ``MedicationOut``.
+         *
+         *     Kept distinct so Phase 6 can diverge (drug-interaction context)
+         *     without touching the list endpoint's shape.
+         */
+        MedicationDetailOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Quantity Per Dose */
+            quantity_per_dose: string;
+            /** Unit */
+            unit: string;
+            /** Times Per Day */
+            times_per_day: number;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Total Doses */
+            total_doses: number | null;
+            /** Refill Count */
+            refill_count: number | null;
+            /** Refill Threshold */
+            refill_threshold: number | null;
+            /** Schedules */
+            schedules: components["schemas"]["ScheduleOut"][];
+            /**
+             * Timer Preference
+             * @enum {string}
+             */
+            timer_preference: "none" | "count_up" | "count_down" | "multi_sub_dose";
+            /** Min Interval Minutes */
+            min_interval_minutes?: number | null;
+            /** Window Duration Minutes */
+            window_duration_minutes?: number | null;
+            timer_state?: components["schemas"]["TimerStateOut"] | null;
         };
         /**
          * MedicationListOut
@@ -359,6 +452,49 @@ export interface components {
             refill_threshold: number | null;
             /** Schedules */
             schedules: components["schemas"]["ScheduleOut"][];
+            /**
+             * Timer Preference
+             * @enum {string}
+             */
+            timer_preference: "none" | "count_up" | "count_down" | "multi_sub_dose";
+            /** Min Interval Minutes */
+            min_interval_minutes?: number | null;
+            /** Window Duration Minutes */
+            window_duration_minutes?: number | null;
+            timer_state?: components["schemas"]["TimerStateOut"] | null;
+        };
+        /**
+         * MinIntervalViolation
+         * @description HTTP 409 body when a count_down med's interval has not elapsed.
+         */
+        MinIntervalViolation: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "min_interval_not_elapsed";
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /**
+             * Next Allowed At
+             * Format: date-time
+             */
+            next_allowed_at: string;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+        };
+        /** MultiSubDosePayload */
+        MultiSubDosePayload: {
+            /** Window Duration Seconds */
+            window_duration_seconds: number;
+            /** Slots Total */
+            slots_total: number;
+            active_window: components["schemas"]["ActiveWindow"] | null;
+            /** Previous Window Unused Slots */
+            previous_window_unused_slots: number;
         };
         /**
          * ScheduleOut
@@ -375,6 +511,24 @@ export interface components {
              * Format: time
              */
             time_of_day: string;
+        };
+        /** TimerStateOut */
+        TimerStateOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "count_up" | "count_down" | "multi_sub_dose";
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Last Dose At */
+            last_dose_at: string | null;
+            count_up?: components["schemas"]["CountUpPayload"] | null;
+            count_down?: components["schemas"]["CountDownPayload"] | null;
+            multi_sub_dose?: components["schemas"]["MultiSubDosePayload"] | null;
         };
         /**
          * TodayDose
@@ -419,6 +573,7 @@ export interface components {
             /** Unit */
             unit: string;
             dose: components["schemas"]["TodayDose"] | null;
+            timer_state?: components["schemas"]["TimerStateOut"] | null;
         };
         /**
          * TodayResponse
@@ -447,6 +602,31 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WindowFullViolation
+         * @description HTTP 409 body when a multi_sub_dose med's active window is full.
+         */
+        WindowFullViolation: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "window_full";
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /** Slots Used */
+            slots_used: number;
+            /** Slots Total */
+            slots_total: number;
         };
     };
     responses: never;
@@ -601,6 +781,37 @@ export interface operations {
             };
         };
     };
+    get_med_api_v1_medications__medication_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_med_api_v1_medications__medication_id__put: {
         parameters: {
             query?: never;
@@ -685,6 +896,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DoseRead"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinIntervalViolation"] | components["schemas"]["WindowFullViolation"];
                 };
             };
             /** @description Validation Error */

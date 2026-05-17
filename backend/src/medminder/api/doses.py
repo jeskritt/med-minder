@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import get_current_user, get_session
 from medminder.api.schemas.doses import DoseCreate, DoseRead
+from medminder.api.schemas.errors import (
+    MinIntervalViolation,
+    WindowFullViolation,
+)
 from medminder.db.models import User
 from medminder.domain.doses import (
     DoseAlreadyVoidedError,
@@ -22,7 +27,12 @@ from medminder.domain.doses import (
 router = APIRouter(prefix="/api/doses", tags=["doses"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=DoseRead)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DoseRead,
+    responses={409: {"model": MinIntervalViolation | WindowFullViolation}},
+)
 async def post_dose(
     payload: DoseCreate,
     user: User = Depends(get_current_user),  # noqa: B008
@@ -35,7 +45,7 @@ async def post_dose(
             user=user,
             medication_id=payload.medication_id,
             schedule_id=payload.schedule_id,
-            taken_at=payload.taken_at,
+            taken_at=payload.taken_at or datetime.now(UTC),
             quantity=payload.quantity,
         )
     except DoseForbiddenError as exc:
@@ -44,7 +54,7 @@ async def post_dose(
         ) from exc
     except DoseValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
     return DoseRead.model_validate(dose)
 

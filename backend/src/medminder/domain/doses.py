@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
 from sqlalchemy import and_, not_, select
@@ -31,6 +31,10 @@ from medminder.db.models import (
     Schedule,
     ScheduleMedication,
     User,
+)
+from medminder.domain.timers import (
+    MinIntervalNotElapsedError,
+    multi_sub_dose_window_full,
 )
 from medminder.domain.timezone import resolve_today_bounds
 
@@ -91,6 +95,60 @@ async def create_dose(
             raise DoseValidationError(
                 "Schedule is not linked to the given medication.",
             )
+
+    if (
+        med.timer_preference == "count_down"
+        and med.min_interval_minutes is not None
+    ):
+        voided_exists = (
+            select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+        )
+        last = (
+            await session.execute(
+                select(Dose)
+                .where(
+                    Dose.user_id == user.id,
+                    Dose.medication_id == medication_id,
+                    not_(voided_exists),
+                )
+                .order_by(Dose.taken_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if last is not None:
+            next_allowed_at = last.taken_at + timedelta(
+                minutes=med.min_interval_minutes
+            )
+            if next_allowed_at > taken_at:
+                remaining = max(
+                    1, int((next_allowed_at - taken_at).total_seconds())
+                )
+                raise MinIntervalNotElapsedError(
+                    medication_id=medication_id,
+                    next_allowed_at=next_allowed_at,
+                    remaining_seconds=remaining,
+                )
+
+    if med.timer_preference == "multi_sub_dose":
+        voided_exists = (
+            select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+        )
+        taken_ats = list(
+            (
+                await session.execute(
+                    select(Dose.taken_at)
+                    .where(
+                        Dose.user_id == user.id,
+                        Dose.medication_id == medication_id,
+                        not_(voided_exists),
+                    )
+                    .order_by(Dose.taken_at.asc())
+                )
+            ).scalars()
+        )
+        violation = multi_sub_dose_window_full(med, taken_ats, taken_at)
+        if violation is not None:
+            raise violation
 
     effective_quantity = quantity if quantity is not None else med.quantity_per_dose
 
@@ -229,6 +287,41 @@ async def today_view(
     )
 
 
+async def load_non_voided_history_for_meds(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    medication_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, list[Dose]]:
+    """Return non-voided doses per medication, newest-first.
+
+    Used by the Phase 5 timer-state computation; filters on ``user_id``
+    (cross-user isolation) and excludes voided doses via the same
+    NOT EXISTS pattern ``today_view`` uses.
+    """
+    if not medication_ids:
+        return {}
+
+    voided_exists = (
+        select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+    )
+    stmt = (
+        select(Dose)
+        .where(
+            Dose.user_id == user_id,
+            Dose.medication_id.in_(medication_ids),
+            not_(voided_exists),
+        )
+        .order_by(Dose.taken_at.desc())
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+
+    out: dict[uuid.UUID, list[Dose]] = {mid: [] for mid in medication_ids}
+    for dose in rows:
+        out[dose.medication_id].append(dose)
+    return out
+
+
 __all__ = [
     "DoseAlreadyVoidedError",
     "DoseError",
@@ -238,6 +331,7 @@ __all__ = [
     "TodayItem",
     "TodayView",
     "create_dose",
+    "load_non_voided_history_for_meds",
     "today_view",
     "void_dose",
 ]

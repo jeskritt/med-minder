@@ -21,7 +21,7 @@ class DoseCreate(BaseModel):
 
     medication_id: uuid.UUID
     schedule_id: uuid.UUID | None = None
-    taken_at: datetime
+    taken_at: datetime | None = None
     quantity: Decimal | None = None
 
 

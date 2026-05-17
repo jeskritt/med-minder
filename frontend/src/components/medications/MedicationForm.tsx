@@ -34,6 +34,9 @@ const EMPTY_DEFAULTS: MedicationFormValues = {
   total_doses: "",
   refill_count: "",
   refill_threshold: "",
+  timer_preference: "none",
+  min_interval_minutes: "",
+  window_duration_minutes: "",
   schedules: [],
 };
 
@@ -60,6 +63,17 @@ export function defaultsFromMedication(
       med.refill_threshold === null || med.refill_threshold === undefined
         ? ""
         : String(med.refill_threshold),
+    timer_preference: med.timer_preference,
+    min_interval_minutes:
+      med.min_interval_minutes === null ||
+      med.min_interval_minutes === undefined
+        ? ""
+        : String(med.min_interval_minutes),
+    window_duration_minutes:
+      med.window_duration_minutes === null ||
+      med.window_duration_minutes === undefined
+        ? ""
+        : String(med.window_duration_minutes),
     schedules: med.schedules.map((s) => ({
       time_of_day: s.time_of_day.slice(0, 5),
     })),
@@ -78,6 +92,9 @@ function toApiBody(values: MedicationFormValues): MedicationBody {
     total_doses: values.untracked ? null : intOrNull(values.total_doses),
     refill_count: intOrNull(values.refill_count),
     refill_threshold: intOrNull(values.refill_threshold),
+    timer_preference: values.timer_preference,
+    min_interval_minutes: intOrNull(values.min_interval_minutes),
+    window_duration_minutes: intOrNull(values.window_duration_minutes),
     schedules: values.schedules.map((s) => s.time_of_day),
   };
 }
@@ -107,6 +124,7 @@ export function MedicationForm({
   const untracked = watch("untracked");
   const timesPerDayRaw = watch("times_per_day");
   const timesPerDay = Number(timesPerDayRaw);
+  const timerPreference = watch("timer_preference");
 
   const submittingNow = isSubmitting || formSubmitting;
 
@@ -175,6 +193,70 @@ export function MedicationForm({
           )}
         </div>
       </div>
+
+      <div>
+        <label htmlFor="timer_preference" className="block text-sm font-medium">
+          Timer mode
+        </label>
+        <select
+          id="timer_preference"
+          className="mt-1 w-full rounded border px-3 py-2"
+          {...register("timer_preference")}
+        >
+          <option value="none">None (boolean taken today)</option>
+          <option value="count_up">Count up since last dose</option>
+          <option value="count_down">Count down (minimum interval)</option>
+          <option value="multi_sub_dose">Multi sub-dose (window)</option>
+        </select>
+      </div>
+
+      {timerPreference === "count_down" && (
+        <div>
+          <label
+            htmlFor="min_interval_minutes"
+            className="block text-sm font-medium"
+          >
+            Minimum interval (minutes)
+          </label>
+          <input
+            id="min_interval_minutes"
+            type="number"
+            min={1}
+            step={1}
+            className="mt-1 w-32 rounded border px-3 py-2"
+            {...register("min_interval_minutes")}
+          />
+          {errors.min_interval_minutes && (
+            <p role="alert" className="mt-1 text-sm text-red-600">
+              {errors.min_interval_minutes.message}
+            </p>
+          )}
+        </div>
+      )}
+
+      {timerPreference === "multi_sub_dose" && (
+        <div>
+          <label
+            htmlFor="window_duration_minutes"
+            className="block text-sm font-medium"
+          >
+            Window duration (minutes)
+          </label>
+          <input
+            id="window_duration_minutes"
+            type="number"
+            min={1}
+            step={1}
+            className="mt-1 w-32 rounded border px-3 py-2"
+            {...register("window_duration_minutes")}
+          />
+          {errors.window_duration_minutes && (
+            <p role="alert" className="mt-1 text-sm text-red-600">
+              {errors.window_duration_minutes.message}
+            </p>
+          )}
+        </div>
+      )}
 
       <div>
         <label htmlFor="times_per_day" className="block text-sm font-medium">

@@ -64,6 +64,9 @@ CI gate worth knowing about: `alembic upgrade head` then `alembic check` runs ag
 - `just` recipes assume bash; on Windows use Git Bash or WSL, not PowerShell.
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Active phase: **Phase 5 — Timer Modes** (branch `2028-timer-modes`).
+For technical context, project structure, shell commands, and design
+decisions, read `specs/005-timer-modes/plan.md` and the supporting
+artifacts in the same directory (`research.md`, `data-model.md`,
+`quickstart.md`, `contracts/timers.openapi.yaml`).
 <!-- SPECKIT END -->

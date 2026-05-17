@@ -2,8 +2,12 @@
 
 ## Status
 
-Proposed — moves to **Accepted** with the Phase 5a (count-up timer)
-PR, where the first state machine is implemented.
+**Accepted** (Phase 5a — count-up timer). Originally Proposed; promoted
+by the US1 PR alongside the first state-machine implementation in
+`backend/src/medminder/domain/timers.py::compute_timer_state` (count_up
+branch). The companion Mermaid diagram lives at
+`docs/diagrams/timer-count-up.md`. ADRs 5b (count_down) and 5c
+(multi_sub_dose) follow when those modes land if a deviation is needed.
 
 ## Context
 

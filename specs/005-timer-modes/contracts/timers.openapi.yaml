@@ -1,0 +1,442 @@
+openapi: 3.1.0
+info:
+  title: MedMinder Timer Modes (Phase 5)
+  version: "0.5.0"
+  description: |
+    Contract fragment for the four endpoint deltas Phase 5 introduces:
+
+      - GET /api/schedules/today               — adds `timer_state` to each item.
+      - GET /api/v1/medications                — adds `timer_state` to each item.
+      - GET /api/v1/medications/{id}           — NEW endpoint.
+      - POST /api/doses                        — adds 409 (MinIntervalViolation | WindowFullViolation).
+
+    The authoritative API document is the FastAPI-emitted OpenAPI spec at runtime;
+    this file documents the agreed shape pre-implementation so reviewers can
+    challenge it before any code is written. The implementation MUST conform to
+    this contract; CI fails if the regenerated frontend client drifts.
+
+servers:
+  - url: /
+    description: Backend served at root; the frontend reaches it via the dev proxy
+      (Vite strips the `/api` prefix) or the production reverse proxy.
+
+paths:
+  /api/schedules/today:
+    get:
+      operationId: schedules_today
+      summary: Today's scheduled doses (Phase 4) with timer state
+      description: |
+        Phase 5 delta: each `TodayItem` gains a sibling field `timer_state`,
+        nullable (null when the medication's `timer_preference == 'none'`).
+        All other Phase 4 fields (schedule_id, medication_id, name,
+        scheduled_time, quantity_per_dose, unit, dose) are unchanged.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/medications:
+    get:
+      operationId: medications_list
+      summary: List the logged-in user's medications (Phase 3) with timer state
+      description: |
+        Phase 5 delta: each `MedicationOut` gains a sibling field `timer_state`,
+        nullable (null when `timer_preference == 'none'`). All other Phase 3
+        fields are unchanged.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicationListOut"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/medications/{medication_id}:
+    get:
+      operationId: medications_detail
+      summary: Single medication detail (NEW — Phase 5)
+      description: |
+        Returns a single medication owned by the logged-in user, including its
+        current `timer_state`. Returns 404 (not 403) when the medication does
+        not exist, is soft-deleted, or belongs to a different user — to avoid
+        leaking the existence of other users' medications (FR-014).
+      parameters:
+        - in: path
+          name: medication_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicationDetailOut"
+        "404":
+          description: Medication does not exist, is soft-deleted, or belongs to another user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/doses:
+    post:
+      operationId: doses_create
+      summary: Mark a dose as taken (Phase 4) with min-interval guard
+      description: |
+        Phase 5 delta: when the medication's `timer_preference == 'count_down'`
+        and the configured `min_interval_minutes` has not elapsed since the
+        most recent non-voided dose, the request is rejected with HTTP 409
+        and a `MinIntervalViolation` body. All other behavior is unchanged.
+
+        The 409 enforcement holds against direct API calls that bypass the
+        UI (FR-006); the integration test in `backend/tests/api/` exercises
+        this path explicitly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDoseRequest"
+      responses:
+        "201":
+          description: Dose recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoseRead"
+        "409":
+          description: |
+            The dose is rejected by a server-side overdose guard. Either:
+            (a) the medication is `count_down` and its minimum interval has
+            not elapsed since the previous non-voided dose
+            (`MinIntervalViolation`), or (b) the medication is
+            `multi_sub_dose` and the dose would land in an active window
+            already at capacity (`WindowFullViolation`). Both hold against
+            direct API calls that bypass the UI (FR-006).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MinIntervalViolation"
+                  - $ref: "#/components/schemas/WindowFullViolation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  responses:
+    Unauthorized:
+      description: Session missing or invalid; the client should redirect to /login.
+
+  schemas:
+    # ----- Timer state value object (NEW) -----
+    TimerStateOut:
+      type: object
+      description: |
+        Server-computed timer state for a medication. The shape is a
+        discriminated union on `mode`. The mode `none` is represented at
+        the API boundary by `timer_state: null` rather than by a TimerState
+        value with `mode == 'none'`.
+      required: [mode, as_of, last_dose_at]
+      properties:
+        mode:
+          type: string
+          enum: [count_up, count_down, multi_sub_dose]
+        as_of:
+          type: string
+          format: date-time
+          description: Server-side timestamp at which the state was computed (UTC).
+        last_dose_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Most recent non-voided dose, or null if none recorded.
+        count_up:
+          $ref: "#/components/schemas/CountUpPayload"
+        count_down:
+          $ref: "#/components/schemas/CountDownPayload"
+        multi_sub_dose:
+          $ref: "#/components/schemas/MultiSubDosePayload"
+
+    CountUpPayload:
+      type: object
+      required: [elapsed_seconds]
+      properties:
+        elapsed_seconds:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Elapsed seconds since `last_dose_at`. Never capped on the wire —
+            display-side capping at "over 24h ago" per FR-003 is a client
+            concern.
+
+    CountDownPayload:
+      type: object
+      required: [min_interval_seconds, next_allowed_at, remaining_seconds]
+      properties:
+        min_interval_seconds:
+          type: integer
+          minimum: 1
+        next_allowed_at:
+          type: string
+          format: date-time
+          nullable: true
+        remaining_seconds:
+          type: integer
+          minimum: 0
+
+    MultiSubDosePayload:
+      type: object
+      required: [window_duration_seconds, slots_total, active_window, previous_window_unused_slots]
+      properties:
+        window_duration_seconds:
+          type: integer
+          minimum: 1
+        slots_total:
+          type: integer
+          minimum: 1
+        active_window:
+          $ref: "#/components/schemas/ActiveWindow"
+          nullable: true
+        previous_window_unused_slots:
+          type: integer
+          minimum: 0
+          description: |
+            When the most recently expired window ended with one or more
+            unused slots and no new window has started since, this is the
+            count of unused slots. Drives the FR-008b passive banner.
+
+    ActiveWindow:
+      type: object
+      required: [window_start, window_end, doses_in_window, slots_used, slots_remaining]
+      properties:
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+        doses_in_window:
+          type: array
+          items:
+            type: string
+            format: date-time
+        slots_used:
+          type: integer
+          minimum: 0
+        slots_remaining:
+          type: integer
+          minimum: 0
+
+    # ----- Wrappers around existing Phase 3 / Phase 4 schemas -----
+    TodayResponse:
+      type: object
+      description: |
+        Existing Phase 4 response. Only the embedded `TodayItem.timer_state`
+        is new in Phase 5.
+      required: [date, timezone, items]
+      properties:
+        date:
+          type: string
+          format: date
+        timezone:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TodayItem"
+
+    TodayItem:
+      type: object
+      required: [schedule_id, medication_id, name, scheduled_time, quantity_per_dose, unit, dose, timer_state]
+      properties:
+        schedule_id:
+          type: string
+          format: uuid
+        medication_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        scheduled_time:
+          type: string
+          format: time
+        quantity_per_dose:
+          type: string
+          description: Decimal as string (preserves precision).
+        unit:
+          type: string
+        dose:
+          $ref: "#/components/schemas/TodayDose"
+          nullable: true
+        timer_state:
+          $ref: "#/components/schemas/TimerStateOut"
+          nullable: true
+
+    TodayDose:
+      type: object
+      description: Phase 4 shape — unchanged.
+      required: [id, taken_at, quantity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        taken_at:
+          type: string
+          format: date-time
+        quantity:
+          type: string
+
+    MedicationListOut:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MedicationOut"
+
+    MedicationOut:
+      type: object
+      description: |
+        Existing Phase 3 shape with `timer_state` added in Phase 5. All
+        existing fields are unchanged.
+      required: [id, name, times_per_day, quantity_per_dose, unit, timer_preference, timer_state]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        times_per_day:
+          type: integer
+        quantity_per_dose:
+          type: string
+        unit:
+          type: string
+        timer_preference:
+          type: string
+          enum: [none, count_up, count_down, multi_sub_dose]
+        min_interval_minutes:
+          type: integer
+          nullable: true
+        window_duration_minutes:
+          type: integer
+          nullable: true
+        timer_state:
+          $ref: "#/components/schemas/TimerStateOut"
+          nullable: true
+
+    MedicationDetailOut:
+      description: |
+        Phase 5 introduces the detail endpoint. Initial shape equals
+        `MedicationOut`; kept distinct so Phase 6 can diverge cleanly.
+      allOf:
+        - $ref: "#/components/schemas/MedicationOut"
+
+    # ----- Existing Phase 4 dose request/response shapes -----
+    CreateDoseRequest:
+      type: object
+      required: [medication_id]
+      properties:
+        medication_id:
+          type: string
+          format: uuid
+        schedule_id:
+          type: string
+          format: uuid
+          nullable: true
+        taken_at:
+          type: string
+          format: date-time
+          description: Optional override; defaults to `now`.
+
+    DoseRead:
+      type: object
+      required: [id, medication_id, taken_at, quantity, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        medication_id:
+          type: string
+          format: uuid
+        schedule_id:
+          type: string
+          format: uuid
+          nullable: true
+        taken_at:
+          type: string
+          format: date-time
+        quantity:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ----- New error shape -----
+    MinIntervalViolation:
+      type: object
+      description: |
+        Returned with HTTP 409 when a `count_down` medication's mark-as-taken
+        request arrives before the configured minimum interval has elapsed.
+      required: [code, medication_id, next_allowed_at, remaining_seconds]
+      properties:
+        code:
+          type: string
+          enum: [min_interval_not_elapsed]
+        medication_id:
+          type: string
+          format: uuid
+        next_allowed_at:
+          type: string
+          format: date-time
+        remaining_seconds:
+          type: integer
+          minimum: 1
+
+    WindowFullViolation:
+      type: object
+      description: |
+        Returned with HTTP 409 when a `multi_sub_dose` medication's
+        mark-as-taken request would exceed `times_per_day` doses within
+        an active window. The body identifies the medication, the
+        window-end timestamp, and the slot counts.
+      required: [code, medication_id, window_end, slots_used, slots_total]
+      properties:
+        code:
+          type: string
+          enum: [window_full]
+        medication_id:
+          type: string
+          format: uuid
+        window_end:
+          type: string
+          format: date-time
+        slots_used:
+          type: integer
+          minimum: 1
+        slots_total:
+          type: integer
+          minimum: 1
+
+    NotFound:
+      type: object
+      description: Generic 404 body shape; existence-leak-free.
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: "Not Found"

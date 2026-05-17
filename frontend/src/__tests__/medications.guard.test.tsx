@@ -7,6 +7,7 @@ import {
   createRouter,
   createMemoryHistory,
   RouterProvider,
+  type AnyRoute,
 } from "@tanstack/react-router";
 
 vi.mock("@/lib/api", () => ({
@@ -31,7 +32,11 @@ function renderRouter(initialPath: string = "/medications") {
   const medicationsRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/medications",
-    beforeLoad: MedicationsRoute.options.beforeLoad,
+    // Detach the file-route's Register-bound beforeLoad type so generic
+    // inference for this synthetic route matches the clean pattern in
+    // today.test.tsx. Runtime value is unchanged — the real auth-redirect
+    // still executes (it is the behaviour under test).
+    beforeLoad: MedicationsRoute.options.beforeLoad as unknown as never,
     component: MedicationsRoute.options.component,
   });
 
@@ -42,7 +47,13 @@ function renderRouter(initialPath: string = "/medications") {
     component: () => <div data-testid="login-stub">LOGIN_PAGE</div>,
   });
 
-  const routeTree = rootRoute.addChildren([medicationsRoute, loginRoute]);
+  // Synthetic harness tree: the route above splices the real file-route's
+  // beforeLoad (deliberately type-erased), so cast to the loose route type
+  // `addChildren` expects. Runtime behaviour is unaffected.
+  const routeTree = rootRoute.addChildren([
+    medicationsRoute,
+    loginRoute,
+  ] as unknown as AnyRoute[]);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [initialPath] }),

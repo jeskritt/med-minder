@@ -3,3 +3,5 @@ dist
 coverage
 src/routeTree.gen.ts
 src/api
+test-results
+playwright-report

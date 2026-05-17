@@ -69,15 +69,15 @@ typecheck-frontend:
 
 # Run database migrations
 migrate:
-    python -m alembic -c backend/alembic.ini upgrade head
+    cd backend; python -m alembic upgrade head
 
 # Create a new migration revision
 migrate-rev message:
-    python -m alembic -c backend/alembic.ini revision --autogenerate -m "{{message}}"
+    cd backend; python -m alembic revision --autogenerate -m "{{message}}"
 
 # Roll back the most recent migration
 migrate-down:
-    python -m alembic -c backend/alembic.ini downgrade -1
+    cd backend; python -m alembic downgrade -1
 
 # ---------------------------------------------------------------------------
 # Code generation
