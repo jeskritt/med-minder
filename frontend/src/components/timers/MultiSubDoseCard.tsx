@@ -1,4 +1,4 @@
-import { useTakeDose } from "@/hooks/useTakeDose";
+import { useTakeDose, WindowFullError } from "@/hooks/useTakeDose";
 import { windowProgress } from "@/lib/timers";
 import type { components } from "@/api/v1";
 
@@ -64,6 +64,13 @@ export function MultiSubDoseCard({
         <p role="status" className="text-xs text-amber-700">
           Last window ended with {expiredUnused} of {total} slots unused — tap
           when ready
+        </p>
+      )}
+
+      {take.error instanceof WindowFullError && (
+        <p role="alert" className="mt-1 text-xs text-red-600">
+          Window full — {take.error.body.slots_used} of{" "}
+          {take.error.body.slots_total} this window
         </p>
       )}
 

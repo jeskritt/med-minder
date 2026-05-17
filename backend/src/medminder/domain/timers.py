@@ -78,6 +78,81 @@ class MinIntervalNotElapsedError(Exception):
         self.remaining_seconds = remaining_seconds
 
 
+class WindowFullError(Exception):
+    """Raised when a multi_sub_dose med's active window is already full."""
+
+    def __init__(
+        self,
+        *,
+        medication_id: uuid.UUID,
+        window_end: datetime,
+        slots_used: int,
+        slots_total: int,
+    ) -> None:
+        super().__init__(
+            f"multi_sub_dose window full for medication {medication_id}: "
+            f"{slots_used}/{slots_total}."
+        )
+        self.medication_id = medication_id
+        self.window_end = window_end
+        self.slots_used = slots_used
+        self.slots_total = slots_total
+
+
+def group_windows(
+    taken_ats_oldest_first: list[datetime],
+    window_duration: timedelta,
+) -> list[tuple[datetime, list[datetime]]]:
+    """Group dose timestamps into non-overlapping windows.
+
+    A dose extends the current window if it falls before that window's
+    end; otherwise it opens a new window. Single source of truth for
+    multi_sub_dose window arithmetic — used by both ``compute_timer_state``
+    and the ``create_dose`` overdose guard.
+    """
+    windows: list[tuple[datetime, list[datetime]]] = []
+    for taken in taken_ats_oldest_first:
+        if windows:
+            start, members = windows[-1]
+            if taken < start + window_duration:
+                members.append(taken)
+                continue
+        windows.append((taken, [taken]))
+    return windows
+
+
+def multi_sub_dose_window_full(
+    med: Medication,
+    non_voided_taken_ats_oldest_first: list[datetime],
+    prospective_taken_at: datetime,
+) -> WindowFullError | None:
+    """Return a ``WindowFullError`` iff a dose at ``prospective_taken_at``
+    would land in an existing window that is already at capacity.
+
+    Order-independent and consistent with ``compute_timer_state``'s
+    window model: a window spans ``[start, start + window_duration)``
+    and holds at most ``times_per_day`` non-voided doses.
+    """
+    if med.window_duration_minutes is None or med.window_duration_minutes <= 0:
+        return None
+    window_duration = timedelta(minutes=med.window_duration_minutes)
+    slots_total = med.times_per_day
+    for start, members in group_windows(
+        non_voided_taken_ats_oldest_first, window_duration
+    ):
+        end = start + window_duration
+        if start <= prospective_taken_at < end:
+            if len(members) >= slots_total:
+                return WindowFullError(
+                    medication_id=med.id,
+                    window_end=end,
+                    slots_used=len(members),
+                    slots_total=slots_total,
+                )
+            return None
+    return None
+
+
 def compute_timer_state(
     med: Medication,
     doses: list[Dose],
@@ -168,18 +243,11 @@ def compute_timer_state(
                 ),
             )
 
-        # Walk oldest-first, grouping doses into non-overlapping windows.
-        # A dose extends the current window if it falls before that
-        # window's end; otherwise it opens a new window.
-        windows: list[tuple[datetime, list[datetime]]] = []
-        for dose in reversed(doses):
-            taken = dose.taken_at
-            if windows:
-                start, members = windows[-1]
-                if taken < start + window_duration:
-                    members.append(taken)
-                    continue
-            windows.append((taken, [taken]))
+        # Group oldest-first into non-overlapping windows (shared helper —
+        # same arithmetic the create_dose overdose guard uses).
+        windows = group_windows(
+            [d.taken_at for d in reversed(doses)], window_duration
+        )
 
         start, members = windows[-1]
         end = start + window_duration
@@ -229,5 +297,8 @@ __all__ = [
     "MultiSubDosePayload",
     "TimerMode",
     "TimerState",
+    "WindowFullError",
     "compute_timer_state",
+    "group_windows",
+    "multi_sub_dose_window_full",
 ]

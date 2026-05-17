@@ -14,9 +14,12 @@ from medminder.api import doses as doses_api
 from medminder.api import me as me_api
 from medminder.api import medications as medications_api
 from medminder.api import schedules as schedules_api
-from medminder.api.schemas.errors import MinIntervalViolation
+from medminder.api.schemas.errors import (
+    MinIntervalViolation,
+    WindowFullViolation,
+)
 from medminder.db import make_async_engine, make_async_session_factory
-from medminder.domain.timers import MinIntervalNotElapsedError
+from medminder.domain.timers import MinIntervalNotElapsedError, WindowFullError
 from medminder.settings import Settings
 
 
@@ -86,6 +89,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             medication_id=exc.medication_id,
             next_allowed_at=exc.next_allowed_at,
             remaining_seconds=exc.remaining_seconds,
+        )
+        return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
+
+    @app.exception_handler(WindowFullError)
+    async def _window_full_handler(
+        _request: Request, exc: WindowFullError
+    ) -> JSONResponse:
+        body = WindowFullViolation(
+            code="window_full",
+            medication_id=exc.medication_id,
+            window_end=exc.window_end,
+            slots_used=exc.slots_used,
+            slots_total=exc.slots_total,
         )
         return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
 

@@ -32,7 +32,10 @@ from medminder.db.models import (
     ScheduleMedication,
     User,
 )
-from medminder.domain.timers import MinIntervalNotElapsedError
+from medminder.domain.timers import (
+    MinIntervalNotElapsedError,
+    multi_sub_dose_window_full,
+)
 from medminder.domain.timezone import resolve_today_bounds
 
 
@@ -125,6 +128,27 @@ async def create_dose(
                     next_allowed_at=next_allowed_at,
                     remaining_seconds=remaining,
                 )
+
+    if med.timer_preference == "multi_sub_dose":
+        voided_exists = (
+            select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+        )
+        taken_ats = list(
+            (
+                await session.execute(
+                    select(Dose.taken_at)
+                    .where(
+                        Dose.user_id == user.id,
+                        Dose.medication_id == medication_id,
+                        not_(voided_exists),
+                    )
+                    .order_by(Dose.taken_at.asc())
+                )
+            ).scalars()
+        )
+        violation = multi_sub_dose_window_full(med, taken_ats, taken_at)
+        if violation is not None:
+            raise violation
 
     effective_quantity = quantity if quantity is not None else med.quantity_per_dose
 

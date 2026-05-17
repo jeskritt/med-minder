@@ -8,7 +8,7 @@ info:
       - GET /api/schedules/today               — adds `timer_state` to each item.
       - GET /api/v1/medications                — adds `timer_state` to each item.
       - GET /api/v1/medications/{id}           — NEW endpoint.
-      - POST /api/doses                        — adds 409 response with MinIntervalViolation body.
+      - POST /api/doses                        — adds 409 (MinIntervalViolation | WindowFullViolation).
 
     The authoritative API document is the FastAPI-emitted OpenAPI spec at runtime;
     this file documents the agreed shape pre-implementation so reviewers can
@@ -118,14 +118,19 @@ paths:
                 $ref: "#/components/schemas/DoseRead"
         "409":
           description: |
-            The medication is `count_down` and its minimum interval has not
-            elapsed since the previous non-voided dose. The body identifies
-            the medication, the next-allowed timestamp, and the remaining
-            seconds.
+            The dose is rejected by a server-side overdose guard. Either:
+            (a) the medication is `count_down` and its minimum interval has
+            not elapsed since the previous non-voided dose
+            (`MinIntervalViolation`), or (b) the medication is
+            `multi_sub_dose` and the dose would land in an active window
+            already at capacity (`WindowFullViolation`). Both hold against
+            direct API calls that bypass the UI (FR-006).
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MinIntervalViolation"
+                oneOf:
+                  - $ref: "#/components/schemas/MinIntervalViolation"
+                  - $ref: "#/components/schemas/WindowFullViolation"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -399,6 +404,31 @@ components:
           type: string
           format: date-time
         remaining_seconds:
+          type: integer
+          minimum: 1
+
+    WindowFullViolation:
+      type: object
+      description: |
+        Returned with HTTP 409 when a `multi_sub_dose` medication's
+        mark-as-taken request would exceed `times_per_day` doses within
+        an active window. The body identifies the medication, the
+        window-end timestamp, and the slot counts.
+      required: [code, medication_id, window_end, slots_used, slots_total]
+      properties:
+        code:
+          type: string
+          enum: [window_full]
+        medication_id:
+          type: string
+          format: uuid
+        window_end:
+          type: string
+          format: date-time
+        slots_used:
+          type: integer
+          minimum: 1
+        slots_total:
           type: integer
           minimum: 1
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,6 +107,38 @@ async def test_create_dose_422_unlinked_schedule(
         },
     )
     assert resp.status_code == 422
+
+
+async def test_create_dose_omitting_taken_at_defaults_to_now(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """`taken_at` is optional (contract: 'defaults to now') — server fills it."""
+    user = await create_user(
+        session,
+        email="utz@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    med = await make_medication(session, user=user)
+    sched = await make_schedule(session, user=user)
+    session.add(
+        ScheduleMedication(schedule_id=sched.id, medication_id=med.id)
+    )
+    await session.flush()
+
+    before = datetime.now(UTC)
+    await _login(client, "utz@example.com")
+    resp = await client.post(
+        "/api/doses",
+        json={"medication_id": str(med.id), "schedule_id": str(sched.id)},
+    )
+    assert resp.status_code == 201, resp.text
+    taken_at = datetime.fromisoformat(resp.json()["taken_at"])
+    after = datetime.now(UTC)
+    assert before - timedelta(seconds=5) <= taken_at <= after + timedelta(
+        seconds=5
+    )
 
 
 async def test_create_dose_401_unauthenticated(client: AsyncClient) -> None:

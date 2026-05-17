@@ -263,11 +263,8 @@ export interface components {
             medication_id: string;
             /** Schedule Id */
             schedule_id?: string | null;
-            /**
-             * Taken At
-             * Format: date-time
-             */
-            taken_at: string;
+            /** Taken At */
+            taken_at?: string | null;
             /** Quantity */
             quantity?: number | string | null;
         };
@@ -606,6 +603,31 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * WindowFullViolation
+         * @description HTTP 409 body when a multi_sub_dose med's active window is full.
+         */
+        WindowFullViolation: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "window_full";
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /** Slots Used */
+            slots_used: number;
+            /** Slots Total */
+            slots_total: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -882,7 +904,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MinIntervalViolation"];
+                    "application/json": components["schemas"]["MinIntervalViolation"] | components["schemas"]["WindowFullViolation"];
                 };
             };
             /** @description Validation Error */

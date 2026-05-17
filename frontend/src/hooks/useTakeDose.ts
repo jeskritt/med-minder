@@ -21,6 +21,7 @@ import { todayQueryKey, type TodayResponse } from "@/hooks/useToday";
 import type { components } from "@/api/v1";
 
 type MinIntervalViolation = components["schemas"]["MinIntervalViolation"];
+type WindowFullViolation = components["schemas"]["WindowFullViolation"];
 
 export class MinIntervalError extends Error {
   readonly body: MinIntervalViolation;
@@ -28,6 +29,16 @@ export class MinIntervalError extends Error {
   constructor(body: MinIntervalViolation) {
     super("min_interval_not_elapsed");
     this.name = "MinIntervalError";
+    this.body = body;
+  }
+}
+
+export class WindowFullError extends Error {
+  readonly body: WindowFullViolation;
+
+  constructor(body: WindowFullViolation) {
+    super("window_full");
+    this.name = "WindowFullError";
     this.body = body;
   }
 }
@@ -56,7 +67,11 @@ export function useTakeDose() {
         },
       });
       if (response.status === 409 && error) {
-        throw new MinIntervalError(error as MinIntervalViolation);
+        const body = error as MinIntervalViolation | WindowFullViolation;
+        if (body.code === "window_full") {
+          throw new WindowFullError(body);
+        }
+        throw new MinIntervalError(body);
       }
       if (error) {
         throw new Error("Failed to mark dose as taken");

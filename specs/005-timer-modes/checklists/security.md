@@ -9,7 +9,21 @@ shared `MinIntervalViolation` error body.
 **Walked**: 2026-05-16 (Phase 5 Polish, T063)
 **Constitution principle**: I — Security-Conscious by Default (NON-NEGOTIABLE)
 
-## Server-side enforcement (the count_down guard)
+## Server-side enforcement (overdose guards)
+
+> **Pre-Phase-6 addition:** `multi_sub_dose` now has a **symmetric**
+> server-side overdose guard. `create_dose` raises `WindowFullError`
+> (→ HTTP 409 `WindowFullViolation`) when a dose would exceed
+> `times_per_day` within an active window, before the `Dose` row is
+> added — closing the asymmetry where multi_sub_dose enforcement was
+> client-only (FR-008a). Window arithmetic is shared with
+> `compute_timer_state` via `domain/timers.group_windows` (single source
+> of truth). Covered by `tests/domain/test_doses_multi_sub_dose_guard.py`
+> and `tests/api/test_doses_multi_sub_dose_guard.py` (direct-API 409,
+> exact body, FR-006-style bypass). The count_down checklist below
+> applies equally in spirit to this guard.
+
+### The count_down guard
 
 - [x] `MinIntervalNotElapsedError` is raised inside `domain/doses.create_dose()`, before the `Dose` row is `session.add()`-ed; no path that creates a dose can bypass it. — `backend/src/medminder/domain/doses.py` raises after ownership/schedule validation and *before* `Dose(...)` construction.
 - [x] An integration test in `backend/tests/api/test_doses_count_down_guard.py` issues `POST /api/doses` directly via `httpx.AsyncClient`, bypassing the frontend, and confirms HTTP 409 + the documented body shape (FR-006). — plus a **live curl** run (T061): 1st dose `201`, immediate 2nd dose `409`.

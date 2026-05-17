@@ -20,4 +20,16 @@ class MinIntervalViolation(BaseModel):
     remaining_seconds: int = Field(ge=1)
 
 
-__all__ = ["MinIntervalViolation"]
+class WindowFullViolation(BaseModel):
+    """HTTP 409 body when a multi_sub_dose med's active window is full."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["window_full"]
+    medication_id: uuid.UUID
+    window_end: datetime
+    slots_used: int = Field(ge=1)
+    slots_total: int = Field(ge=1)
+
+
+__all__ = ["MinIntervalViolation", "WindowFullViolation"]
