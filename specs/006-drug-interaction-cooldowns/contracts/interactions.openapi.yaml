@@ -1,0 +1,408 @@
+openapi: 3.1.0
+info:
+  title: MedMinder Drug-Interaction Cooldowns (Phase 6)
+  version: "0.6.0"
+  description: |
+    Contract fragment for the endpoint deltas Phase 6 introduces. The
+    authoritative API document is the FastAPI-emitted OpenAPI spec at
+    runtime; this file documents the agreed shape pre-implementation so
+    reviewers can challenge it before any code is written. The
+    implementation MUST conform; CI fails if the regenerated frontend
+    client drifts.
+
+    Deltas:
+      - POST   /api/doses                                              — request gains `interaction_acknowledged`; adds 409 InteractionCooldownViolation (distinct `code` from the Phase 5 overdose 409s).
+      - GET    /api/schedules/today                                    — each item gains nullable `interaction_state`.
+      - GET    /api/v1/medications                                     — each item gains nullable `interaction_state`.
+      - GET    /api/v1/medications/{id}                                — gains nullable `interaction_state`.
+      - GET    /api/v1/medications/{medication_id}/interactions        — NEW: list rules for one of the user's meds.
+      - POST   /api/v1/medications/{medication_id}/interactions        — NEW: create a symmetric rule.
+      - DELETE /api/v1/medications/{medication_id}/interactions/{id}   — NEW: remove a rule. (No update endpoint — clarified scope: create + delete only.)
+
+    Enforcement model is ADR-0008 (warn + explicit confirm + audited
+    override; always overridable; distinct from the non-overridable
+    Phase 5 overdose 409s).
+
+servers:
+  - url: /
+    description: Backend served at root; the frontend reaches it via the dev proxy or production reverse proxy.
+
+paths:
+  /api/doses:
+    post:
+      operationId: doses_create
+      summary: Mark a medication as taken (Phase 6 delta)
+      description: |
+        Phase 6 delta: `DoseCreate` gains `interaction_acknowledged`
+        (default false). With a detected interaction conflict and no
+        acknowledgment, NO `doses` row is written and a 409
+        `InteractionCooldownViolation` is returned. With acknowledgment,
+        the dose is recorded AND one append-only
+        `dose_interaction_overrides` row per active conflict is written
+        in the same transaction. The non-overridable Phase 5 overdose
+        guards (count_down / multi_sub_dose) run first and are NOT
+        weakened by `interaction_acknowledged`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoseCreate"
+      responses:
+        "201":
+          description: Dose recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoseRead"
+        "401":
+          description: Not authenticated.
+        "403":
+          description: Medication not owned by the user.
+        "409":
+          description: |
+            Conflict. `code` discriminates: the Phase 5
+            `min_interval_not_elapsed` / `window_full` (non-overridable)
+            or the Phase 6 `interaction_cooldown_active` (overridable by
+            retrying with `interaction_acknowledged: true`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MinIntervalViolation"
+                  - $ref: "#/components/schemas/WindowFullViolation"
+                  - $ref: "#/components/schemas/InteractionCooldownViolation"
+                discriminator:
+                  propertyName: code
+        "422":
+          description: Validation error.
+
+  /api/schedules/today:
+    get:
+      operationId: schedules_today
+      summary: Today's scheduled doses with timer + interaction state
+      description: |
+        Phase 6 delta: each item gains `interaction_state`
+        (nullable; null when no conflict is currently active for that
+        medication). Phase 5 `timer_state` and all earlier fields
+        unchanged.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayResponse"
+        "401":
+          description: Not authenticated.
+
+  /api/v1/medications:
+    get:
+      operationId: medications_list
+      summary: List medications with timer + interaction state
+      description: |
+        Phase 6 delta: each `MedicationOut` gains nullable
+        `interaction_state`. Soft-deleted medications are excluded and
+        never warn.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MedicationOut"
+        "401":
+          description: Not authenticated.
+
+  /api/v1/medications/{id}:
+    get:
+      operationId: medications_detail
+      summary: Medication detail with timer + interaction state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicationDetailOut"
+        "401":
+          description: Not authenticated.
+        "404":
+          description: Not found or not owned (no existence leak).
+
+  /api/v1/medications/{medication_id}/interactions:
+    get:
+      operationId: medication_interactions_list
+      summary: List interaction rules involving this medication
+      description: |
+        Returns every rule where `medication_id` is either side of the
+        unordered pair. Scoped to the logged-in user's own medications.
+      parameters:
+        - name: medication_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InteractionRuleOut"
+        "401":
+          description: Not authenticated.
+        "404":
+          description: Medication not found or not owned.
+    post:
+      operationId: medication_interactions_create
+      summary: Create a symmetric interaction rule
+      description: |
+        Creates one row for the unordered pair (`medication_id`,
+        `other_medication_id`) with a positive `cooldown_minutes`. Both
+        medications must be owned by the user and non-deleted. There is
+        no update endpoint — changing a cooldown is delete-then-recreate.
+      parameters:
+        - name: medication_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InteractionRuleCreate"
+      responses:
+        "201":
+          description: Rule created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InteractionRuleOut"
+        "401":
+          description: Not authenticated.
+        "404":
+          description: A referenced medication is not found or not owned.
+        "409":
+          description: A rule already exists for this unordered pair.
+        "422":
+          description: |
+            Self-pair, non-positive `cooldown_minutes`, or other
+            boundary-validation failure.
+
+  /api/v1/medications/{medication_id}/interactions/{interaction_id}:
+    delete:
+      operationId: medication_interactions_delete
+      summary: Remove an interaction rule
+      parameters:
+        - name: medication_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: interaction_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removed (idempotent on an already-absent rule is 404).
+        "401":
+          description: Not authenticated.
+        "404":
+          description: Rule or medication not found or not owned.
+
+components:
+  schemas:
+
+    DoseCreate:
+      type: object
+      required: [medication_id]
+      properties:
+        medication_id:
+          type: string
+          format: uuid
+        schedule_id:
+          type: string
+          format: uuid
+          nullable: true
+        taken_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Defaults to server now() when omitted.
+        quantity:
+          type: string
+          nullable: true
+          description: Decimal as string; defaults to the medication's per-dose quantity.
+        interaction_acknowledged:
+          type: boolean
+          default: false
+          description: |
+            Phase 6. When true, an otherwise-blocking active interaction
+            conflict is overridden: the dose is recorded and the
+            override is audited. Has no effect when there is no active
+            interaction conflict, and never weakens the Phase 5
+            overdose guards.
+
+    DoseRead:
+      type: object
+      required: [id, medication_id, taken_at, quantity, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        medication_id: { type: string, format: uuid }
+        schedule_id: { type: string, format: uuid, nullable: true }
+        taken_at: { type: string, format: date-time }
+        quantity: { type: string }
+        created_at: { type: string, format: date-time }
+
+    InteractionStateOut:
+      type: object
+      nullable: true
+      description: |
+        Null when no interaction conflict is currently active for the
+        medication. When present, the client seeds its local counter
+        from `as_of` and ticks `remaining_seconds` down without polling.
+      required: [as_of, conflicts, cooldown_elapses_at, remaining_seconds]
+      properties:
+        as_of:
+          type: string
+          format: date-time
+        conflicts:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ConflictOut"
+        cooldown_elapses_at:
+          type: string
+          format: date-time
+          description: Latest-ending active conflict.
+        remaining_seconds:
+          type: integer
+          minimum: 0
+          description: For the latest-ending conflict; clamped at 0.
+
+    ConflictOut:
+      type: object
+      required:
+        [conflicting_medication_id, conflicting_medication_name, cooldown_elapses_at, remaining_seconds]
+      properties:
+        conflicting_medication_id: { type: string, format: uuid }
+        conflicting_medication_name: { type: string }
+        cooldown_elapses_at: { type: string, format: date-time }
+        remaining_seconds: { type: integer, minimum: 0 }
+
+    InteractionCooldownViolation:
+      type: object
+      description: |
+        409 body for an unacknowledged active interaction conflict.
+        `code` is distinct from the Phase 5 overdose codes; this
+        conflict is always overridable by retrying with
+        `interaction_acknowledged: true`.
+      required: [code, medication_id, conflicts, cooldown_elapses_at, remaining_seconds]
+      properties:
+        code:
+          type: string
+          enum: ["interaction_cooldown_active"]
+        medication_id: { type: string, format: uuid }
+        conflicts:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ConflictOut"
+        cooldown_elapses_at: { type: string, format: date-time }
+        remaining_seconds: { type: integer, minimum: 0 }
+
+    MinIntervalViolation:
+      type: object
+      description: Phase 5 — non-overridable count_down overdose guard.
+      required: [code, medication_id, next_allowed_at, remaining_seconds]
+      properties:
+        code: { type: string, enum: ["min_interval_not_elapsed"] }
+        medication_id: { type: string, format: uuid }
+        next_allowed_at: { type: string, format: date-time }
+        remaining_seconds: { type: integer, minimum: 1 }
+
+    WindowFullViolation:
+      type: object
+      description: Phase 5 — non-overridable multi_sub_dose overdose guard.
+      required: [code, medication_id, window_end, slots_used, slots_total]
+      properties:
+        code: { type: string, enum: ["window_full"] }
+        medication_id: { type: string, format: uuid }
+        window_end: { type: string, format: date-time }
+        slots_used: { type: integer, minimum: 1 }
+        slots_total: { type: integer, minimum: 1 }
+
+    InteractionRuleCreate:
+      type: object
+      required: [other_medication_id, cooldown_minutes]
+      properties:
+        other_medication_id:
+          type: string
+          format: uuid
+          description: Must be one of the user's own non-deleted medications, not equal to the path medication.
+        cooldown_minutes:
+          type: integer
+          minimum: 1
+          description: Bounded positive integer.
+
+    InteractionRuleOut:
+      type: object
+      required: [id, medication_id, conflicting_medication_id, conflicting_medication_name, cooldown_minutes, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        medication_id: { type: string, format: uuid }
+        conflicting_medication_id: { type: string, format: uuid }
+        conflicting_medication_name:
+          type: string
+          description: Display name of the other medication for the "Conflicts with" list.
+        cooldown_minutes: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+
+    TodayResponse:
+      type: object
+      description: |
+        Unchanged envelope from Phase 4/5; each item additionally
+        carries nullable `interaction_state`. Only the Phase 6 delta is
+        modelled here — see the runtime OpenAPI for the full shape.
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              interaction_state:
+                $ref: "#/components/schemas/InteractionStateOut"
+
+    MedicationOut:
+      type: object
+      description: Phase 6 delta only — adds nullable `interaction_state`.
+      properties:
+        interaction_state:
+          $ref: "#/components/schemas/InteractionStateOut"
+
+    MedicationDetailOut:
+      type: object
+      description: Phase 6 delta only — adds nullable `interaction_state`.
+      properties:
+        interaction_state:
+          $ref: "#/components/schemas/InteractionStateOut"

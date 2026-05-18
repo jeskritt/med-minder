@@ -360,9 +360,11 @@ remove it and confirm both medications are takeable again with no warning.
   (non-negative).
 - **InteractionConflictResponse** *(structured overridable response for
   FR-002/FR-004; sibling to, but distinct from, the Phase 5 overdose error
-  shapes)*: `code` (stable, e.g. `"interaction_cooldown_active"`, distinct
-  from Phase 5 codes), `medication_id`, `conflicts` (id + display name
-  per conflicting medication), `cooldown_elapses_at`, `remaining_seconds`.
+  shapes; the concrete wire model is named `InteractionCooldownViolation`
+  in plan/contracts/data-model)*: `code` (stable, e.g.
+  `"interaction_cooldown_active"`, distinct from Phase 5 codes),
+  `medication_id`, `conflicts` (id + display name per conflicting
+  medication), `cooldown_elapses_at`, `remaining_seconds`.
 - **Interaction override record** *(audit; persisted)*: an attributable
   record that a user was warned of an active interaction and explicitly
   proceeded — links to the recorded dose and the conflicting
@@ -405,8 +407,11 @@ remove it and confirm both medications are takeable again with no warning.
   `docs/diagrams/`, **ADR-0008 is promoted to `Accepted`**, and a
   security-review note covering the new write-path acknowledgment, override
   audit, and cross-user isolation is present in the PR description.
-- **SC-009**: Project coverage stays ≥85%; the new interaction-detector
-  module reaches ≥95% line coverage; the per-module 70% floor is preserved.
+- **SC-009**: Project coverage stays ≥85% (machine-enforced by
+  `--cov-fail-under=85`). The new interaction-detector module reaching
+  ≥95% line coverage and the constitution's 70% per-module floor are
+  verified by manual review of the coverage report in the gate task
+  (no separate per-module machine gate is added in Phase 6).
 
 ## Assumptions
 
