@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -180,25 +182,39 @@ async def test_soft_delete_missing(session: AsyncSession) -> None:
 
 
 async def test_list_users_filters(session: AsyncSession) -> None:
+    # list_users() is global (every row, not just this test's). Assert
+    # membership of the rows we create, not exact whole-table equality
+    # — the latter breaks against any user committed outside the test
+    # transaction (e.g. e2e-seeded users in a shared dev DB). Unique
+    # emails keep the assertions unambiguous regardless of residue.
+    user_email = f"a-{uuid4().hex}@example.com"
+    admin_email = f"b-{uuid4().hex}@example.com"
     await create_user(
         session,
-        email="a@example.com",
+        email=user_email,
         name="A",
         role="user",
         password="correct horse battery staple",
     )
     await create_user(
         session,
-        email="b@example.com",
+        email=admin_email,
         name="B",
         role="admin",
         password="correct horse battery staple",
     )
-    admins = await list_users(session, role="admin")
-    assert {u.email for u in admins} == {"b@example.com"}
 
-    await soft_delete_user(session, email="a@example.com")
-    active = await list_users(session)
-    assert {u.email for u in active} == {"b@example.com"}
-    everyone = await list_users(session, include_deleted=True)
-    assert {u.email for u in everyone} == {"a@example.com", "b@example.com"}
+    admin_emails = {u.email for u in await list_users(session, role="admin")}
+    assert admin_email in admin_emails
+    assert user_email not in admin_emails
+
+    await soft_delete_user(session, email=user_email)
+    active_emails = {u.email for u in await list_users(session)}
+    assert user_email not in active_emails
+    assert admin_email in active_emails
+
+    everyone_emails = {
+        u.email for u in await list_users(session, include_deleted=True)
+    }
+    assert user_email in everyone_emails
+    assert admin_email in everyone_emails

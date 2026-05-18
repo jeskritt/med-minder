@@ -47,13 +47,18 @@ async def settings() -> Settings:
 
 @pytest_asyncio.fixture(scope="session")
 async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
-    # NullPool: tests sometimes call ``asyncio.run()`` multiple times in
-    # a single test (e.g. backup/restore round-trip), each spinning up
-    # and tearing down its own loop.  asyncpg connections are bound to
-    # the loop they were created in, so a pooled connection from a
-    # closed loop blows up the next checkout with "Future attached to
-    # a different loop".  NullPool sidesteps that by opening a fresh
-    # connection per checkout.
+    # NullPool is load-bearing — do NOT swap for a pooled engine.
+    # CLI tests invoke ``asyncio.run()`` internally (the Typer commands
+    # run their own loop, e.g. backup/restore round-trips), creating
+    # and tearing down loops *independently of pytest-asyncio's loop
+    # scope*.  asyncpg connections are bound to the loop they were
+    # opened in, so a pooled connection from a torn-down loop blows up
+    # (or, observed empirically, deadlocks indefinitely) on the next
+    # checkout.  Re-verified under pytest-asyncio 1.x session loop
+    # scope: removing NullPool still hangs the suite, because the
+    # hazard comes from loops the *tests* spawn, not the test/fixture
+    # loop pytest-asyncio governs.  NullPool sidesteps it by opening a
+    # fresh connection per checkout.
     eng = create_async_engine(
         settings.database_url,
         connect_args={

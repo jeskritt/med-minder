@@ -87,10 +87,20 @@ test.describe("Timer modes — count_down boundary", () => {
     await expect(doseBtn).toBeEnabled();
     await expect(doseBtn).toHaveText(/mark taken|ready/i);
 
-    // Click once at the boundary and confirm the server accepts it
-    // (no 409 inline alert) — SC-006 client/server agreement.
+    // Client ticker zero ≠ server-clocked 60s: the server clocks the
+    // min-interval from the recorded dose #1 timestamp, so its window
+    // ends slightly after the client countdown reaches 0 (POST/fetch
+    // latency, sub-2s on localhost). Wait a bounded buffer so the 2nd
+    // click is unambiguously past the server boundary — the test
+    // budget (test.setTimeout(150_000)) still has ample headroom.
+    await page.waitForTimeout(5000);
+
+    // SC-006: at/after the boundary the server accepts AND the client
+    // agrees — no 409 inline alert, and the accepted dose restarts the
+    // cooldown (button re-disables), proving two-way agreement.
     await doseBtn.click();
     await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(doseBtn).toBeDisabled();
   });
 });
 
