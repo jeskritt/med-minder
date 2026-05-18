@@ -162,9 +162,10 @@ required for Phase 6 to be demoable end-to-end.
 
 **Why this priority**: The detector and warn/confirm flow (US1/US2) are the
 safety-relevant core and are demonstrable against a seeded rule. Rule
-authoring makes the feature self-sufficient but is the least
-safety-sensitive slice and may land last or be deferred per the
-clarification.
+authoring is the least safety-sensitive slice and therefore sequenced
+last, but it is a committed Phase 6 deliverable (not cuttable): the
+clarified "demoable end-to-end with no admin/CLI step" requirement only
+holds if US3 ships.
 
 **Independent Test**: Create a symmetric A↔B rule with a positive cooldown,
 confirm the warn/confirm flow from US1 applies in both directions, then
@@ -310,7 +311,10 @@ remove it and confirm both medications are takeable again with no warning.
   `cooldown_minutes`, to view existing rules, and to remove a rule. Rule
   authoring, viewing, and removal are surfaced in the medication add/edit
   UI ("conflicts with" section); the medication selector MUST offer only
-  the logged-in user's own non-deleted medications.
+  the logged-in user's own non-deleted medications. Rules are immutable
+  in place: Phase 6 provides create and remove only; changing a
+  `cooldown_minutes` is delete-then-recreate (no update endpoint or
+  inline-edit affordance).
 - **FR-016**: Creating a rule for a pair that already has one MUST be
   rejected (one row per unordered pair, per the existing
   `ix_medication_interactions_pair` unique index).
