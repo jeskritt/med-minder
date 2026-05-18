@@ -4,10 +4,14 @@ import {
   useNavigate,
   Link,
 } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "@/lib/api";
-import { MedicationForm } from "@/components/medications/MedicationForm";
+import {
+  MedicationForm,
+  type ConflictInput,
+} from "@/components/medications/MedicationForm";
+import { createInteractionRule } from "@/hooks/useMedicationInteractions";
 import type { components } from "@/api/v1";
 
 type MedicationBody = components["schemas"]["MedicationBody"];
@@ -27,11 +31,23 @@ function NewMedicationPage() {
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
 
+  const medsQuery = useQuery({
+    queryKey: ["medications"],
+    queryFn: async () => {
+      const { data, error } = await client.GET("/api/v1/medications");
+      if (error || !data) throw new Error("Failed to load medications");
+      return data.items;
+    },
+  });
+
   const createMutation = useMutation({
-    mutationFn: async (body: MedicationBody) => {
+    mutationFn: async (input: {
+      body: MedicationBody;
+      conflicts: ConflictInput[];
+    }) => {
       const { data, error, response } = await client.POST(
         "/api/v1/medications",
-        { body },
+        { body: input.body },
       );
       if (error || !data) {
         throw new Error(
@@ -40,10 +56,30 @@ function NewMedicationPage() {
             : "Failed to create medication.",
         );
       }
+      // Sequence the rule POSTs with the new medication's id. A rule
+      // failure does not roll back the saved medication (US3 / D6).
+      const failed: string[] = [];
+      for (const c of input.conflicts) {
+        try {
+          await createInteractionRule(data.id, c);
+        } catch (e) {
+          failed.push(e instanceof Error ? e.message : "unknown error");
+        }
+      }
+      return { id: data.id, failed };
     },
-    onSuccess: async () => {
-      setServerError(null);
+    onSuccess: async ({ id, failed }) => {
       await queryClient.invalidateQueries({ queryKey: ["medications"] });
+      if (failed.length > 0) {
+        setServerError(
+          `Medication saved, but some interactions failed: ${failed.join(
+            "; ",
+          )}. Retry them from the edit page.`,
+        );
+        void navigate({ to: "/medications/$id/edit", params: { id } });
+        return;
+      }
+      setServerError(null);
       void navigate({ to: "/medications" });
     },
     onError: (err: Error) => setServerError(err.message),
@@ -60,7 +96,13 @@ function NewMedicationPage() {
 
       <MedicationForm
         mode="create"
-        onSubmit={(body) => createMutation.mutateAsync(body)}
+        availableMedications={(medsQuery.data ?? []).map((m) => ({
+          id: m.id,
+          name: m.name,
+        }))}
+        onSubmit={async (body, conflicts) => {
+          await createMutation.mutateAsync({ body, conflicts });
+        }}
         serverError={serverError}
         isSubmitting={createMutation.isPending}
       />

@@ -19,18 +19,25 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, not_, select
+from sqlalchemy import and_, func, not_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from medminder.db.models import (
     Dose,
+    DoseInteractionOverride,
     DoseVoid,
     Medication,
+    MedicationInteraction,
     Schedule,
     ScheduleMedication,
     User,
+)
+from medminder.domain.interactions import (
+    InteractionConflict,
+    MedicationInteractionConflictError,
+    detect_interaction_conflict,
 )
 from medminder.domain.timers import (
     MinIntervalNotElapsedError,
@@ -67,8 +74,19 @@ async def create_dose(
     taken_at: datetime,
     schedule_id: uuid.UUID | None = None,
     quantity: Decimal | None = None,
+    interaction_acknowledged: bool = False,
 ) -> Dose:
-    """Insert a new ``doses`` row attributed to the session user."""
+    """Insert a new ``doses`` row attributed to the session user.
+
+    ``interaction_acknowledged`` (Phase 6 / ADR-0008): when an active
+    drug-interaction cooldown is detected and this is ``False``, no
+    ``doses`` row is written and ``MedicationInteractionConflictError`` is
+    raised (→ HTTP 409, always overridable). When ``True``, the dose is
+    recorded *and* one append-only ``dose_interaction_overrides`` row
+    per active conflict is written in the same transaction. It never
+    weakens the non-overridable Phase 5 overdose guards, which run
+    first.
+    """
     med = (
         await session.execute(select(Medication).where(Medication.id == medication_id))
     ).scalar_one_or_none()
@@ -150,6 +168,83 @@ async def create_dose(
         if violation is not None:
             raise violation
 
+    # --- Drug-interaction cooldown (Phase 6 / ADR-0008) ----------------
+    # Runs AFTER the non-overridable Phase 5 overdose guards above so an
+    # acknowledgment can never defeat an overdose 409 (FR-010).
+    interaction_conflict = None
+    rules = list(
+        (
+            await session.execute(
+                select(MedicationInteraction).where(
+                    or_(
+                        MedicationInteraction.medication_id == medication_id,
+                        MedicationInteraction.conflicting_medication_id
+                        == medication_id,
+                    )
+                )
+            )
+        ).scalars()
+    )
+    if rules:
+        partner_ids = {
+            (
+                r.conflicting_medication_id
+                if r.medication_id == medication_id
+                else r.medication_id
+            )
+            for r in rules
+        }
+        # Only the user's own, non-deleted partner medications surface
+        # (cross-user isolation, FR-019; soft-deleted exclusion, FR-018).
+        name_rows = (
+            await session.execute(
+                select(Medication.id, Medication.name).where(
+                    Medication.id.in_(partner_ids),
+                    Medication.user_id == user.id,
+                    Medication.deleted_at.is_(None),
+                )
+            )
+        ).all()
+        medication_names: dict[uuid.UUID, str] = {}
+        for mid, name in name_rows:
+            medication_names[mid] = name
+        partner_last_non_voided: dict[uuid.UUID, datetime] = {}
+        if medication_names:
+            voided_exists = (
+                select(DoseVoid.id)
+                .where(DoseVoid.dose_id == Dose.id)
+                .exists()
+            )
+            last_rows = (
+                await session.execute(
+                    select(Dose.medication_id, func.max(Dose.taken_at))
+                    .where(
+                        Dose.user_id == user.id,
+                        Dose.medication_id.in_(medication_names.keys()),
+                        not_(voided_exists),
+                    )
+                    .group_by(Dose.medication_id)
+                )
+            ).all()
+            for mid, ts in last_rows:
+                partner_last_non_voided[mid] = ts
+        interaction_conflict = detect_interaction_conflict(
+            medication_id=medication_id,
+            rules=rules,
+            partner_last_non_voided=partner_last_non_voided,
+            medication_names=medication_names,
+            prospective_taken_at=taken_at,
+            now=taken_at,
+        )
+        if (
+            interaction_conflict is not None
+            and not interaction_acknowledged
+        ):
+            raise MedicationInteractionConflictError(
+                medication_id=medication_id,
+                conflict=interaction_conflict,
+            )
+
     effective_quantity = quantity if quantity is not None else med.quantity_per_dose
 
     dose = Dose(
@@ -162,6 +257,18 @@ async def create_dose(
     session.add(dose)
     await session.flush()
     await session.refresh(dose)
+
+    # Acknowledged dose over an active conflict: persist the audit in
+    # the same transaction (one row per active conflict).
+    if interaction_conflict is not None:
+        for c in interaction_conflict.conflicts:
+            session.add(
+                DoseInteractionOverride(
+                    dose_id=dose.id,
+                    conflicting_medication_id=c.conflicting_medication_id,
+                )
+            )
+        await session.flush()
     return dose
 
 
@@ -322,6 +429,98 @@ async def load_non_voided_history_for_meds(
     return out
 
 
+async def load_active_interaction_state(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    medication_ids: list[uuid.UUID],
+    now: datetime,
+) -> dict[uuid.UUID, InteractionConflict]:
+    """Currently-active interaction conflict per target medication.
+
+    Read-side counterpart to the ``create_dose`` guard (prospective
+    time is ``now``). Scoped to the user's own non-deleted medications
+    (cross-user isolation FR-019; soft-deleted exclusion FR-018);
+    voided doses never arm (FR-008). Returns only medications with at
+    least one active conflict.
+    """
+    if not medication_ids:
+        return {}
+
+    rules = list(
+        (
+            await session.execute(
+                select(MedicationInteraction).where(
+                    or_(
+                        MedicationInteraction.medication_id.in_(
+                            medication_ids
+                        ),
+                        MedicationInteraction.conflicting_medication_id.in_(
+                            medication_ids
+                        ),
+                    )
+                )
+            )
+        ).scalars()
+    )
+    if not rules:
+        return {}
+
+    involved: set[uuid.UUID] = set(medication_ids)
+    for r in rules:
+        involved.add(r.medication_id)
+        involved.add(r.conflicting_medication_id)
+
+    name_rows = (
+        await session.execute(
+            select(Medication.id, Medication.name).where(
+                Medication.id.in_(involved),
+                Medication.user_id == user_id,
+                Medication.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    medication_names: dict[uuid.UUID, str] = {}
+    for mid, name in name_rows:
+        medication_names[mid] = name
+    if not medication_names:
+        return {}
+
+    voided_exists = (
+        select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
+    )
+    last_rows = (
+        await session.execute(
+            select(Dose.medication_id, func.max(Dose.taken_at))
+            .where(
+                Dose.user_id == user_id,
+                Dose.medication_id.in_(medication_names.keys()),
+                not_(voided_exists),
+            )
+            .group_by(Dose.medication_id)
+        )
+    ).all()
+    partner_last_non_voided: dict[uuid.UUID, datetime] = {}
+    for mid, ts in last_rows:
+        partner_last_non_voided[mid] = ts
+
+    out: dict[uuid.UUID, InteractionConflict] = {}
+    for med_id in medication_ids:
+        if med_id not in medication_names:
+            continue
+        conflict = detect_interaction_conflict(
+            medication_id=med_id,
+            rules=rules,
+            partner_last_non_voided=partner_last_non_voided,
+            medication_names=medication_names,
+            prospective_taken_at=now,
+            now=now,
+        )
+        if conflict is not None:
+            out[med_id] = conflict
+    return out
+
+
 __all__ = [
     "DoseAlreadyVoidedError",
     "DoseError",
@@ -331,6 +530,7 @@ __all__ = [
     "TodayItem",
     "TodayView",
     "create_dose",
+    "load_active_interaction_state",
     "load_non_voided_history_for_meds",
     "today_view",
     "void_dose",

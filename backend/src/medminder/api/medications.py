@@ -14,6 +14,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import get_current_user, get_session
+from medminder.api.schemas.interactions import (
+    InteractionStateOut,
+    to_interaction_state_out,
+)
 from medminder.api.schemas.medications import (
     MedicationBody,
     MedicationDetailOut,
@@ -23,7 +27,10 @@ from medminder.api.schemas.medications import (
 )
 from medminder.api.schemas.timers import TimerStateOut, to_timer_state_out
 from medminder.db.models import Medication, Schedule, User
-from medminder.domain.doses import load_non_voided_history_for_meds
+from medminder.domain.doses import (
+    load_active_interaction_state,
+    load_non_voided_history_for_meds,
+)
 from medminder.domain.medications import (
     InvalidMedicationError,
     MedicationInput,
@@ -62,6 +69,7 @@ def _to_out(
     schedules: list[Schedule],
     *,
     timer_state: TimerStateOut | None = None,
+    interaction_state: InteractionStateOut | None = None,
 ) -> MedicationOut:
     return MedicationOut(
         id=med.id,
@@ -82,6 +90,7 @@ def _to_out(
         min_interval_minutes=med.min_interval_minutes,
         window_duration_minutes=med.window_duration_minutes,
         timer_state=timer_state,
+        interaction_state=interaction_state,
     )
 
 
@@ -96,13 +105,25 @@ async def list_meds(
         db, user_id=user.id, medication_ids=[m.id for m in meds]
     )
     now = datetime.now(UTC)
+    conflicts = await load_active_interaction_state(
+        db, user_id=user.id, medication_ids=[m.id for m in meds], now=now
+    )
     items: list[MedicationOut] = []
     for med in meds:
         scheds = list(
             await list_schedules_for_medication(db, medication_id=med.id)
         )
         state = compute_timer_state(med, history.get(med.id, []), now=now)
-        items.append(_to_out(med, scheds, timer_state=to_timer_state_out(state)))
+        items.append(
+            _to_out(
+                med,
+                scheds,
+                timer_state=to_timer_state_out(state),
+                interaction_state=to_interaction_state_out(
+                    conflicts.get(med.id)
+                ),
+            )
+        )
     return MedicationListOut(items=items)
 
 
@@ -130,10 +151,17 @@ async def get_med(
     history = await load_non_voided_history_for_meds(
         db, user_id=user.id, medication_ids=[med.id]
     )
-    state = compute_timer_state(
-        med, history.get(med.id, []), now=datetime.now(UTC)
+    now = datetime.now(UTC)
+    state = compute_timer_state(med, history.get(med.id, []), now=now)
+    conflicts = await load_active_interaction_state(
+        db, user_id=user.id, medication_ids=[med.id], now=now
     )
-    base = _to_out(med, schedules, timer_state=to_timer_state_out(state))
+    base = _to_out(
+        med,
+        schedules,
+        timer_state=to_timer_state_out(state),
+        interaction_state=to_interaction_state_out(conflicts.get(med.id)),
+    )
     return MedicationDetailOut(**base.model_dump())
 
 

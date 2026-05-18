@@ -36,9 +36,15 @@ returns `None` when no conflict, and **never raises**. Value objects
 list[ConflictItem])` and `ConflictItem(conflicting_medication_id,
 conflicting_medication_name, armed_dose_taken_at,
 cooldown_elapses_at, remaining_seconds)`. Exception
-`MedicationInteractionConflict` is a new subclass of the existing
-`DoseError` hierarchy (`domain/doses.py`) carrying the
-`InteractionConflict` payload.
+`MedicationInteractionConflict` is a plain `Exception` defined **in
+`domain/interactions.py`**, mirroring `MinIntervalNotElapsedError` /
+`WindowFullError` in `domain/timers.py` (those are plain Exceptions —
+*not* `DoseError` subclasses — precisely so they bubble past
+`api/doses.py`'s inline `except` to the `app.py` 409 handler). This
+keeps the module self-contained (no `domain.doses` import → no
+circular import) and is the exact sibling of the existing 409
+pattern. ADR-0008's "`DoseError` subclass" was illustrative; the
+exception's exact form was ADR-0008-deferred to this plan.
 
 **Rationale**: Mirrors the established pure-detector pattern
 (`multi_sub_dose_window_full` / `compute_timer_state` in

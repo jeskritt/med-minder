@@ -2,9 +2,16 @@
 
 ## Status
 
-Proposed — 2026-05-17 (pre-Phase 6). To be marked `Accepted` with the
-Phase 6 PR, matching ADR-0002's Proposed→Accepted-with-the-phase-PR
-lifecycle.
+**Accepted** (Phase 6 — Drug-interaction cooldowns). Originally
+Proposed 2026-05-17 (pre-Phase 6); promoted by the US1 PR alongside
+the warn + explicit-confirm + audited-override implementation
+(`backend/src/medminder/domain/interactions.py::detect_interaction_conflict`,
+the `interaction_acknowledged` path in
+`backend/src/medminder/domain/doses.py::create_dose`, and the
+append-only `dose_interaction_overrides` table). The companion Mermaid
+sequence diagram lives at
+`docs/diagrams/sequence-drug-interaction-check.md`. Matches ADR-0002's
+and ADR-0004's Proposed→Accepted-with-the-phase-PR lifecycle.
 
 ## Context
 

@@ -10,7 +10,14 @@ import { client } from "@/lib/api";
 import {
   MedicationForm,
   defaultsFromMedication,
+  type ConflictInput,
 } from "@/components/medications/MedicationForm";
+import {
+  createInteractionRule,
+  deleteInteractionRule,
+  listInteractionRules,
+  medicationRulesKey,
+} from "@/hooks/useMedicationInteractions";
 import type { components } from "@/api/v1";
 
 type MedicationBody = components["schemas"]["MedicationBody"];
@@ -32,22 +39,30 @@ function EditMedicationPage() {
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const medQuery = useQuery({
-    queryKey: ["medications", id],
-    queryFn: async (): Promise<MedicationOut> => {
+  const medsQuery = useQuery({
+    queryKey: ["medications"],
+    queryFn: async (): Promise<MedicationOut[]> => {
       const { data, error } = await client.GET("/api/v1/medications");
       if (error || !data) throw new Error("Failed to load medication");
-      const found = data.items.find((m) => m.id === id);
-      if (!found) throw new Error("Medication not found");
-      return found;
+      return data.items;
     },
   });
 
+  const rulesQuery = useQuery({
+    queryKey: medicationRulesKey(id),
+    queryFn: () => listInteractionRules(id),
+  });
+
+  const med = medsQuery.data?.find((m) => m.id === id);
+
   const updateMutation = useMutation({
-    mutationFn: async (body: MedicationBody) => {
+    mutationFn: async (input: {
+      body: MedicationBody;
+      conflicts: ConflictInput[];
+    }) => {
       const { data, error, response } = await client.PUT(
         "/api/v1/medications/{medication_id}",
-        { params: { path: { medication_id: id } }, body },
+        { params: { path: { medication_id: id } }, body: input.body },
       );
       if (error || !data) {
         throw new Error(
@@ -58,14 +73,47 @@ function EditMedicationPage() {
               : "Failed to update medication.",
         );
       }
+      // No in-place rule edit (clarified scope): delete every existing
+      // rule for this med, then recreate from the form.
+      const existing = await listInteractionRules(id);
+      const failed: string[] = [];
+      for (const r of existing) {
+        try {
+          await deleteInteractionRule(id, r.id);
+        } catch (e) {
+          failed.push(e instanceof Error ? e.message : "delete failed");
+        }
+      }
+      for (const c of input.conflicts) {
+        try {
+          await createInteractionRule(id, c);
+        } catch (e) {
+          failed.push(e instanceof Error ? e.message : "create failed");
+        }
+      }
+      return { failed };
     },
-    onSuccess: async () => {
-      setServerError(null);
+    onSuccess: async ({ failed }) => {
       await queryClient.invalidateQueries({ queryKey: ["medications"] });
+      await queryClient.invalidateQueries({
+        queryKey: medicationRulesKey(id),
+      });
+      if (failed.length > 0) {
+        setServerError(
+          `Medication saved, but some interactions failed: ${failed.join(
+            "; ",
+          )}.`,
+        );
+        return;
+      }
+      setServerError(null);
       void navigate({ to: "/medications" });
     },
     onError: (err: Error) => setServerError(err.message),
   });
+
+  const loading = medsQuery.isLoading || rulesQuery.isLoading;
+  const errored = medsQuery.isError || rulesQuery.isError || !med;
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -76,19 +124,28 @@ function EditMedicationPage() {
         </Link>
       </div>
 
-      {medQuery.isLoading && <p className="text-gray-600">Loading…</p>}
-      {medQuery.isError && (
+      {loading && <p className="text-gray-600">Loading…</p>}
+      {!loading && errored && (
         <p role="alert" className="text-red-600">
-          {medQuery.error instanceof Error
-            ? medQuery.error.message
-            : "Could not load medication."}
+          Could not load medication.
         </p>
       )}
-      {medQuery.data && (
+      {!loading && med && rulesQuery.data && (
         <MedicationForm
           mode="edit"
-          defaultValues={defaultsFromMedication(medQuery.data)}
-          onSubmit={(body) => updateMutation.mutateAsync(body)}
+          defaultValues={{
+            ...defaultsFromMedication(med),
+            conflicts: rulesQuery.data.map((r) => ({
+              other_medication_id: r.conflicting_medication_id,
+              cooldown_minutes: String(r.cooldown_minutes),
+            })),
+          }}
+          availableMedications={(medsQuery.data ?? [])
+            .filter((m) => m.id !== id)
+            .map((m) => ({ id: m.id, name: m.name }))}
+          onSubmit={async (body, conflicts) => {
+            await updateMutation.mutateAsync({ body, conflicts });
+          }}
           serverError={serverError}
           isSubmitting={updateMutation.isPending}
         />

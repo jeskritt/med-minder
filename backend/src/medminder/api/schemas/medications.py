@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from medminder.api.schemas.interactions import InteractionStateOut
 from medminder.api.schemas.timers import TimerStateOut
 
 
@@ -73,6 +74,7 @@ class MedicationOut(BaseModel):
     min_interval_minutes: int | None = None
     window_duration_minutes: int | None = None
     timer_state: TimerStateOut | None = None
+    interaction_state: InteractionStateOut | None = None
 
 
 class MedicationListOut(BaseModel):

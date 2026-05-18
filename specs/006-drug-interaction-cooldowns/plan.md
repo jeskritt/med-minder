@@ -75,7 +75,7 @@ specs/006-drug-interaction-cooldowns/
 backend/
 ├── src/medminder/
 │   ├── domain/
-│   │   ├── interactions.py        # NEW — pure detector + value objects + MedicationInteractionConflict(DoseError)
+│   │   ├── interactions.py        # NEW — pure detector + value objects + MedicationInteractionConflict (plain Exception, sibling of timers.py's)
 │   │   └── doses.py               # MODIFIED — interaction_acknowledged param + guard in create_dose(); write override rows
 │   ├── db/models/
 │   │   └── dose_interaction_overrides.py  # NEW — append-only audit table (mirrors dose_voids.py)

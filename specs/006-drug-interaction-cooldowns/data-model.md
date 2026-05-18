@@ -147,14 +147,15 @@ performs the conversion, sibling to `to_timer_state_out`.
 
 ### `MedicationInteractionConflict` (domain exception)
 
-Defined in `domain/doses.py`, **alongside** the existing `DoseError`
-hierarchy, as a `DoseError` subclass (ADR-0008). It is intentionally
-*not* placed in `domain/interactions.py`: `doses.py` imports the pure
-detector from `interactions.py` (one-directional, mirroring how
-`doses.py` imports `multi_sub_dose_window_full` from `timers.py`), so
-defining the exception in `interactions.py` while subclassing
-`DoseError` would create a circular import. `interactions.py` stays
-free of any `doses` import. Plain Python, no Pydantic.
+Defined in `domain/interactions.py` as a **plain `Exception`**
+(mirroring `MinIntervalNotElapsedError` / `WindowFullError` in
+`domain/timers.py`, which are plain Exceptions — not `DoseError`
+subclasses — so they bubble past `api/doses.py`'s inline `except` to
+the `app.py` 409 handler). `doses.py` imports it (and the detector)
+one-directionally from `interactions.py`; `interactions.py` never
+imports `doses.py`, so it is self-contained with no circular import.
+ADR-0008's "`DoseError` subclass" was illustrative and the exact
+form was ADR-0008-deferred. Plain Python, no Pydantic.
 
 | Attribute | Type | Notes |
 |---|---|---|

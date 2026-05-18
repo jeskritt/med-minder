@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
+from medminder.api.schemas.interactions import InteractionStateOut
 from medminder.api.schemas.timers import TimerStateOut
 
 
@@ -33,6 +34,7 @@ class TodayItem(BaseModel):
     unit: str
     dose: TodayDose | None
     timer_state: TimerStateOut | None = None
+    interaction_state: InteractionStateOut | None = None
 
 
 class TodayResponse(BaseModel):

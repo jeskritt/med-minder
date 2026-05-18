@@ -12,13 +12,17 @@ from fastapi.responses import JSONResponse
 from medminder.api import auth as auth_api
 from medminder.api import doses as doses_api
 from medminder.api import me as me_api
+from medminder.api import medication_interactions as medication_interactions_api
 from medminder.api import medications as medications_api
 from medminder.api import schedules as schedules_api
 from medminder.api.schemas.errors import (
+    ConflictOut,
+    InteractionCooldownViolation,
     MinIntervalViolation,
     WindowFullViolation,
 )
 from medminder.db import make_async_engine, make_async_session_factory
+from medminder.domain.interactions import MedicationInteractionConflictError
 from medminder.domain.timers import MinIntervalNotElapsedError, WindowFullError
 from medminder.settings import Settings
 
@@ -77,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_api.router)
     app.include_router(me_api.router)
     app.include_router(medications_api.router)
+    app.include_router(medication_interactions_api.router)
     app.include_router(doses_api.router)
     app.include_router(schedules_api.router)
 
@@ -102,6 +107,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             window_end=exc.window_end,
             slots_used=exc.slots_used,
             slots_total=exc.slots_total,
+        )
+        return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
+
+    @app.exception_handler(MedicationInteractionConflictError)
+    async def _interaction_conflict_handler(
+        _request: Request, exc: MedicationInteractionConflictError
+    ) -> JSONResponse:
+        latest = max(
+            exc.conflict.conflicts, key=lambda c: c.cooldown_elapses_at
+        )
+        body = InteractionCooldownViolation(
+            code="interaction_cooldown_active",
+            medication_id=exc.medication_id,
+            conflicts=[
+                ConflictOut(
+                    conflicting_medication_id=c.conflicting_medication_id,
+                    conflicting_medication_name=c.conflicting_medication_name,
+                    cooldown_elapses_at=c.cooldown_elapses_at,
+                    remaining_seconds=c.remaining_seconds,
+                )
+                for c in exc.conflict.conflicts
+            ],
+            cooldown_elapses_at=latest.cooldown_elapses_at,
+            remaining_seconds=latest.remaining_seconds,
         )
         return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
 

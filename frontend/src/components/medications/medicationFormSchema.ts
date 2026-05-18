@@ -51,7 +51,29 @@ export const medicationFormSchema = z
         time_of_day: z.string().min(1, "Time is required"),
       }),
     ),
+    conflicts: z.array(
+      z.object({
+        other_medication_id: z.string().min(1, "Pick a medication"),
+        cooldown_minutes: z
+          .string()
+          .trim()
+          .refine(
+            (v) => /^[0-9]+$/.test(v) && Number(v) > 0,
+            "Cooldown must be a whole number greater than zero",
+          ),
+      }),
+    ),
   })
+  .refine(
+    (v) => {
+      const ids = v.conflicts.map((c) => c.other_medication_id);
+      return new Set(ids).size === ids.length;
+    },
+    {
+      message: "Each medication can only be listed once",
+      path: ["conflicts"],
+    },
+  )
   .refine(
     (v) =>
       v.start_date === "" || v.end_date === "" || v.end_date >= v.start_date,

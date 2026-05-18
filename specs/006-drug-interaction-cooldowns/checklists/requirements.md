@@ -33,10 +33,11 @@
 
 - Enforcement model is fixed by ADR-0008 (warn + explicit confirm +
   audited override, not a hard block); the spec is aligned to it.
-- The single clarification (interaction-rule management surface) is
-  resolved: the end-user medication add/edit UI ("conflicts with"
-  section). No [NEEDS CLARIFICATION] markers remain.
-- Cross-doc follow-up (Phase 6 implementation, not the spec): reconcile
-  UC-4.3 wording in `docs/user_stories.md` with ADR-0008, as the spec's
-  Assumptions section flags.
+- Three clarifications (Session 2026-05-17) are resolved: the
+  interaction-rule management surface (end-user medication add/edit
+  "conflicts with" section), rule editing scope (create + delete only),
+  and US3 being a committed Phase 6 deliverable. No [NEEDS
+  CLARIFICATION] markers remain.
+- Cross-doc follow-up: UC-4.3 wording in `docs/user_stories.md` has
+  been reconciled with ADR-0008 (Phase 6 / T041).
 - All checklist items pass; the spec is ready for `/speckit-plan`.

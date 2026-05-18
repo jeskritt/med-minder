@@ -150,6 +150,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/medications/{medication_id}/interactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rules
+         * @description Every rule involving this medication (matched in either order).
+         */
+        get: operations["list_rules_api_v1_medications__medication_id__interactions_get"];
+        put?: never;
+        /**
+         * Create Rule
+         * @description Create a symmetric rule for the unordered pair.
+         */
+        post: operations["create_rule_api_v1_medications__medication_id__interactions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/medications/{medication_id}/interactions/{interaction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Rule
+         * @description Remove a rule the user owns that involves this medication.
+         */
+        delete: operations["delete_rule_api_v1_medications__medication_id__interactions__interaction_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/doses": {
         parameters: {
             query?: never;
@@ -233,6 +277,26 @@ export interface components {
             /** Slots Remaining */
             slots_remaining: number;
         };
+        /**
+         * ConflictOut
+         * @description One active drug-interaction conflict (Phase 6).
+         */
+        ConflictOut: {
+            /**
+             * Conflicting Medication Id
+             * Format: uuid
+             */
+            conflicting_medication_id: string;
+            /** Conflicting Medication Name */
+            conflicting_medication_name: string;
+            /**
+             * Cooldown Elapses At
+             * Format: date-time
+             */
+            cooldown_elapses_at: string;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+        };
         /** CountDownPayload */
         CountDownPayload: {
             /** Min Interval Seconds */
@@ -267,6 +331,11 @@ export interface components {
             taken_at?: string | null;
             /** Quantity */
             quantity?: number | string | null;
+            /**
+             * Interaction Acknowledged
+             * @default false
+             */
+            interaction_acknowledged: boolean;
         };
         /**
          * DoseRead
@@ -302,6 +371,102 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * InteractionCooldownViolation
+         * @description HTTP 409 body for an unacknowledged active interaction cooldown.
+         *
+         *     ``code`` is distinct from the Phase 5 overdose codes; this conflict
+         *     is *always overridable* by retrying with
+         *     ``interaction_acknowledged: true`` (ADR-0008).
+         */
+        InteractionCooldownViolation: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "interaction_cooldown_active";
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /** Conflicts */
+            conflicts: components["schemas"]["ConflictOut"][];
+            /**
+             * Cooldown Elapses At
+             * Format: date-time
+             */
+            cooldown_elapses_at: string;
+            /** Remaining Seconds */
+            remaining_seconds: number;
+        };
+        /**
+         * InteractionRuleCreate
+         * @description Inbound payload to create a symmetric interaction rule (US3).
+         */
+        InteractionRuleCreate: {
+            /**
+             * Other Medication Id
+             * Format: uuid
+             */
+            other_medication_id: string;
+            /** Cooldown Minutes */
+            cooldown_minutes: number;
+        };
+        /**
+         * InteractionRuleOut
+         * @description One interaction rule involving the queried medication (US3).
+         */
+        InteractionRuleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /**
+             * Conflicting Medication Id
+             * Format: uuid
+             */
+            conflicting_medication_id: string;
+            /** Conflicting Medication Name */
+            conflicting_medication_name: string;
+            /** Cooldown Minutes */
+            cooldown_minutes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * InteractionStateOut
+         * @description Read-surface interaction state for a medication (FR-011/FR-012).
+         *
+         *     ``null`` at the API boundary when no conflict is currently active;
+         *     when present the client seeds its local counter from ``as_of`` and
+         *     ticks ``remaining_seconds`` down without polling (FR-013).
+         */
+        InteractionStateOut: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Conflicts */
+            conflicts: components["schemas"]["ConflictOut"][];
+            /**
+             * Cooldown Elapses At
+             * Format: date-time
+             */
+            cooldown_elapses_at: string;
+            /** Remaining Seconds */
+            remaining_seconds: number;
         };
         /**
          * LoginRequest
@@ -413,6 +578,7 @@ export interface components {
             /** Window Duration Minutes */
             window_duration_minutes?: number | null;
             timer_state?: components["schemas"]["TimerStateOut"] | null;
+            interaction_state?: components["schemas"]["InteractionStateOut"] | null;
         };
         /**
          * MedicationListOut
@@ -462,6 +628,7 @@ export interface components {
             /** Window Duration Minutes */
             window_duration_minutes?: number | null;
             timer_state?: components["schemas"]["TimerStateOut"] | null;
+            interaction_state?: components["schemas"]["InteractionStateOut"] | null;
         };
         /**
          * MinIntervalViolation
@@ -574,6 +741,7 @@ export interface components {
             unit: string;
             dose: components["schemas"]["TodayDose"] | null;
             timer_state?: components["schemas"]["TimerStateOut"] | null;
+            interaction_state?: components["schemas"]["InteractionStateOut"] | null;
         };
         /**
          * TodayResponse
@@ -876,6 +1044,102 @@ export interface operations {
             };
         };
     };
+    list_rules_api_v1_medications__medication_id__interactions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InteractionRuleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rule_api_v1_medications__medication_id__interactions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InteractionRuleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InteractionRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rule_api_v1_medications__medication_id__interactions__interaction_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                medication_id: string;
+                interaction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     post_dose_api_doses_post: {
         parameters: {
             query?: never;
@@ -904,7 +1168,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MinIntervalViolation"] | components["schemas"]["WindowFullViolation"];
+                    "application/json": components["schemas"]["MinIntervalViolation"] | components["schemas"]["WindowFullViolation"] | components["schemas"]["InteractionCooldownViolation"];
                 };
             };
             /** @description Validation Error */

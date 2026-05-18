@@ -22,6 +22,8 @@ import type { components } from "@/api/v1";
 
 type MinIntervalViolation = components["schemas"]["MinIntervalViolation"];
 type WindowFullViolation = components["schemas"]["WindowFullViolation"];
+type InteractionCooldownViolation =
+  components["schemas"]["InteractionCooldownViolation"];
 
 export class MinIntervalError extends Error {
   readonly body: MinIntervalViolation;
@@ -43,10 +45,27 @@ export class WindowFullError extends Error {
   }
 }
 
+/**
+ * Phase 6 (ADR-0008): an *overridable* interaction cooldown. Distinct
+ * from the non-overridable `MinIntervalError` / `WindowFullError`
+ * overdose guards — the caller surfaces a "take anyway" confirm and
+ * retries with `interactionAcknowledged: true`.
+ */
+export class InteractionConflictError extends Error {
+  readonly body: InteractionCooldownViolation;
+
+  constructor(body: InteractionCooldownViolation) {
+    super("interaction_cooldown_active");
+    this.name = "InteractionConflictError";
+    this.body = body;
+  }
+}
+
 export interface TakeDoseInput {
   medicationId: string;
   scheduleId?: string;
   timezone?: string;
+  interactionAcknowledged?: boolean;
 }
 
 interface TakeContext {
@@ -64,12 +83,19 @@ export function useTakeDose() {
           medication_id: input.medicationId,
           schedule_id: input.scheduleId ?? null,
           taken_at: new Date().toISOString(),
+          interaction_acknowledged: input.interactionAcknowledged ?? false,
         },
       });
       if (response.status === 409 && error) {
-        const body = error as MinIntervalViolation | WindowFullViolation;
+        const body = error as
+          | MinIntervalViolation
+          | WindowFullViolation
+          | InteractionCooldownViolation;
         if (body.code === "window_full") {
           throw new WindowFullError(body);
+        }
+        if (body.code === "interaction_cooldown_active") {
+          throw new InteractionConflictError(body);
         }
         throw new MinIntervalError(body);
       }
