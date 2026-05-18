@@ -6,6 +6,8 @@ positive-cooldown invariants, and cross-user isolation.
 
 from __future__ import annotations
 
+import uuid
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,5 +134,16 @@ async def test_cross_user_pairing_and_listing_isolated(
     resp = await client.post(
         f"/api/v1/medications/{other_med.id}/interactions",
         json={"other_medication_id": str(a1.id), "cooldown_minutes": 30},
+    )
+    assert resp.status_code == 404, resp.text
+
+
+async def test_delete_nonexistent_rule_404(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    _u, a, _b = await _user_with_two_meds(session, "u-del404@example.com")
+    await _login(client, "u-del404@example.com")
+    resp = await client.delete(
+        f"/api/v1/medications/{a.id}/interactions/{uuid.uuid4()}"
     )
     assert resp.status_code == 404, resp.text

@@ -66,9 +66,12 @@ never as a hard server block.
 - **`create_dose` gains an explicit `interaction_acknowledged`
   parameter.** Unacknowledged request **with** a detected conflict ⇒ a
   structured, **always-overridable** conflict response: a distinct
-  error type (e.g. `MedicationInteractionConflict`, a new
-  `DoseError` subclass alongside the existing
-  `DoseForbiddenError`/`DoseValidationError` hierarchy) carrying the
+  error type (realized in Phase 6 as
+  `MedicationInteractionConflictError`, a plain `Exception` sibling of
+  the `domain/timers.py` 409 errors rather than a `DoseError`
+  subclass — the precise form was deferred to Phase 6 per the Neutral
+  consequences below; see
+  `specs/006-drug-interaction-cooldowns/research.md` D1) carrying the
   conflicting medication and remaining cooldown. Acknowledged request
   ⇒ the dose is recorded **and** the acknowledgment is persisted for
   audit. The server never refuses a dose the user has explicitly
