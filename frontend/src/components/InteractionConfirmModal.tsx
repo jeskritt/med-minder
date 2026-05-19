@@ -42,8 +42,7 @@ export function InteractionConfirmModal({
       <div className="rounded-lg border bg-white p-6 shadow">
         <p className="mb-2 font-medium">Interacts with {names}</p>
         <p className="mb-4 text-sm text-gray-600">
-          Safe in {remaining}. You can take it anyway — this will be
-          recorded.
+          Safe in {remaining}. You can take it anyway — this will be recorded.
         </p>
         <div className="flex justify-end gap-2">
           <button

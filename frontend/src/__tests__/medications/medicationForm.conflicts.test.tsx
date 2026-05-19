@@ -15,8 +15,7 @@ const AVAILABLE = [
 ];
 
 function setup(available = AVAILABLE) {
-  const onSubmit =
-    vi.fn<(b: MedicationBody, c: ConflictInput[]) => void>();
+  const onSubmit = vi.fn<(b: MedicationBody, c: ConflictInput[]) => void>();
   render(
     <MedicationForm
       mode="create"
@@ -45,17 +44,10 @@ describe("MedicationForm — Conflicts with", () => {
   it("adds a conflict row and passes it to onSubmit", async () => {
     const { user, onSubmit } = setup();
     await fillRequired(user);
-    await user.click(
-      screen.getByRole("button", { name: /add interaction/i }),
-    );
-    await user.selectOptions(
-      screen.getByLabelText(/^medication$/i),
-      "med-2",
-    );
+    await user.click(screen.getByRole("button", { name: /add interaction/i }));
+    await user.selectOptions(screen.getByLabelText(/^medication$/i), "med-2");
     await user.type(screen.getByLabelText(/cooldown/i), "30");
-    await user.click(
-      screen.getByRole("button", { name: /add medication/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /add medication/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const conflicts = onSubmit.mock.calls[0][1];
@@ -73,9 +65,9 @@ describe("MedicationForm — Conflicts with", () => {
     await user.selectOptions(selects[0], "med-2");
     // Row 1 must no longer offer Ibuprofen (med-2) — duplicates are
     // prevented at the UI level; the Zod refine is the backstop.
-    const row1Options = Array.from(
-      selects[1].querySelectorAll("option"),
-    ).map((o) => (o as HTMLOptionElement).value);
+    const row1Options = Array.from(selects[1].querySelectorAll("option")).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
     expect(row1Options).not.toContain("med-2");
     expect(row1Options).toContain("med-3");
   });

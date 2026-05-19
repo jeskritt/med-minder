@@ -1,8 +1,4 @@
-import {
-  useForm,
-  useFieldArray,
-  type SubmitHandler,
-} from "react-hook-form";
+import { useForm, useFieldArray, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@/api/v1";
 import {
@@ -425,9 +421,9 @@ export function MedicationForm({
       <fieldset className="rounded border p-3">
         <legend className="px-1 text-sm font-medium">Conflicts with</legend>
         <p className="mb-2 text-xs text-gray-600">
-          Pair this medication with another of yours and set a cooldown.
-          The rule is symmetric and applies in both directions. To change
-          a cooldown, remove the entry and add it again.
+          Pair this medication with another of yours and set a cooldown. The
+          rule is symmetric and applies in both directions. To change a
+          cooldown, remove the entry and add it again.
         </p>
         {conflictFields.fields.length === 0 && (
           <p className="mb-2 text-xs text-gray-500">
@@ -438,9 +434,7 @@ export function MedicationForm({
           {conflictFields.fields.map((field, index) => {
             const chosenElsewhere = new Set(
               conflictFields.fields
-                .map((_f, i) =>
-                  watch(`conflicts.${i}.other_medication_id`),
-                )
+                .map((_f, i) => watch(`conflicts.${i}.other_medication_id`))
                 .filter((_v, i) => i !== index),
             );
             return (
@@ -455,9 +449,7 @@ export function MedicationForm({
                   <select
                     id={`conflict-med-${index}`}
                     className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                    {...register(
-                      `conflicts.${index}.other_medication_id`,
-                    )}
+                    {...register(`conflicts.${index}.other_medication_id`)}
                   >
                     <option value="">Select…</option>
                     {availableMedications
@@ -465,9 +457,7 @@ export function MedicationForm({
                         (m) =>
                           !chosenElsewhere.has(m.id) ||
                           m.id ===
-                            watch(
-                              `conflicts.${index}.other_medication_id`,
-                            ),
+                            watch(`conflicts.${index}.other_medication_id`),
                       )
                       .map((m) => (
                         <option key={m.id} value={m.id}>
@@ -506,13 +496,8 @@ export function MedicationForm({
         {Array.isArray(errors.conflicts) &&
           errors.conflicts.map((e, i) =>
             e ? (
-              <p
-                key={i}
-                role="alert"
-                className="mt-1 text-xs text-red-600"
-              >
-                {e.other_medication_id?.message ??
-                  e.cooldown_minutes?.message}
+              <p key={i} role="alert" className="mt-1 text-xs text-red-600">
+                {e.other_medication_id?.message ?? e.cooldown_minutes?.message}
               </p>
             ) : null,
           )}

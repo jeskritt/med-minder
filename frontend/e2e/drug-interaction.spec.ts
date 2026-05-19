@@ -59,9 +59,7 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     await page.getByRole("button", { name: /add schedule/i }).click();
     await page.getByLabel(/schedule 1 time/i).fill(slot);
     await page.getByRole("button", { name: /add interaction/i }).click();
-    await page
-      .getByLabel(/^medication$/i)
-      .selectOption({ label: bName });
+    await page.getByLabel(/^medication$/i).selectOption({ label: bName });
     await page.getByLabel(/cooldown/i).fill("120");
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
@@ -73,11 +71,9 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     await page.goto("/today");
     const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const rowFor = (name: string) =>
-      page
-        .locator("li")
-        .filter({
-          has: page.locator("p", { hasText: new RegExp(`^${esc(name)}`) }),
-        });
+      page.locator("li").filter({
+        has: page.locator("p", { hasText: new RegExp(`^${esc(name)}`) }),
+      });
     const aRow = rowFor(aName);
     const bRow = rowFor(bName);
     await aRow.getByRole("button", { name: /^mark taken$/i }).click();
@@ -96,8 +92,6 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     await expect(modal).toContainText(aName);
     await modal.getByRole("button", { name: /take anyway/i }).click();
 
-    await expect(
-      bRow.getByRole("button", { name: /^taken$/i }),
-    ).toBeVisible();
+    await expect(bRow.getByRole("button", { name: /^taken$/i })).toBeVisible();
   });
 });
