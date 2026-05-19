@@ -24,3 +24,28 @@ export async function login(
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/medications$/);
 }
+
+/**
+ * Backend base URL — hit the API directly (not via Playwright's
+ * baseURL → the Vite dev server, whose `/api` proxy *strips* the
+ * prefix and 404s). Mirrors `e2e/global-setup.ts`. `page.request`
+ * shares the browser context's `mm_session` cookie (domain `localhost`,
+ * port-agnostic), so this is authenticated like the app's own fetches.
+ */
+const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
+
+/**
+ * Resolve a medication's id by its (unique-per-run) name via the API.
+ * Used to target today-row controls by stable `data-testid` instead of
+ * fragile name/text/role row scoping over a shared, accumulating dev DB.
+ */
+export async function medIdByName(page: Page, name: string): Promise<string> {
+  const resp = await page.request.get(`${API_BASE}/api/v1/medications`);
+  expect(resp.ok()).toBeTruthy();
+  const body = (await resp.json()) as {
+    items: { id: string; name: string }[];
+  };
+  const med = body.items.find((m) => m.name === name);
+  if (!med) throw new Error(`medication not found by name: ${name}`);
+  return med.id;
+}

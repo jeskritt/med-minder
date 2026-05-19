@@ -76,6 +76,7 @@ export function MultiSubDoseCard({
 
       <button
         type="button"
+        data-testid="dose-control"
         onClick={handleClick}
         disabled={isFull || take.isPending}
         className={

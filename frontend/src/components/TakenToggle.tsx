@@ -85,6 +85,7 @@ export function TakenToggle({
     <>
       <button
         type="button"
+        data-testid="dose-control"
         onClick={handleClick}
         disabled={isPending}
         aria-pressed={isTaken}

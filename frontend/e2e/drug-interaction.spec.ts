@@ -1,6 +1,13 @@
 /**
  * Phase 6 (ADR-0008) — drug-interaction warn → take-anyway → recorded.
  *
+ * Locator strategy: resolve each med's id from the API and target its
+ * today row + dose control by stable `data-testid`
+ * (`today-row-<medId>` / `dose-control`). Render-invariant across the
+ * shared dev DB's accumulated meds and the symmetric interaction
+ * indicator (which names the *partner* med — a substring/role row
+ * filter is ambiguous because of it). No name/text row scoping.
+ *
  * Skipped by default; set `E2E_RUN_DRUG_INTERACTION=1` plus the
  * standard dev-user credentials to run locally against a live stack:
  *
@@ -10,13 +17,12 @@
  *       E2E_USER_PASSWORD=... \
  *       pnpm test:e2e                    # another, from frontend/
  *
- * Mirrors `timer-modes.spec.ts` — gated until CI can stand up the
- * full stack. Verifies SC-007: mark conflicting med → see warning +
- * remaining cooldown → explicitly proceed with an audited override.
+ * Verifies SC-007: mark conflicting med → see warning + remaining
+ * cooldown → explicitly proceed with an audited override.
  */
 
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers";
+import { login, medIdByName } from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -64,27 +70,29 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
 
-    // Mark A taken on /today (mode none → plain TakenToggle).
-    // Scope each row by its OWN name paragraph (anchored ^name): the
-    // symmetric interaction indicator on one row also contains the
-    // partner's name, so a plain hasText match is ambiguous.
+    // Resolve ids, target each row's control by stable test id.
+    const aId = await medIdByName(page, aName);
+    const bId = await medIdByName(page, bName);
     await page.goto("/today");
-    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const rowFor = (name: string) =>
-      page.locator("li").filter({
-        has: page.locator("p", { hasText: new RegExp(`^${esc(name)}`) }),
-      });
-    const aRow = rowFor(aName);
-    const bRow = rowFor(bName);
-    await aRow.getByRole("button", { name: /^mark taken$/i }).click();
-    await expect(aRow.getByRole("button", { name: /^taken$/i })).toBeVisible();
+    // `.first()`: `today_view` emits one row per effective dose, so a
+    // med can have >1 identical today row. Both carry the same per-med
+    // state, so scope deterministically to the first.
+    const aRow = page.getByTestId(`today-row-${aId}`).first();
+    const bRow = page.getByTestId(`today-row-${bId}`).first();
+    const aBtn = aRow.getByTestId("dose-control");
+    const bBtn = bRow.getByTestId("dose-control");
+
+    // Mark A taken (mode none → TakenToggle; label flips to "Taken").
+    await expect(aBtn).toBeVisible();
+    await aBtn.click();
+    await expect(aBtn).toHaveText(/^taken$/i);
 
     // B now shows the interaction indicator naming A.
     await expect(bRow.getByText(/Interacts with .*safe in/i)).toBeVisible();
 
     // Attempting B opens the overridable "take anyway" modal (NOT a
     // dead-end). Confirm → B is recorded with an audited override.
-    await bRow.getByRole("button", { name: /^mark taken$/i }).click();
+    await bBtn.click();
     const modal = page.getByRole("dialog", {
       name: /confirm interaction override/i,
     });
@@ -92,6 +100,6 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     await expect(modal).toContainText(aName);
     await modal.getByRole("button", { name: /take anyway/i }).click();
 
-    await expect(bRow.getByRole("button", { name: /^taken$/i })).toBeVisible();
+    await expect(bBtn).toHaveText(/^taken$/i);
   });
 });

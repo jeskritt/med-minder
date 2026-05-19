@@ -52,6 +52,7 @@ function TodayPage() {
             return (
               <li
                 key={`${item.schedule_id}-${item.medication_id}`}
+                data-testid={`today-row-${item.medication_id}`}
                 className={
                   "flex items-center justify-between gap-3 px-4 py-3 " +
                   (taken ? "bg-gray-50 text-gray-500" : "")

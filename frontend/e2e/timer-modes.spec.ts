@@ -1,16 +1,23 @@
 /**
- * SC-006 boundary scenario for count_down timers.
+ * SC-006 boundary scenario for count_down timers + multi_sub_dose
+ * window fill.
  *
- * Verifies that the mark-as-taken button's enabled state on the client
- * agrees with the server's accept/reject verdict at the zero boundary —
- * no flicker, no double-take.
+ * Locator strategy (round-2 robustness fix): the today row exposes a
+ * stable `data-testid="today-row-<medId>"` and every dose control a
+ * `data-testid="dose-control"`. We resolve the med id from the API
+ * (cookie-shared with the logged-in page) and target the control by
+ * those ids — render-invariant across the count_down label flip
+ * ("Mark taken" ⇄ "<1m"), the optimistic-update/refetch re-render,
+ * NavBar list items, sibling additions, and the shared dev DB that
+ * accumulates similarly-named meds. No name/text/role-shaped row
+ * scoping (that is what kept breaking).
  *
  * Skipped by default; set `E2E_RUN_TIMER_MODES=1` plus the standard
  * dev-user credentials to run locally:
  *
  *     just dev                       # in one terminal
  *     E2E_RUN_TIMER_MODES=1 \
- *       E2E_USER_EMAIL=demo@example.com \
+ *       E2E_DEMO_EMAIL=demo@example.com \
  *       E2E_USER_PASSWORD=... \
  *       pnpm test:e2e                # in another, from frontend/
  *
@@ -19,7 +26,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers";
+import { login, medIdByName } from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -40,10 +47,8 @@ test.describe("Timer modes — count_down boundary", () => {
     test.setTimeout(150_000);
     await login(page, TEST_EMAIL, TEST_PASSWORD);
 
-    // Unique per-run name: the dev DB is shared/long-lived and this
-    // test creates a med every run, so a fixed name accumulates
-    // duplicates and breaks name-scoped locators. The tag isolates
-    // THIS run's med.
+    // Unique per-run name so the API lookup resolves exactly this
+    // run's med even though the shared dev DB accumulates duplicates.
     const medName = `PRN Boundary Test ${Date.now()}`;
 
     // Create a count_down med with the smallest tractable interval (1 minute).
@@ -59,20 +64,42 @@ test.describe("Timer modes — count_down boundary", () => {
       .getByLabel(/schedule 1 time/i)
       .fill(new Date().toLocaleTimeString("en-GB").slice(0, 5));
     await page.getByRole("button", { name: /add medication/i }).click();
+    await expect(page).toHaveURL(/\/medications$/);
 
-    // Go to today. Scope to THIS med's row so a NavBar button or a
-    // leftover dev-DB med can't be picked up — the count_down row
-    // renders exactly one control (<CountDownButton>).
+    // Resolve THIS med's id, then target its today-row control by
+    // stable test ids — unambiguous regardless of dev-DB accumulation,
+    // the dynamic button label, or re-render timing.
+    const medId = await medIdByName(page, medName);
     await page.goto("/today");
-    const row = page.getByRole("listitem").filter({ hasText: medName });
-    // /today loads async (useToday); wait for THIS run's row to render
-    // before interacting. Unique medName ⇒ exactly one matching row.
+    // `today_view` emits one row per *effective dose* (the EffectiveDose
+    // outerjoin has no aggregation), so a scheduled med with N
+    // non-voided doses today renders N identical rows — this boundary
+    // test marks 2 doses, so 2 rows. Both carry the same per-med
+    // timer_state / CountDownButton, so deterministically scope to the
+    // first. (This — not the testid/label — is what made round 1 & 2
+    // strict-mode-ambiguous.)
+    const row = page.getByTestId(`today-row-${medId}`).first();
     await expect(row).toBeVisible();
-    const doseBtn = row.getByRole("button");
+    const doseBtn = row.getByTestId("dose-control");
 
     // Initial state (no doses): ready → label "Mark taken". Marking
     // starts the 1-minute cooldown.
-    await doseBtn.click();
+    //
+    // The button only re-disables once the post-dose today *refetch*
+    // (useTakeDose.onSettled invalidates ["today"] → GET
+    // /api/schedules/today) returns the new timer_state and re-renders
+    // — the optimistic patch doesn't touch timer_state. Await that
+    // exact refetch before asserting, same as the multi_sub_dose
+    // sibling. (A bare post-click `toBeDisabled()` races the
+    // POST→invalidate→refetch→rerender cycle — the round-1/2 flake.)
+    const todayRefetch = () =>
+      page.waitForResponse(
+        (r) =>
+          new URL(r.url()).pathname === "/api/schedules/today" &&
+          r.request().method() === "GET" &&
+          r.status() === 200,
+      );
+    await Promise.all([todayRefetch(), doseBtn.click()]);
     await expect(doseBtn).toBeDisabled();
 
     // Within ~70s the button re-enables. Poll the disabled state: it
@@ -96,10 +123,11 @@ test.describe("Timer modes — count_down boundary", () => {
     await page.waitForTimeout(5000);
 
     // SC-006: at/after the boundary the server accepts AND the client
-    // agrees — no 409 inline alert, and the accepted dose restarts the
-    // cooldown (button re-disables), proving two-way agreement.
-    await doseBtn.click();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    // agrees — no 409 inline alert in this row, and the accepted dose
+    // restarts the cooldown (button re-disables), proving two-way
+    // agreement.
+    await Promise.all([todayRefetch(), doseBtn.click()]);
+    await expect(row.getByRole("alert")).toHaveCount(0);
     await expect(doseBtn).toBeDisabled();
   });
 });
@@ -115,8 +143,7 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
   }) => {
     await login(page, TEST_EMAIL, TEST_PASSWORD);
 
-    // Unique per-run name (see count_down rationale) — isolates this
-    // run's med from accumulated dev-DB duplicates.
+    // Unique per-run name (see count_down rationale).
     const medName = `Window Fill Test ${Date.now()}`;
 
     // Create a multi_sub_dose med: 3 sub-doses in a 6-hour window.
@@ -131,32 +158,24 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
       .selectOption({ value: "multi_sub_dose" });
     await page.getByLabel(/window duration/i).fill("360");
     await page.getByRole("button", { name: /add medication/i }).click();
+    await expect(page).toHaveURL(/\/medications$/);
 
-    // The medications list links multi_sub_dose meds to their detail
-    // page. Await the detail URL so the CTA is evaluated on the
-    // single-med detail page, not the multi-med list (which carries
-    // leftover dev-DB meds, each with its own "Dose available" CTA).
+    // Drive the CTA on the single-med detail page (isolated from the
+    // multi-med list), scoped to the detail <main> and targeted by the
+    // stable dose-control test id (not the dynamic "Dose available" ⇄
+    // "Window full" label).
     await page.goto("/medications");
     await page.getByRole("link", { name: medName, exact: true }).click();
     await expect(page).toHaveURL(/\/medications\/[0-9a-f-]{36}$/);
-
-    // The detail data loads async (useMedicationDetail shows "Loading…").
-    // Await the med's heading so the list is fully unmounted and the
-    // single detail card is rendered, then scope every assertion to the
-    // detail <main> — immune to the transient list paint and to
-    // accumulated dev-DB meds (each of which renders its own CTA on the
-    // list, but never inside this detail main).
     await expect(page.getByRole("heading", { name: medName })).toBeVisible();
     const detail = page.getByRole("main");
+    const cta = detail.getByTestId("dose-control");
 
     // Tap the CTA three times; each tap consumes a slot. multi_sub_dose
     // has no optimistic patch (no schedule context), so the card only
     // moves after POST /api/doses → useTakeDose.onSettled invalidates
     // ["medication", id] → useMedicationDetail refetches that GET →
-    // re-render. Await that exact refetch before asserting, instead of
-    // racing a bare text wait. (Verified live in Chrome: POST 201 then
-    // GET /api/v1/medications/<uuid> 200, card flips to "i of 3".)
-    const cta = detail.getByRole("button", { name: /dose available/i });
+    // re-render. Await that exact refetch before asserting.
     for (let i = 1; i <= 3; i++) {
       await expect(cta).toBeEnabled();
       await Promise.all([
@@ -173,9 +192,9 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
       await expect(detail.getByText(`${i} of 3`)).toBeVisible();
     }
 
-    // Fourth attempt: window is full → control disabled, no overdose.
-    await expect(
-      detail.getByRole("button", { name: /window full/i }),
-    ).toBeDisabled();
+    // Fourth state: window is full → same control is now disabled
+    // ("Window full"), no overdose.
+    await expect(cta).toBeDisabled();
+    await expect(cta).toHaveText(/window full/i);
   });
 });

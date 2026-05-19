@@ -71,6 +71,7 @@ export function CountDownButton({
     <>
       <button
         type="button"
+        data-testid="dose-control"
         onClick={handleClick}
         disabled={!isReady || take.isPending}
         className={
