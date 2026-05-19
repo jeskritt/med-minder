@@ -215,6 +215,13 @@ def compute_timer_state(
             ),
         )
     if pref == "multi_sub_dose":
+        if med.times_per_day < 1:
+            # Misconfigured/legacy row (slots_total would be 0, which the
+            # wire model rejects). Degrade to no timer state rather than
+            # 500 the whole list/today; creation/update is blocked by
+            # validate_medication_input. The medication still lists so
+            # the user can fix or delete it.
+            return None
         if (
             med.window_duration_minutes is None
             or med.window_duration_minutes <= 0

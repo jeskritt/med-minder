@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { client } from "@/lib/api";
 import { useToday } from "@/hooks/useToday";
 import { TakenToggle } from "@/components/TakenToggle";
+import { InteractionIndicator } from "@/components/InteractionIndicator";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
 import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
@@ -51,6 +52,7 @@ function TodayPage() {
             return (
               <li
                 key={`${item.schedule_id}-${item.medication_id}`}
+                data-testid={`today-row-${item.medication_id}`}
                 className={
                   "flex items-center justify-between gap-3 px-4 py-3 " +
                   (taken ? "bg-gray-50 text-gray-500" : "")
@@ -83,6 +85,9 @@ function TodayPage() {
                     <p className="text-sm text-gray-600">
                       <CountUpDisplay state={item.timer_state} />
                     </p>
+                  )}
+                  {item.interaction_state && (
+                    <InteractionIndicator state={item.interaction_state} />
                   )}
                 </div>
                 {item.timer_state?.mode === "count_down" ? (

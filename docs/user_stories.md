@@ -176,13 +176,25 @@ through the admin CLI (`medminder-admin`).
       via a compensating row, never deleted.
 - [ ] UI returns to the not-taken state.
 
-#### UC-4.3 Mark taken when blocked by interaction
+#### UC-4.3 Mark taken when an interaction cooldown is active
+> **Reconciled with ADR-0008 (Phase 6).** A drug-interaction cooldown
+> is **warn + explicit confirm**, *not* a hard block — it is advisory
+> and always overridable (unlike the non-overridable Phase 5
+> `count_down` / `multi_sub_dose` overdose guards). The server never
+> refuses a dose the user has explicitly confirmed; it records the
+> override attributably for audit.
 - [ ] If a drug-interaction rule says the conflicting medication was
-      taken too recently, the taken action is **blocked server-side**
-      with a clear message naming the conflicting medication and the
-      remaining cooldown.
-- [ ] The block holds even if the client tries to bypass it (re-test
-      with a direct API call in the integration suite).
+      taken too recently, an unacknowledged taken action is **refused
+      server-side** with a structured, **always-overridable** 409
+      (`interaction_cooldown_active`) naming the conflicting
+      medication(s) and the remaining cooldown — surfaced as a "take
+      anyway" confirm, never a dead-end.
+- [ ] Detection is server-authoritative and holds against a direct API
+      call that bypasses the UI: without acknowledgment the conflict
+      response is returned and no dose row is written; with explicit
+      acknowledgment the dose is recorded **and** the override is
+      durably, attributably persisted (re-tested with a direct API
+      call in the integration suite).
 
 #### UC-4.4 Mark taken when blocked by min-interval (PRN)
 - [ ] For `count_down` medications, taken is blocked until the

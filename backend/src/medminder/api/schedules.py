@@ -10,10 +10,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import get_current_user, get_session
+from medminder.api.schemas.interactions import to_interaction_state_out
 from medminder.api.schemas.timers import to_timer_state_out
 from medminder.api.schemas.today import TodayDose, TodayItem, TodayResponse
 from medminder.db.models import Medication, User
-from medminder.domain.doses import load_non_voided_history_for_meds, today_view
+from medminder.domain.doses import (
+    load_active_interaction_state,
+    load_non_voided_history_for_meds,
+    today_view,
+)
 from medminder.domain.timers import compute_timer_state
 from medminder.domain.timezone import InvalidTimezoneError
 
@@ -58,6 +63,9 @@ async def get_today(
         db, user_id=user.id, medication_ids=med_ids
     )
     now = datetime.now(UTC)
+    conflicts = await load_active_interaction_state(
+        db, user_id=user.id, medication_ids=med_ids, now=now
+    )
 
     items: list[TodayItem] = []
     for item in view.items:
@@ -81,6 +89,9 @@ async def get_today(
                     else None
                 ),
                 timer_state=to_timer_state_out(state),
+                interaction_state=to_interaction_state_out(
+                    conflicts.get(item.medication_id)
+                ),
             )
         )
     return TodayResponse(date=view.date, timezone=view.timezone, items=items)

@@ -3,6 +3,7 @@ import type { components } from "@/api/v1";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
 import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
+import { InteractionIndicator } from "@/components/InteractionIndicator";
 
 type MedicationOut = components["schemas"]["MedicationOut"];
 
@@ -80,6 +81,11 @@ export function MedicationList({
                   state={med.timer_state}
                   medicationId={med.id}
                 />
+              </div>
+            )}
+            {med.interaction_state && (
+              <div className="mt-1">
+                <InteractionIndicator state={med.interaction_state} />
               </div>
             )}
             {(med.refill_count !== null || med.refill_threshold !== null) && (

@@ -5,6 +5,9 @@ Importing this package is what populates ``Base.metadata`` — Alembic's
 module, ensuring every table is visible to autogenerate.
 """
 
+from medminder.db.models.dose_interaction_overrides import (
+    DoseInteractionOverride,
+)
 from medminder.db.models.dose_voids import DoseVoid
 from medminder.db.models.doses import Dose
 from medminder.db.models.medication_interactions import MedicationInteraction
@@ -18,6 +21,7 @@ from medminder.db.models.users import User
 
 __all__ = [
     "Dose",
+    "DoseInteractionOverride",
     "DoseVoid",
     "Medication",
     "MedicationInteraction",

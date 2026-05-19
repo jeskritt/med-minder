@@ -23,6 +23,11 @@ class DoseCreate(BaseModel):
     schedule_id: uuid.UUID | None = None
     taken_at: datetime | None = None
     quantity: Decimal | None = None
+    interaction_acknowledged: bool = False
+    """Phase 6 (ADR-0008): when true, override an otherwise-blocking
+    active interaction cooldown — the dose is recorded and the override
+    audited. No effect when there is no active interaction conflict;
+    never weakens the Phase 5 overdose guards."""
 
 
 class DoseRead(BaseModel):

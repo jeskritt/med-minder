@@ -1,7 +1,12 @@
 import { useState } from "react";
-import { MinIntervalError, useTakeDose } from "@/hooks/useTakeDose";
+import {
+  InteractionConflictError,
+  MinIntervalError,
+  useTakeDose,
+} from "@/hooks/useTakeDose";
 import { useUntakeDose } from "@/hooks/useUntakeDose";
 import { UntakeConfirmModal } from "@/components/UntakeConfirmModal";
+import { InteractionConfirmModal } from "@/components/InteractionConfirmModal";
 import { formatRemaining } from "@/lib/timers";
 import type { TodayItem } from "@/hooks/useToday";
 
@@ -62,10 +67,25 @@ export function TakenToggle({
   const minIntervalError =
     take.error instanceof MinIntervalError ? take.error.body : null;
 
+  const interactionConflict =
+    take.error instanceof InteractionConflictError ? take.error.body : null;
+
+  const handleInteractionConfirm = () => {
+    take.mutate({
+      scheduleId,
+      medicationId,
+      timezone,
+      interactionAcknowledged: true,
+    });
+  };
+
+  const handleInteractionCancel = () => take.reset();
+
   return (
     <>
       <button
         type="button"
+        data-testid="dose-control"
         onClick={handleClick}
         disabled={isPending}
         aria-pressed={isTaken}
@@ -86,6 +106,12 @@ export function TakenToggle({
         open={confirmOpen}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
+      />
+      <InteractionConfirmModal
+        open={interactionConflict !== null}
+        conflict={interactionConflict}
+        onConfirm={handleInteractionConfirm}
+        onCancel={handleInteractionCancel}
       />
     </>
   );

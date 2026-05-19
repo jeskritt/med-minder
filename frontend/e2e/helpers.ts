@@ -21,6 +21,49 @@ export async function login(
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/medications$/);
+  // Deterministically await the login POST (204) AS the click fires.
+  // `login.tsx` awaits POST /auth/login then navigate("/medications"),
+  // whose `beforeLoad` re-fetches /me — and on a cold rebuild (first
+  // spec, cold Vite + cold backend) the click→POST→cookie→nav→/me
+  // path can exceed Playwright's default 5 s expect timeout, leaving
+  // the page still at /login when `toHaveURL(/\/medications$/)`
+  // checks. Waiting for the 204 here proves the cookie round-trip
+  // completed before the URL assertion, and a 30 s timeout absorbs
+  // the cold first-spec latency without affecting warm runs (which
+  // still resolve in ms).
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/auth/login" &&
+        r.request().method() === "POST" &&
+        r.status() === 204,
+    ),
+    page.getByRole("button", { name: /sign in/i }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/medications$/, { timeout: 30_000 });
+}
+
+/**
+ * Backend base URL — hit the API directly (not via Playwright's
+ * baseURL → the Vite dev server, whose `/api` proxy *strips* the
+ * prefix and 404s). Mirrors `e2e/global-setup.ts`. `page.request`
+ * shares the browser context's `mm_session` cookie (domain `localhost`,
+ * port-agnostic), so this is authenticated like the app's own fetches.
+ */
+const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
+
+/**
+ * Resolve a medication's id by its (unique-per-run) name via the API.
+ * Used to target today-row controls by stable `data-testid` instead of
+ * fragile name/text/role row scoping over a shared, accumulating dev DB.
+ */
+export async function medIdByName(page: Page, name: string): Promise<string> {
+  const resp = await page.request.get(`${API_BASE}/api/v1/medications`);
+  expect(resp.ok()).toBeTruthy();
+  const body = (await resp.json()) as {
+    items: { id: string; name: string }[];
+  };
+  const med = body.items.find((m) => m.name === name);
+  if (!med) throw new Error(`medication not found by name: ${name}`);
+  return med.id;
 }

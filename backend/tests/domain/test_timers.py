@@ -7,7 +7,7 @@ also drives the frontend vitest suite (T017).
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -138,3 +138,21 @@ def test_multi_sub_dose_cases(case: dict[str, Any]) -> None:
         ]
         assert win.slots_used == expected_window["slots_used"]
         assert win.slots_remaining == expected_window["slots_remaining"]
+
+
+def test_multi_sub_dose_zero_times_per_day_degrades_to_none() -> None:
+    """A misconfigured/legacy multi_sub_dose row (times_per_day < 1,
+    slots_total would be 0) must NOT 500 the list/today — it degrades
+    to no timer state so the medication still lists and is fixable.
+    """
+    med = _make_med(
+        {
+            "timer_preference": "multi_sub_dose",
+            "window_duration_minutes": 360,
+            "times_per_day": 0,
+        }
+    )
+    assert (
+        compute_timer_state(med, [], now=datetime(2026, 5, 18, tzinfo=UTC))
+        is None
+    )

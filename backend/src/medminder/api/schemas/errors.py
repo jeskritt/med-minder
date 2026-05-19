@@ -32,4 +32,37 @@ class WindowFullViolation(BaseModel):
     slots_total: int = Field(ge=1)
 
 
-__all__ = ["MinIntervalViolation", "WindowFullViolation"]
+class ConflictOut(BaseModel):
+    """One active drug-interaction conflict (Phase 6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    conflicting_medication_id: uuid.UUID
+    conflicting_medication_name: str
+    cooldown_elapses_at: datetime
+    remaining_seconds: int = Field(ge=0)
+
+
+class InteractionCooldownViolation(BaseModel):
+    """HTTP 409 body for an unacknowledged active interaction cooldown.
+
+    ``code`` is distinct from the Phase 5 overdose codes; this conflict
+    is *always overridable* by retrying with
+    ``interaction_acknowledged: true`` (ADR-0008).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["interaction_cooldown_active"]
+    medication_id: uuid.UUID
+    conflicts: list[ConflictOut] = Field(min_length=1)
+    cooldown_elapses_at: datetime
+    remaining_seconds: int = Field(ge=0)
+
+
+__all__ = [
+    "ConflictOut",
+    "InteractionCooldownViolation",
+    "MinIntervalViolation",
+    "WindowFullViolation",
+]

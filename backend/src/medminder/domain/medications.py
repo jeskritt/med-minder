@@ -87,6 +87,16 @@ def validate_medication_input(payload: MedicationInput) -> None:
         raise InvalidMedicationError(
             "multi_sub_dose timer_preference requires window_duration_minutes > 0"
         )
+    if (
+        payload.timer_preference == "multi_sub_dose"
+        and payload.times_per_day < 1
+    ):
+        # times_per_day is the per-window slot count (slots_total); a
+        # multi_sub_dose med with 0 slots is meaningless and breaks the
+        # timer-state wire model (MultiSubDosePayload.slots_total >= 1).
+        raise InvalidMedicationError(
+            "multi_sub_dose timer_preference requires times_per_day >= 1"
+        )
 
 
 def _utcnow() -> datetime:

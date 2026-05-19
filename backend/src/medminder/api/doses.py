@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from medminder.api.deps import get_current_user, get_session
 from medminder.api.schemas.doses import DoseCreate, DoseRead
 from medminder.api.schemas.errors import (
+    InteractionCooldownViolation,
     MinIntervalViolation,
     WindowFullViolation,
 )
@@ -31,7 +32,13 @@ router = APIRouter(prefix="/api/doses", tags=["doses"])
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=DoseRead,
-    responses={409: {"model": MinIntervalViolation | WindowFullViolation}},
+    responses={
+        409: {
+            "model": MinIntervalViolation
+            | WindowFullViolation
+            | InteractionCooldownViolation
+        }
+    },
 )
 async def post_dose(
     payload: DoseCreate,
@@ -47,6 +54,7 @@ async def post_dose(
             schedule_id=payload.schedule_id,
             taken_at=payload.taken_at or datetime.now(UTC),
             quantity=payload.quantity,
+            interaction_acknowledged=payload.interaction_acknowledged,
         )
     except DoseForbiddenError as exc:
         raise HTTPException(

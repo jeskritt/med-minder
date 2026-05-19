@@ -2,9 +2,16 @@
 
 ## Status
 
-Proposed — 2026-05-17 (pre-Phase 6). To be marked `Accepted` with the
-Phase 6 PR, matching ADR-0002's Proposed→Accepted-with-the-phase-PR
-lifecycle.
+**Accepted** (Phase 6 — Drug-interaction cooldowns). Originally
+Proposed 2026-05-17 (pre-Phase 6); promoted by the US1 PR alongside
+the warn + explicit-confirm + audited-override implementation
+(`backend/src/medminder/domain/interactions.py::detect_interaction_conflict`,
+the `interaction_acknowledged` path in
+`backend/src/medminder/domain/doses.py::create_dose`, and the
+append-only `dose_interaction_overrides` table). The companion Mermaid
+sequence diagram lives at
+`docs/diagrams/sequence-drug-interaction-check.md`. Matches ADR-0002's
+and ADR-0004's Proposed→Accepted-with-the-phase-PR lifecycle.
 
 ## Context
 
@@ -59,9 +66,12 @@ never as a hard server block.
 - **`create_dose` gains an explicit `interaction_acknowledged`
   parameter.** Unacknowledged request **with** a detected conflict ⇒ a
   structured, **always-overridable** conflict response: a distinct
-  error type (e.g. `MedicationInteractionConflict`, a new
-  `DoseError` subclass alongside the existing
-  `DoseForbiddenError`/`DoseValidationError` hierarchy) carrying the
+  error type (realized in Phase 6 as
+  `MedicationInteractionConflictError`, a plain `Exception` sibling of
+  the `domain/timers.py` 409 errors rather than a `DoseError`
+  subclass — the precise form was deferred to Phase 6 per the Neutral
+  consequences below; see
+  `specs/006-drug-interaction-cooldowns/research.md` D1) carrying the
   conflicting medication and remaining cooldown. Acknowledged request
   ⇒ the dose is recorded **and** the acknowledgment is persisted for
   audit. The server never refuses a dose the user has explicitly

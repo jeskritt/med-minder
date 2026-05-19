@@ -51,7 +51,29 @@ export const medicationFormSchema = z
         time_of_day: z.string().min(1, "Time is required"),
       }),
     ),
+    conflicts: z.array(
+      z.object({
+        other_medication_id: z.string().min(1, "Pick a medication"),
+        cooldown_minutes: z
+          .string()
+          .trim()
+          .refine(
+            (v) => /^[0-9]+$/.test(v) && Number(v) > 0,
+            "Cooldown must be a whole number greater than zero",
+          ),
+      }),
+    ),
   })
+  .refine(
+    (v) => {
+      const ids = v.conflicts.map((c) => c.other_medication_id);
+      return new Set(ids).size === ids.length;
+    },
+    {
+      message: "Each medication can only be listed once",
+      path: ["conflicts"],
+    },
+  )
   .refine(
     (v) =>
       v.start_date === "" || v.end_date === "" || v.end_date >= v.start_date,
@@ -88,6 +110,15 @@ export const medicationFormSchema = z
     {
       message: "multi_sub_dose requires a window duration in minutes",
       path: ["window_duration_minutes"],
+    },
+  )
+  .refine(
+    (v) =>
+      v.timer_preference !== "multi_sub_dose" ||
+      (/^[0-9]+$/.test(v.times_per_day) && Number(v.times_per_day) >= 1),
+    {
+      message: "multi_sub_dose requires at least 1 time per day",
+      path: ["times_per_day"],
     },
   );
 
