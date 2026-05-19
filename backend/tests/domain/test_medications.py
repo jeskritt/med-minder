@@ -119,3 +119,24 @@ def test_zero_times_per_day_allowed_for_as_needed() -> None:
     validate_medication_input(
         _valid(times_per_day=0, schedules=[], total_doses=None),
     )
+
+
+def test_multi_sub_dose_requires_times_per_day_at_least_one() -> None:
+    with pytest.raises(InvalidMedicationError, match="times_per_day"):
+        validate_medication_input(
+            _valid(
+                timer_preference="multi_sub_dose",
+                window_duration_minutes=360,
+                times_per_day=0,
+            )
+        )
+
+
+def test_multi_sub_dose_valid_with_times_and_window() -> None:
+    validate_medication_input(
+        _valid(
+            timer_preference="multi_sub_dose",
+            window_duration_minutes=360,
+            times_per_day=3,
+        )
+    )

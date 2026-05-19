@@ -31,12 +31,15 @@ function NewMedicationPage() {
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Same query key + shape as the medications list page
+  // (`medications.index.tsx`) — returning `data` (not `data.items`)
+  // keeps the shared ["medications"] cache entry one consistent shape.
   const medsQuery = useQuery({
     queryKey: ["medications"],
     queryFn: async () => {
       const { data, error } = await client.GET("/api/v1/medications");
       if (error || !data) throw new Error("Failed to load medications");
-      return data.items;
+      return data;
     },
   });
 
@@ -96,7 +99,7 @@ function NewMedicationPage() {
 
       <MedicationForm
         mode="create"
-        availableMedications={(medsQuery.data ?? []).map((m) => ({
+        availableMedications={(medsQuery.data?.items ?? []).map((m) => ({
           id: m.id,
           name: m.name,
         }))}

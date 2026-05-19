@@ -21,7 +21,6 @@ import {
 import type { components } from "@/api/v1";
 
 type MedicationBody = components["schemas"]["MedicationBody"];
-type MedicationOut = components["schemas"]["MedicationOut"];
 
 export const Route = createFileRoute("/medications/$id/edit")({
   beforeLoad: async () => {
@@ -39,12 +38,15 @@ function EditMedicationPage() {
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Same query key + shape as the medications list page — return
+  // `data` (not `data.items`) so the shared ["medications"] cache
+  // entry stays one consistent shape across all consumers.
   const medsQuery = useQuery({
     queryKey: ["medications"],
-    queryFn: async (): Promise<MedicationOut[]> => {
+    queryFn: async () => {
       const { data, error } = await client.GET("/api/v1/medications");
       if (error || !data) throw new Error("Failed to load medication");
-      return data.items;
+      return data;
     },
   });
 
@@ -53,7 +55,7 @@ function EditMedicationPage() {
     queryFn: () => listInteractionRules(id),
   });
 
-  const med = medsQuery.data?.find((m) => m.id === id);
+  const med = medsQuery.data?.items.find((m) => m.id === id);
 
   const updateMutation = useMutation({
     mutationFn: async (input: {
@@ -140,7 +142,7 @@ function EditMedicationPage() {
               cooldown_minutes: String(r.cooldown_minutes),
             })),
           }}
-          availableMedications={(medsQuery.data ?? [])
+          availableMedications={(medsQuery.data?.items ?? [])
             .filter((m) => m.id !== id)
             .map((m) => ({ id: m.id, name: m.name }))}
           onSubmit={async (body, conflicts) => {

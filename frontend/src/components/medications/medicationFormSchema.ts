@@ -111,6 +111,15 @@ export const medicationFormSchema = z
       message: "multi_sub_dose requires a window duration in minutes",
       path: ["window_duration_minutes"],
     },
+  )
+  .refine(
+    (v) =>
+      v.timer_preference !== "multi_sub_dose" ||
+      (/^[0-9]+$/.test(v.times_per_day) && Number(v.times_per_day) >= 1),
+    {
+      message: "multi_sub_dose requires at least 1 time per day",
+      path: ["times_per_day"],
+    },
   );
 
 export type MedicationFormValues = z.infer<typeof medicationFormSchema>;
