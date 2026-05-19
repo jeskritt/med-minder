@@ -25,4 +25,15 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // TanStack file-route modules must co-export `Route` + a component,
+    // and `ui/button.tsx` co-exports the `buttonVariants` cva constant
+    // (shadcn pattern). Fast Refresh granularity is not meaningful for
+    // these, so the rule is intentionally off here rather than fought
+    // with file splits.
+    files: ["src/routes/**/*.tsx", "src/components/ui/button.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 ]);

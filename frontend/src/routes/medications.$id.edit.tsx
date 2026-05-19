@@ -9,9 +9,9 @@ import { useState } from "react";
 import { client } from "@/lib/api";
 import {
   MedicationForm,
-  defaultsFromMedication,
   type ConflictInput,
 } from "@/components/medications/MedicationForm";
+import { defaultsFromMedication } from "@/components/medications/medicationFormDefaults";
 import {
   createInteractionRule,
   deleteInteractionRule,

@@ -1,4 +1,9 @@
-import { useForm, useFieldArray, type SubmitHandler } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  useWatch,
+  type SubmitHandler,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@/api/v1";
 import {
@@ -8,7 +13,6 @@ import {
 import { ScheduleInput } from "./ScheduleInput";
 
 type MedicationBody = components["schemas"]["MedicationBody"];
-type MedicationOut = components["schemas"]["MedicationOut"];
 
 /** One symmetric interaction rule the form wants persisted (US3). */
 export interface ConflictInput {
@@ -55,49 +59,6 @@ const EMPTY_DEFAULTS: MedicationFormValues = {
   conflicts: [],
 };
 
-export function defaultsFromMedication(
-  med: MedicationOut,
-): MedicationFormValues {
-  return {
-    name: med.name,
-    quantity_per_dose: String(med.quantity_per_dose),
-    unit: med.unit,
-    times_per_day: String(med.times_per_day),
-    start_date: med.start_date ?? "",
-    end_date: med.end_date ?? "",
-    untracked: med.total_doses === null,
-    total_doses:
-      med.total_doses === null || med.total_doses === undefined
-        ? ""
-        : String(med.total_doses),
-    refill_count:
-      med.refill_count === null || med.refill_count === undefined
-        ? ""
-        : String(med.refill_count),
-    refill_threshold:
-      med.refill_threshold === null || med.refill_threshold === undefined
-        ? ""
-        : String(med.refill_threshold),
-    timer_preference: med.timer_preference,
-    min_interval_minutes:
-      med.min_interval_minutes === null ||
-      med.min_interval_minutes === undefined
-        ? ""
-        : String(med.min_interval_minutes),
-    window_duration_minutes:
-      med.window_duration_minutes === null ||
-      med.window_duration_minutes === undefined
-        ? ""
-        : String(med.window_duration_minutes),
-    schedules: med.schedules.map((s) => ({
-      time_of_day: s.time_of_day.slice(0, 5),
-    })),
-    // Existing rules are injected by the edit route (it has them from
-    // the rules query); default empty here.
-    conflicts: [],
-  };
-}
-
 function toApiBody(values: MedicationFormValues): MedicationBody {
   const intOrNull = (v: string): number | null => (v === "" ? null : Number(v));
   return {
@@ -128,7 +89,6 @@ export function MedicationForm({
   const {
     register,
     handleSubmit,
-    watch,
     control,
     formState: { errors, isSubmitting: formSubmitting },
   } = useForm<MedicationFormValues>({
@@ -137,6 +97,10 @@ export function MedicationForm({
   });
 
   const conflictFields = useFieldArray({ control, name: "conflicts" });
+  // Single reactive subscription (not per-row `watch()` inside the
+  // render map — that returns a function the React Compiler can't
+  // memoize: react-hooks/incompatible-library).
+  const conflictValues = useWatch({ control, name: "conflicts" }) ?? [];
 
   const submit: SubmitHandler<MedicationFormValues> = async (values) => {
     await onSubmit(
@@ -148,10 +112,9 @@ export function MedicationForm({
     );
   };
 
-  const untracked = watch("untracked");
-  const timesPerDayRaw = watch("times_per_day");
-  const timesPerDay = Number(timesPerDayRaw);
-  const timerPreference = watch("timer_preference");
+  const untracked = useWatch({ control, name: "untracked" });
+  const timesPerDay = Number(useWatch({ control, name: "times_per_day" }));
+  const timerPreference = useWatch({ control, name: "timer_preference" });
 
   const submittingNow = isSubmitting || formSubmitting;
 
@@ -432,10 +395,12 @@ export function MedicationForm({
         )}
         <ul className="space-y-2">
           {conflictFields.fields.map((field, index) => {
+            const currentValue =
+              conflictValues[index]?.other_medication_id ?? "";
             const chosenElsewhere = new Set(
-              conflictFields.fields
-                .map((_f, i) => watch(`conflicts.${i}.other_medication_id`))
-                .filter((_v, i) => i !== index),
+              conflictValues
+                .map((c, i) => (i === index ? "" : c?.other_medication_id))
+                .filter((v): v is string => Boolean(v)),
             );
             return (
               <li key={field.id} className="flex items-end gap-2">
@@ -455,9 +420,7 @@ export function MedicationForm({
                     {availableMedications
                       .filter(
                         (m) =>
-                          !chosenElsewhere.has(m.id) ||
-                          m.id ===
-                            watch(`conflicts.${index}.other_medication_id`),
+                          !chosenElsewhere.has(m.id) || m.id === currentValue,
                       )
                       .map((m) => (
                         <option key={m.id} value={m.id}>
