@@ -21,8 +21,26 @@ export async function login(
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/medications$/);
+  // Deterministically await the login POST (204) AS the click fires.
+  // `login.tsx` awaits POST /auth/login then navigate("/medications"),
+  // whose `beforeLoad` re-fetches /me — and on a cold rebuild (first
+  // spec, cold Vite + cold backend) the click→POST→cookie→nav→/me
+  // path can exceed Playwright's default 5 s expect timeout, leaving
+  // the page still at /login when `toHaveURL(/\/medications$/)`
+  // checks. Waiting for the 204 here proves the cookie round-trip
+  // completed before the URL assertion, and a 30 s timeout absorbs
+  // the cold first-spec latency without affecting warm runs (which
+  // still resolve in ms).
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/auth/login" &&
+        r.request().method() === "POST" &&
+        r.status() === 204,
+    ),
+    page.getByRole("button", { name: /sign in/i }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/medications$/, { timeout: 30_000 });
 }
 
 /**
