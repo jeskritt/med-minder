@@ -100,6 +100,38 @@ async def test_effective_dose_surfaces(session: AsyncSession) -> None:
     assert view.items[0].dose.id == dose.id
 
 
+async def test_multiple_doses_same_slot_collapse_to_one_latest(
+    session: AsyncSession,
+) -> None:
+    """N non-voided doses in a slot's window → exactly ONE item whose
+    dose is the most recent (documented "most recent effective dose
+    per slot"; the UI keys on schedule_id+medication_id)."""
+    user = await make_user(session, timezone_name="UTC")
+    med = await make_medication(session, user=user)
+    sched = await make_schedule(session, user=user)
+    await _link(session, sched.id, med.id)
+
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime(2026, 5, 8, 9, 0, tzinfo=UTC),
+    )
+    later = await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime(2026, 5, 8, 15, 0, tzinfo=UTC),
+    )
+
+    view = await today_view(session, user=user, target_date=date(2026, 5, 8))
+    assert len(view.items) == 1
+    assert view.items[0].dose is not None
+    assert view.items[0].dose.id == later.id
+
+
 async def test_soft_deleted_medication_excluded(session: AsyncSession) -> None:
     user = await make_user(session, timezone_name="UTC")
     med = await make_medication(session, user=user)

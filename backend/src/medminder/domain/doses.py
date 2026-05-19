@@ -374,23 +374,44 @@ async def today_view(
 
     rows = (await session.execute(stmt)).all()
 
-    items = [
-        TodayItem(
-            schedule_id=schedule.id,
-            medication_id=medication.id,
-            name=medication.name,
-            scheduled_time=schedule.time_of_day,
-            quantity_per_dose=medication.quantity_per_dose,
-            unit=medication.unit,
-            dose=dose,
-        )
-        for schedule, medication, dose in rows
-    ]
+    # The EffectiveDose outerjoin is unaggregated: a slot with N
+    # non-voided doses in today's window yields N rows. Collapse to
+    # exactly one item per (schedule, medication) slot carrying the
+    # *most recent* effective dose (or None) — the documented contract
+    # ("the most recent effective dose per slot") and what the UI keys
+    # on (`${schedule_id}-${medication_id}`). Rows arrive ordered by
+    # (time_of_day, name); dict preserves that first-seen order.
+    by_slot: dict[tuple[uuid.UUID, uuid.UUID], TodayItem] = {}
+    for schedule, medication, dose in rows:
+        key = (schedule.id, medication.id)
+        existing = by_slot.get(key)
+        if existing is None:
+            by_slot[key] = TodayItem(
+                schedule_id=schedule.id,
+                medication_id=medication.id,
+                name=medication.name,
+                scheduled_time=schedule.time_of_day,
+                quantity_per_dose=medication.quantity_per_dose,
+                unit=medication.unit,
+                dose=dose,
+            )
+        elif dose is not None and (
+            existing.dose is None or dose.taken_at > existing.dose.taken_at
+        ):
+            by_slot[key] = TodayItem(
+                schedule_id=schedule.id,
+                medication_id=medication.id,
+                name=medication.name,
+                scheduled_time=schedule.time_of_day,
+                quantity_per_dose=medication.quantity_per_dose,
+                unit=medication.unit,
+                dose=dose,
+            )
 
     return TodayView(
         date=bounds.target_date,
         timezone=bounds.timezone_name,
-        items=items,
+        items=list(by_slot.values()),
     )
 
 
