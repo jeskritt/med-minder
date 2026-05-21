@@ -6,7 +6,8 @@ the DB or HTTP — that's the Constitution Principle III boundary.
 
 from __future__ import annotations
 
-from datetime import date, time
+import uuid
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -24,7 +25,7 @@ def _valid(**overrides: object) -> MedicationInput:
         "quantity_per_dose": Decimal("200"),
         "unit": "mg",
         "times_per_day": 2,
-        "schedules": [time(8, 0), time(20, 0)],
+        "schedules": [uuid.uuid4(), uuid.uuid4()],
         "start_date": date(2026, 5, 1),
         "end_date": date(2026, 5, 10),
         "total_doses": 20,
@@ -138,5 +139,72 @@ def test_multi_sub_dose_valid_with_times_and_window() -> None:
             timer_preference="multi_sub_dose",
             window_duration_minutes=360,
             times_per_day=3,
+        )
+    )
+
+
+# --- UX-enhancements: pill model + daily cap validation ----------------------
+
+
+def test_pill_strength_without_pills_per_dose_rejected() -> None:
+    with pytest.raises(InvalidMedicationError, match="together"):
+        validate_medication_input(
+            _valid(pill_strength=Decimal("100"), pills_per_dose=None)
+        )
+
+
+def test_pills_per_dose_without_strength_rejected() -> None:
+    with pytest.raises(InvalidMedicationError, match="together"):
+        validate_medication_input(
+            _valid(pill_strength=None, pills_per_dose=2)
+        )
+
+
+def test_pill_strength_zero_rejected() -> None:
+    with pytest.raises(InvalidMedicationError, match="pill_strength"):
+        validate_medication_input(
+            _valid(pill_strength=Decimal("0"), pills_per_dose=2)
+        )
+
+
+def test_pills_per_dose_zero_rejected() -> None:
+    with pytest.raises(InvalidMedicationError, match="pills_per_dose"):
+        validate_medication_input(
+            _valid(pill_strength=Decimal("100"), pills_per_dose=0)
+        )
+
+
+def test_pill_model_valid_pair_passes() -> None:
+    validate_medication_input(
+        _valid(pill_strength=Decimal("100"), pills_per_dose=2)
+    )
+
+
+def test_max_doses_per_day_requires_multi_sub_dose() -> None:
+    with pytest.raises(InvalidMedicationError, match="multi_sub_dose"):
+        validate_medication_input(
+            _valid(timer_preference="none", max_doses_per_day=4)
+        )
+
+
+def test_max_doses_per_day_must_be_at_least_times_per_day() -> None:
+    with pytest.raises(InvalidMedicationError, match="times_per_day"):
+        validate_medication_input(
+            _valid(
+                timer_preference="multi_sub_dose",
+                window_duration_minutes=360,
+                times_per_day=3,
+                max_doses_per_day=2,
+            )
+        )
+
+
+def test_max_doses_per_day_equal_to_times_per_day_allowed() -> None:
+    validate_medication_input(
+        _valid(
+            timer_preference="multi_sub_dose",
+            window_duration_minutes=360,
+            times_per_day=3,
+            max_doses_per_day=3,
         )
     )

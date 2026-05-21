@@ -254,6 +254,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Schedules
+         * @description Return every active schedule for the calling user.
+         */
+        get: operations["list_schedules_api_v1_schedules_get"];
+        put?: never;
+        /**
+         * Create Schedule
+         * @description Create a user-level schedule (no medication link yet).
+         */
+        post: operations["create_schedule_api_v1_schedules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Schedule
+         * @description Detach any linked medications then soft-delete the schedule.
+         *
+         *     Detach-then-soft-delete matches the plan's "cascade-detach via
+         *     ScheduleMedication" decision: the user can drop a slot without
+         *     cascading into medication soft-deletes.
+         */
+        delete: operations["delete_schedule_api_v1_schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -502,6 +550,13 @@ export interface components {
         /**
          * MedicationBody
          * @description Inbound payload shared by ``POST`` and ``PUT``.
+         *
+         *     ``schedules`` carries existing ``Schedule.id``s (UX enhancements:
+         *     schedules are shared user-level resources managed via the
+         *     ``/api/v1/schedules`` CRUD endpoints). Pre-existing
+         *     ``quantity_per_dose`` is honored unless the med is pill-based
+         *     (``pill_strength`` + ``pills_per_dose`` both set), in which case the
+         *     domain layer overrides it with the derived product.
          */
         MedicationBody: {
             /** Name */
@@ -534,6 +589,12 @@ export interface components {
             min_interval_minutes?: number | null;
             /** Window Duration Minutes */
             window_duration_minutes?: number | null;
+            /** Pill Strength */
+            pill_strength?: number | string | null;
+            /** Pills Per Dose */
+            pills_per_dose?: number | null;
+            /** Max Doses Per Day */
+            max_doses_per_day?: number | null;
         };
         /**
          * MedicationDetailOut
@@ -577,6 +638,12 @@ export interface components {
             min_interval_minutes?: number | null;
             /** Window Duration Minutes */
             window_duration_minutes?: number | null;
+            /** Pill Strength */
+            pill_strength?: string | null;
+            /** Pills Per Dose */
+            pills_per_dose?: number | null;
+            /** Max Doses Per Day */
+            max_doses_per_day?: number | null;
             timer_state?: components["schemas"]["TimerStateOut"] | null;
             interaction_state?: components["schemas"]["InteractionStateOut"] | null;
         };
@@ -627,6 +694,12 @@ export interface components {
             min_interval_minutes?: number | null;
             /** Window Duration Minutes */
             window_duration_minutes?: number | null;
+            /** Pill Strength */
+            pill_strength?: string | null;
+            /** Pills Per Dose */
+            pills_per_dose?: number | null;
+            /** Max Doses Per Day */
+            max_doses_per_day?: number | null;
             timer_state?: components["schemas"]["TimerStateOut"] | null;
             interaction_state?: components["schemas"]["InteractionStateOut"] | null;
         };
@@ -664,6 +737,52 @@ export interface components {
             previous_window_unused_slots: number;
         };
         /**
+         * ScheduleCreateBody
+         * @description Inbound payload for ``POST /api/v1/schedules``.
+         */
+        ScheduleCreateBody: {
+            /**
+             * Time Of Day
+             * Format: time
+             */
+            time_of_day: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Days Of Week
+             * @default 127
+             */
+            days_of_week: number;
+        };
+        /**
+         * ScheduleCrudOut
+         * @description Public view of a user-level schedule.
+         */
+        ScheduleCrudOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Time Of Day
+             * Format: time
+             */
+            time_of_day: string;
+            /** Days Of Week */
+            days_of_week: number;
+        };
+        /** ScheduleListOut */
+        ScheduleListOut: {
+            /** Items */
+            items: components["schemas"]["ScheduleCrudOut"][];
+        };
+        /**
          * ScheduleOut
          * @description Public view of a Schedule attached to a medication.
          */
@@ -678,6 +797,16 @@ export interface components {
              * Format: time
              */
             time_of_day: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Days Of Week
+             * @default 127
+             */
+            days_of_week: number;
         };
         /** TimerStateOut */
         TimerStateOut: {
@@ -742,6 +871,12 @@ export interface components {
             dose: components["schemas"]["TodayDose"] | null;
             timer_state?: components["schemas"]["TimerStateOut"] | null;
             interaction_state?: components["schemas"]["InteractionStateOut"] | null;
+            /** Days Of Week */
+            days_of_week: number;
+            /** Scheduled Today */
+            scheduled_today: boolean;
+            /** Schedule Label */
+            schedule_label: string;
         };
         /**
          * TodayResponse
@@ -1231,6 +1366,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TodayResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_schedules_api_v1_schedules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleListOut"];
+                };
+            };
+        };
+    };
+    create_schedule_api_v1_schedules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleCrudOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_schedule_api_v1_schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -137,3 +137,60 @@ async def test_today_with_dose(
 async def test_today_401_unauthenticated(client: AsyncClient) -> None:
     resp = await client.get("/api/schedules/today")
     assert resp.status_code == 401
+
+
+# --- UX-enhancements: dow filter dropped, fields surfaced -------------------
+
+
+async def test_today_surfaces_days_of_week_and_scheduled_today(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """Slots off-day-of-week still surface, with `scheduled_today=False`."""
+    user = await create_user(
+        session,
+        email="dow@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    med = await make_medication(session, user=user, name="Lisinopril")
+    # 2026-05-08 is a Friday → bit 4 (Mon=0).
+    # weekday-only schedule (Mon-Fri = 31) → includes Fri.
+    weekdays = await make_schedule(
+        session,
+        user=user,
+        label="Weekday Morning",
+        time_of_day=time(8, 0),
+        days_of_week=0b0011111,
+    )
+    # weekend-only schedule (Sat+Sun = 96) → excludes Fri.
+    weekend = await make_schedule(
+        session,
+        user=user,
+        label="Weekend Brunch",
+        time_of_day=time(11, 0),
+        days_of_week=0b1100000,
+    )
+    session.add_all(
+        [
+            ScheduleMedication(schedule_id=weekdays.id, medication_id=med.id),
+            ScheduleMedication(schedule_id=weekend.id, medication_id=med.id),
+        ]
+    )
+    await session.flush()
+
+    await _login(client, "dow@example.com")
+    resp = await client.get(
+        "/api/schedules/today",
+        params={"timezone": "UTC", "date": "2026-05-08"},
+    )
+    assert resp.status_code == 200, resp.text
+    items = resp.json()["items"]
+    # Both slots surface now; dow filter is dropped.
+    assert len(items) == 2
+
+    by_label = {item["schedule_label"]: item for item in items}
+    assert by_label["Weekday Morning"]["scheduled_today"] is True
+    assert by_label["Weekday Morning"]["days_of_week"] == 0b0011111
+    assert by_label["Weekend Brunch"]["scheduled_today"] is False
+    assert by_label["Weekend Brunch"]["days_of_week"] == 0b1100000

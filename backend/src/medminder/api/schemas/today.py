@@ -35,6 +35,11 @@ class TodayItem(BaseModel):
     dose: TodayDose | None
     timer_state: TimerStateOut | None = None
     interaction_state: InteractionStateOut | None = None
+    # UX enhancements: dow filter dropped server-side; the frontend
+    # uses these to mute non-scheduled rows visually and gate take.
+    days_of_week: int
+    scheduled_today: bool
+    schedule_label: str
 
 
 class TodayResponse(BaseModel):

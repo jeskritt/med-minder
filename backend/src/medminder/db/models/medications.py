@@ -47,6 +47,22 @@ class Medication(Base):
     times_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     quantity_per_dose: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     unit: Mapped[str] = mapped_column(Text, nullable=False)
+    # Pill-based dosage (UX enhancements): when both are set, the
+    # medication is "pill-based" and `quantity_per_dose` is derived
+    # server-side (`pill_strength * pills_per_dose`). Both null →
+    # quantity-based (the historical model).
+    pill_strength: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 3), nullable=True
+    )
+    pills_per_dose: Mapped[int | None] = mapped_column(
+        SmallInteger, nullable=True
+    )
+    # multi_sub_dose two-cap: when set with timer_preference=multi_sub_dose,
+    # `create_dose` enforces an extra "max non-voided doses today" guard
+    # alongside the per-window slot cap (`times_per_day`).
+    max_doses_per_day: Mapped[int | None] = mapped_column(
+        SmallInteger, nullable=True
+    )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     total_doses: Mapped[int | None] = mapped_column(nullable=True)
@@ -106,6 +122,23 @@ class Medication(Base):
             "OR (window_duration_minutes IS NOT NULL "
             "AND window_duration_minutes > 0)",
             name="ck_medications_multi_sub_dose_requires_window",
+        ),
+        CheckConstraint(
+            "pill_strength IS NULL OR pill_strength > 0",
+            name="ck_medications_pill_strength_pos",
+        ),
+        CheckConstraint(
+            "pills_per_dose IS NULL OR pills_per_dose >= 1",
+            name="ck_medications_pills_per_dose_pos",
+        ),
+        CheckConstraint(
+            "max_doses_per_day IS NULL OR max_doses_per_day >= 1",
+            name="ck_medications_max_doses_per_day_pos",
+        ),
+        CheckConstraint(
+            "(pill_strength IS NULL AND pills_per_dose IS NULL) "
+            "OR (pill_strength IS NOT NULL AND pills_per_dose IS NOT NULL)",
+            name="ck_medications_pill_strength_pills_paired",
         ),
     )
 

@@ -20,10 +20,20 @@ class ScheduleOut(BaseModel):
 
     id: uuid.UUID
     time_of_day: time
+    label: str = ""
+    days_of_week: int = 127
 
 
 class MedicationBody(BaseModel):
-    """Inbound payload shared by ``POST`` and ``PUT``."""
+    """Inbound payload shared by ``POST`` and ``PUT``.
+
+    ``schedules`` carries existing ``Schedule.id``s (UX enhancements:
+    schedules are shared user-level resources managed via the
+    ``/api/v1/schedules`` CRUD endpoints). Pre-existing
+    ``quantity_per_dose`` is honored unless the med is pill-based
+    (``pill_strength`` + ``pills_per_dose`` both set), in which case the
+    domain layer overrides it with the derived product.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -34,7 +44,7 @@ class MedicationBody(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     total_doses: int | None = Field(default=None, gt=0)
-    schedules: list[time] = Field(default_factory=list)
+    schedules: list[uuid.UUID] = Field(default_factory=list)
     refill_count: int | None = Field(default=None, ge=0)
     refill_threshold: int | None = Field(default=None, ge=0)
     timer_preference: Literal[
@@ -42,6 +52,10 @@ class MedicationBody(BaseModel):
     ] = "none"
     min_interval_minutes: int | None = Field(default=None, gt=0)
     window_duration_minutes: int | None = Field(default=None, gt=0)
+    # UX enhancements: pill-based dosage + multi_sub_dose daily cap.
+    pill_strength: Decimal | None = Field(default=None, gt=0)
+    pills_per_dose: int | None = Field(default=None, ge=1)
+    max_doses_per_day: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def _check_dates(self) -> MedicationBody:
@@ -73,6 +87,9 @@ class MedicationOut(BaseModel):
     timer_preference: Literal["none", "count_up", "count_down", "multi_sub_dose"]
     min_interval_minutes: int | None = None
     window_duration_minutes: int | None = None
+    pill_strength: Decimal | None = None
+    pills_per_dose: int | None = None
+    max_doses_per_day: int | None = None
     timer_state: TimerStateOut | None = None
     interaction_state: InteractionStateOut | None = None
 

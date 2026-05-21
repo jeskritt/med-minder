@@ -32,6 +32,22 @@ class WindowFullViolation(BaseModel):
     slots_total: int = Field(ge=1)
 
 
+class DailyCapViolation(BaseModel):
+    """HTTP 409 body when a multi_sub_dose med's per-day cap is reached.
+
+    Sibling of `WindowFullViolation`: per-window slots are enforced
+    separately; this fires when the additional `max_doses_per_day`
+    threshold has been reached for today's UTC bounds.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["daily_cap_reached"]
+    medication_id: uuid.UUID
+    max_per_day: int = Field(ge=1)
+    count_today: int = Field(ge=1)
+
+
 class ConflictOut(BaseModel):
     """One active drug-interaction conflict (Phase 6)."""
 
@@ -62,6 +78,7 @@ class InteractionCooldownViolation(BaseModel):
 
 __all__ = [
     "ConflictOut",
+    "DailyCapViolation",
     "InteractionCooldownViolation",
     "MinIntervalViolation",
     "WindowFullViolation",

@@ -92,6 +92,9 @@ async def get_today(
                 interaction_state=to_interaction_state_out(
                     conflicts.get(item.medication_id)
                 ),
+                days_of_week=item.days_of_week,
+                scheduled_today=item.scheduled_today,
+                schedule_label=item.schedule_label,
             )
         )
     return TodayResponse(date=view.date, timezone=view.timezone, items=items)

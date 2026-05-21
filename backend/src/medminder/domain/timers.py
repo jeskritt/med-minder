@@ -99,6 +99,30 @@ class WindowFullError(Exception):
         self.slots_total = slots_total
 
 
+class DailyCapReachedError(Exception):
+    """Raised when a multi_sub_dose med's per-day cap is reached.
+
+    Sibling to :class:`WindowFullError`; the per-window cap is enforced
+    separately. Per ADR-0008 this remains a non-overridable overdose
+    guard (no `acknowledged` bypass).
+    """
+
+    def __init__(
+        self,
+        *,
+        medication_id: uuid.UUID,
+        max_per_day: int,
+        count_today: int,
+    ) -> None:
+        super().__init__(
+            f"multi_sub_dose daily cap reached for medication {medication_id}: "
+            f"{count_today}/{max_per_day}."
+        )
+        self.medication_id = medication_id
+        self.max_per_day = max_per_day
+        self.count_today = count_today
+
+
 def group_windows(
     taken_ats_oldest_first: list[datetime],
     window_duration: timedelta,
@@ -300,6 +324,7 @@ __all__ = [
     "ActiveWindow",
     "CountDownPayload",
     "CountUpPayload",
+    "DailyCapReachedError",
     "MinIntervalNotElapsedError",
     "MultiSubDosePayload",
     "TimerMode",
