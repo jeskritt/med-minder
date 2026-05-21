@@ -10,6 +10,8 @@ export interface MultiSubDoseCardProps {
   /** Optional — present in the today view, absent in the list/detail. */
   scheduleId?: string;
   timezone?: string;
+  /** See `TakenToggle.onBeforeTake` — same contract. */
+  onBeforeTake?: () => Promise<boolean>;
 }
 
 function formatTime(iso: string): string {
@@ -24,6 +26,7 @@ export function MultiSubDoseCard({
   medicationId,
   scheduleId,
   timezone,
+  onBeforeTake,
 }: MultiSubDoseCardProps) {
   const take = useTakeDose();
   const payload = state.multi_sub_dose;
@@ -34,8 +37,9 @@ export function MultiSubDoseCard({
   const win = payload.active_window;
   const isFull = win !== null && win.slots_remaining === 0;
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isFull || take.isPending) return;
+    if (onBeforeTake && !(await onBeforeTake())) return;
     take.mutate({ medicationId, scheduleId, timezone });
   };
 
@@ -77,7 +81,9 @@ export function MultiSubDoseCard({
       <button
         type="button"
         data-testid="dose-control"
-        onClick={handleClick}
+        onClick={() => {
+          void handleClick();
+        }}
         disabled={isFull || take.isPending}
         className={
           isFull

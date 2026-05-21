@@ -11,6 +11,8 @@ export interface CountDownButtonProps {
   /** Optional — present in the today view, absent in the medications list. */
   scheduleId?: string;
   timezone?: string;
+  /** See `TakenToggle.onBeforeTake` — same contract. */
+  onBeforeTake?: () => Promise<boolean>;
 }
 
 function tickedRemaining(state: TimerStateOut, nowMs: number): number {
@@ -25,6 +27,7 @@ export function CountDownButton({
   medicationId,
   scheduleId,
   timezone,
+  onBeforeTake,
 }: CountDownButtonProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const take = useTakeDose();
@@ -59,8 +62,9 @@ export function CountDownButton({
     }
   }, [isReady]);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (!isReady || take.isPending) return;
+    if (onBeforeTake && !(await onBeforeTake())) return;
     take.mutate({ medicationId, scheduleId, timezone });
   };
 
@@ -72,7 +76,9 @@ export function CountDownButton({
       <button
         type="button"
         data-testid="dose-control"
-        onClick={handleClick}
+        onClick={() => {
+          void handleClick();
+        }}
         disabled={!isReady || take.isPending}
         className={
           isReady

@@ -15,6 +15,12 @@ export interface TakenToggleProps {
   medicationId: string;
   dose: TodayItem["dose"];
   timezone?: string;
+  /**
+   * Optional async gate that runs before the take mutation. Resolve
+   * to `true` to proceed, `false` to short-circuit silently. The
+   * /today view uses this for the out-of-schedule confirm modal.
+   */
+  onBeforeTake?: () => Promise<boolean>;
 }
 
 /**
@@ -33,6 +39,7 @@ export function TakenToggle({
   medicationId,
   dose,
   timezone,
+  onBeforeTake,
 }: TakenToggleProps) {
   const take = useTakeDose();
   const untake = useUntakeDose();
@@ -41,12 +48,13 @@ export function TakenToggle({
   const isPending = take.isPending || untake.isPending;
   const isTaken = dose !== null;
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isPending) return;
     if (isTaken) {
       setConfirmOpen(true);
       return;
     }
+    if (onBeforeTake && !(await onBeforeTake())) return;
     take.mutate({ scheduleId, medicationId, timezone });
   };
 
@@ -86,7 +94,9 @@ export function TakenToggle({
       <button
         type="button"
         data-testid="dose-control"
-        onClick={handleClick}
+        onClick={() => {
+          void handleClick();
+        }}
         disabled={isPending}
         aria-pressed={isTaken}
         className={

@@ -133,4 +133,71 @@ describe("Today page", () => {
     );
     expect(markTaken).toBeDefined();
   });
+
+  it("groups items by schedule and exposes a Take all button per group", async () => {
+    renderToday();
+    // Two groups — schedule_id s1 (Morning meds @ 08:00) + s2 (Evening @ 20:00).
+    await waitFor(() => {
+      expect(screen.getByTestId("today-group-s1")).toBeInTheDocument();
+      expect(screen.getByTestId("today-group-s2")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("take-all-s1")).toBeInTheDocument();
+    expect(screen.getByTestId("take-all-s2")).toBeInTheDocument();
+  });
+
+  it("falls back to a day-band header when the schedule label is blank", async () => {
+    renderToday();
+    // 08:00 → "Morning meds", 20:00 → "Evening meds".
+    await waitFor(() => {
+      expect(screen.getByText(/morning meds/i)).toBeInTheDocument();
+      expect(screen.getByText(/evening meds/i)).toBeInTheDocument();
+    });
+  });
+
+  it("mutes rows that are not scheduled today", async () => {
+    mockGet.mockReset();
+    mockGet.mockImplementation((path: string) => {
+      if (path === "/me") {
+        return Promise.resolve({
+          response: new Response(null, { status: 200 }),
+          data: { id: "u", name: "U", role: "user" },
+          error: undefined,
+        }) as never;
+      }
+      if (path === "/api/schedules/today") {
+        const body: TodayResponse = {
+          date: "2026-05-08",
+          timezone: "UTC",
+          items: [
+            {
+              schedule_id: "s9",
+              medication_id: "m9",
+              name: "Sunday-only Med",
+              scheduled_time: "10:00:00",
+              quantity_per_dose: "1.000",
+              unit: "tablet",
+              dose: null,
+              days_of_week: 0b1000000, // Sunday only
+              scheduled_today: false,
+              schedule_label: "Sunday brunch",
+            },
+          ],
+        };
+        return Promise.resolve({
+          response: new Response(null, { status: 200 }),
+          data: body,
+          error: undefined,
+        }) as never;
+      }
+      return Promise.resolve({
+        response: new Response(null, { status: 404 }),
+        data: undefined,
+        error: { detail: "not found" },
+      }) as never;
+    });
+    renderToday();
+    expect(
+      await screen.findByText(/not normally scheduled today/i),
+    ).toBeInTheDocument();
+  });
 });
