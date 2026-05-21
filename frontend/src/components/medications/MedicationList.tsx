@@ -110,7 +110,7 @@ export function MedicationList({
                 type="button"
                 onClick={() => onDelete(med.id)}
                 disabled={deletingId === med.id}
-                className="rounded border border-red-300 px-2 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="rounded bg-red-600 px-2 py-1 text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deletingId === med.id ? "Deleting…" : "Delete"}
               </button>

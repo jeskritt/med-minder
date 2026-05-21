@@ -7,10 +7,11 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@/api/v1";
 import {
+  durationToMinutes,
   medicationFormSchema,
   type MedicationFormValues,
 } from "./medicationFormSchema";
-import { ScheduleInput } from "./ScheduleInput";
+import { SchedulePicker } from "./SchedulePicker";
 
 type MedicationBody = components["schemas"]["MedicationBody"];
 
@@ -44,7 +45,7 @@ export interface MedicationFormProps {
 const EMPTY_DEFAULTS: MedicationFormValues = {
   name: "",
   quantity_per_dose: "",
-  unit: "",
+  unit: "mg",
   times_per_day: "1",
   start_date: "",
   end_date: "",
@@ -53,17 +54,31 @@ const EMPTY_DEFAULTS: MedicationFormValues = {
   refill_count: "",
   refill_threshold: "",
   timer_preference: "none",
-  min_interval_minutes: "",
-  window_duration_minutes: "",
-  schedules: [],
+  min_interval_value: "",
+  min_interval_unit: "min",
+  window_duration_value: "",
+  window_duration_unit: "min",
+  pill_based: false,
+  pill_strength: "",
+  pills_per_dose: "",
+  max_doses_per_day: "",
+  selected_schedule_ids: [],
   conflicts: [],
 };
 
 function toApiBody(values: MedicationFormValues): MedicationBody {
   const intOrNull = (v: string): number | null => (v === "" ? null : Number(v));
+  // Pill-based: derive quantity from pill_strength * pills_per_dose.
+  // Otherwise honor the user's literal quantity_per_dose.
+  const derivedQuantity = values.pill_based
+    ? String(
+        Number(values.pill_strength || "0") *
+          Number(values.pills_per_dose || "0"),
+      )
+    : values.quantity_per_dose;
   return {
     name: values.name.trim(),
-    quantity_per_dose: values.quantity_per_dose,
+    quantity_per_dose: derivedQuantity,
     unit: values.unit.trim(),
     times_per_day: Number(values.times_per_day),
     start_date: values.start_date === "" ? null : values.start_date,
@@ -72,11 +87,28 @@ function toApiBody(values: MedicationFormValues): MedicationBody {
     refill_count: intOrNull(values.refill_count),
     refill_threshold: intOrNull(values.refill_threshold),
     timer_preference: values.timer_preference,
-    min_interval_minutes: intOrNull(values.min_interval_minutes),
-    window_duration_minutes: intOrNull(values.window_duration_minutes),
-    schedules: values.schedules.map((s) => s.time_of_day),
+    min_interval_minutes:
+      values.timer_preference === "count_down"
+        ? durationToMinutes(values.min_interval_value, values.min_interval_unit)
+        : null,
+    window_duration_minutes:
+      values.timer_preference === "multi_sub_dose"
+        ? durationToMinutes(
+            values.window_duration_value,
+            values.window_duration_unit,
+          )
+        : null,
+    pill_strength: values.pill_based ? values.pill_strength : null,
+    pills_per_dose: values.pill_based ? Number(values.pills_per_dose) : null,
+    max_doses_per_day:
+      values.timer_preference === "multi_sub_dose"
+        ? intOrNull(values.max_doses_per_day)
+        : null,
+    schedules: values.selected_schedule_ids,
   };
 }
+
+const COMMON_UNITS = ["mg", "ml", "mcg", "g", "tablet", "capsule", "drop"];
 
 export function MedicationForm({
   mode,
@@ -97,9 +129,6 @@ export function MedicationForm({
   });
 
   const conflictFields = useFieldArray({ control, name: "conflicts" });
-  // Single reactive subscription (not per-row `watch()` inside the
-  // render map — that returns a function the React Compiler can't
-  // memoize: react-hooks/incompatible-library).
   const conflictValues = useWatch({ control, name: "conflicts" }) ?? [];
 
   const submit: SubmitHandler<MedicationFormValues> = async (values) => {
@@ -115,8 +144,27 @@ export function MedicationForm({
   const untracked = useWatch({ control, name: "untracked" });
   const timesPerDay = Number(useWatch({ control, name: "times_per_day" }));
   const timerPreference = useWatch({ control, name: "timer_preference" });
+  const pillBased = useWatch({ control, name: "pill_based" });
+  const pillStrength = useWatch({ control, name: "pill_strength" });
+  const pillsPerDose = useWatch({ control, name: "pills_per_dose" });
+  const unit = useWatch({ control, name: "unit" });
 
   const submittingNow = isSubmitting || formSubmitting;
+  const timesPerDayLabel =
+    timerPreference === "multi_sub_dose" ? "Times per window" : "Times per day";
+  const timesPerDayHint =
+    timerPreference === "multi_sub_dose"
+      ? "Slots available inside each window (the per-window cap)."
+      : "How many scheduled doses per day.";
+
+  const derivedQuantity =
+    pillBased &&
+    pillStrength !== "" &&
+    pillsPerDose !== "" &&
+    Number.isFinite(Number(pillStrength)) &&
+    Number.isFinite(Number(pillsPerDose))
+      ? Number(pillStrength) * Number(pillsPerDose)
+      : null;
 
   return (
     <form
@@ -125,6 +173,26 @@ export function MedicationForm({
       className="space-y-4"
       aria-label={mode === "create" ? "Add medication" : "Edit medication"}
     >
+      <aside className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-gray-700">
+        <p className="font-medium text-blue-900">Timer modes</p>
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
+          <li>
+            <strong>None</strong> — record taken/not-taken per scheduled slot.
+          </li>
+          <li>
+            <strong>Count up</strong> — show how long since the last dose.
+          </li>
+          <li>
+            <strong>Count down</strong> — block doses inside a minimum interval
+            (overdose guard).
+          </li>
+          <li>
+            <strong>Multi sub-dose</strong> — group small doses into rolling
+            windows; cap per-window and (optionally) per-day.
+          </li>
+        </ul>
+      </aside>
+
       <div>
         <label htmlFor="name" className="block text-sm font-medium">
           Name
@@ -143,46 +211,147 @@ export function MedicationForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label
-            htmlFor="quantity_per_dose"
-            className="block text-sm font-medium"
-          >
-            Dosage
-          </label>
-          <input
-            id="quantity_per_dose"
-            type="text"
-            inputMode="decimal"
-            className="mt-1 w-full rounded border px-3 py-2"
-            {...register("quantity_per_dose")}
-          />
-          {errors.quantity_per_dose && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.quantity_per_dose.message}
-            </p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="unit" className="block text-sm font-medium">
-            Unit
-          </label>
-          <input
-            id="unit"
-            type="text"
-            autoComplete="off"
-            placeholder="mg"
-            className="mt-1 w-full rounded border px-3 py-2"
-            {...register("unit")}
-          />
-          {errors.unit && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.unit.message}
-            </p>
-          )}
-        </div>
-      </div>
+      <fieldset className="rounded border p-3">
+        <legend className="px-1 text-sm font-medium">Dosage</legend>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" {...register("pill_based")} />
+          Pill-based (count pills, derive dose)
+        </label>
+        <p className="mt-1 text-xs text-gray-600">
+          Check this for tablets/capsules where you take a whole number of pills
+          each dose. We&apos;ll multiply the per-pill strength by the
+          pills-per-dose to get the actual dose.
+        </p>
+
+        {!pillBased && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="quantity_per_dose"
+                className="block text-sm font-medium"
+              >
+                Quantity per dose
+              </label>
+              <input
+                id="quantity_per_dose"
+                type="text"
+                inputMode="decimal"
+                className="mt-1 w-full rounded border px-3 py-2"
+                {...register("quantity_per_dose")}
+              />
+              {errors.quantity_per_dose && (
+                <p role="alert" className="mt-1 text-sm text-red-600">
+                  {errors.quantity_per_dose.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="unit" className="block text-sm font-medium">
+                Unit
+              </label>
+              <input
+                id="unit"
+                type="text"
+                list="med-units"
+                autoComplete="off"
+                placeholder="mg"
+                className="mt-1 w-full rounded border px-3 py-2"
+                {...register("unit")}
+              />
+              <datalist id="med-units">
+                {COMMON_UNITS.map((u) => (
+                  <option key={u} value={u} />
+                ))}
+              </datalist>
+              {errors.unit && (
+                <p role="alert" className="mt-1 text-sm text-red-600">
+                  {errors.unit.message}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {pillBased && (
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-[1fr_8rem] gap-3">
+              <div>
+                <label
+                  htmlFor="pill_strength"
+                  className="block text-sm font-medium"
+                >
+                  Strength per pill
+                </label>
+                <input
+                  id="pill_strength"
+                  type="text"
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  {...register("pill_strength")}
+                />
+                {errors.pill_strength && (
+                  <p role="alert" className="mt-1 text-sm text-red-600">
+                    {errors.pill_strength.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="unit" className="block text-sm font-medium">
+                  Unit
+                </label>
+                <input
+                  id="unit"
+                  type="text"
+                  list="med-units"
+                  autoComplete="off"
+                  placeholder="mg"
+                  className="mt-1 w-full rounded border px-3 py-2"
+                  {...register("unit")}
+                />
+                <datalist id="med-units">
+                  {COMMON_UNITS.map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
+                {errors.unit && (
+                  <p role="alert" className="mt-1 text-sm text-red-600">
+                    {errors.unit.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label
+                htmlFor="pills_per_dose"
+                className="block text-sm font-medium"
+              >
+                Pills per dose
+              </label>
+              <input
+                id="pills_per_dose"
+                type="number"
+                min={1}
+                step={1}
+                className="mt-1 w-32 rounded border px-3 py-2"
+                {...register("pills_per_dose")}
+              />
+              {errors.pills_per_dose && (
+                <p role="alert" className="mt-1 text-sm text-red-600">
+                  {errors.pills_per_dose.message}
+                </p>
+              )}
+            </div>
+            {derivedQuantity !== null && (
+              <p className="text-sm text-gray-700">
+                Effective dose:{" "}
+                <strong>
+                  {derivedQuantity} {unit}
+                </strong>
+              </p>
+            )}
+          </div>
+        )}
+      </fieldset>
 
       <div>
         <label htmlFor="timer_preference" className="block text-sm font-medium">
@@ -203,22 +372,36 @@ export function MedicationForm({
       {timerPreference === "count_down" && (
         <div>
           <label
-            htmlFor="min_interval_minutes"
+            htmlFor="min_interval_value"
             className="block text-sm font-medium"
           >
-            Minimum interval (minutes)
+            Minimum interval
           </label>
-          <input
-            id="min_interval_minutes"
-            type="number"
-            min={1}
-            step={1}
-            className="mt-1 w-32 rounded border px-3 py-2"
-            {...register("min_interval_minutes")}
-          />
-          {errors.min_interval_minutes && (
+          <p className="text-xs text-gray-600">
+            Blocks the next dose until this much time has passed.
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              id="min_interval_value"
+              type="number"
+              min={1}
+              step={1}
+              className="w-24 rounded border px-3 py-2"
+              {...register("min_interval_value")}
+            />
+            <select
+              aria-label="Interval unit"
+              className="rounded border px-3 py-2"
+              {...register("min_interval_unit")}
+            >
+              <option value="min">minutes</option>
+              <option value="hour">hours</option>
+              <option value="day">days</option>
+            </select>
+          </div>
+          {errors.min_interval_value && (
             <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.min_interval_minutes.message}
+              {errors.min_interval_value.message}
             </p>
           )}
         </div>
@@ -227,22 +410,36 @@ export function MedicationForm({
       {timerPreference === "multi_sub_dose" && (
         <div>
           <label
-            htmlFor="window_duration_minutes"
+            htmlFor="window_duration_value"
             className="block text-sm font-medium"
           >
-            Window duration (minutes)
+            Window duration
           </label>
-          <input
-            id="window_duration_minutes"
-            type="number"
-            min={1}
-            step={1}
-            className="mt-1 w-32 rounded border px-3 py-2"
-            {...register("window_duration_minutes")}
-          />
-          {errors.window_duration_minutes && (
+          <p className="text-xs text-gray-600">
+            How long each rolling window lasts (e.g., 6 hours).
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              id="window_duration_value"
+              type="number"
+              min={1}
+              step={1}
+              className="w-24 rounded border px-3 py-2"
+              {...register("window_duration_value")}
+            />
+            <select
+              aria-label="Window unit"
+              className="rounded border px-3 py-2"
+              {...register("window_duration_unit")}
+            >
+              <option value="min">minutes</option>
+              <option value="hour">hours</option>
+              <option value="day">days</option>
+            </select>
+          </div>
+          {errors.window_duration_value && (
             <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.window_duration_minutes.message}
+              {errors.window_duration_value.message}
             </p>
           )}
         </div>
@@ -250,8 +447,9 @@ export function MedicationForm({
 
       <div>
         <label htmlFor="times_per_day" className="block text-sm font-medium">
-          Times per day
+          {timesPerDayLabel}
         </label>
+        <p className="text-xs text-gray-600">{timesPerDayHint}</p>
         <input
           id="times_per_day"
           type="number"
@@ -267,6 +465,34 @@ export function MedicationForm({
           </p>
         )}
       </div>
+
+      {timerPreference === "multi_sub_dose" && (
+        <div>
+          <label
+            htmlFor="max_doses_per_day"
+            className="block text-sm font-medium"
+          >
+            Max doses per day (optional)
+          </label>
+          <p className="text-xs text-gray-600">
+            Cap across the whole day, on top of the per-window slot cap above.
+            Leave blank for no daily cap.
+          </p>
+          <input
+            id="max_doses_per_day"
+            type="number"
+            min={1}
+            step={1}
+            className="mt-1 w-32 rounded border px-3 py-2"
+            {...register("max_doses_per_day")}
+          />
+          {errors.max_doses_per_day && (
+            <p role="alert" className="mt-1 text-sm text-red-600">
+              {errors.max_doses_per_day.message}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -336,7 +562,7 @@ export function MedicationForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="refill_count" className="block text-sm font-medium">
-            Refill count
+            {pillBased ? "Pills on hand" : "Refill count"}
           </label>
           <input
             id="refill_count"
@@ -375,7 +601,7 @@ export function MedicationForm({
         </div>
       </div>
 
-      <ScheduleInput
+      <SchedulePicker
         control={control}
         errors={errors}
         timesPerDay={timesPerDay}

@@ -37,6 +37,9 @@ function fakeToday(): TodayResponse {
         quantity_per_dose: "500.000",
         unit: "mg",
         dose: null,
+        days_of_week: 127,
+        scheduled_today: true,
+        schedule_label: "",
       },
       {
         schedule_id: "s1",
@@ -46,6 +49,9 @@ function fakeToday(): TodayResponse {
         quantity_per_dose: "10.000",
         unit: "mg",
         dose: { id: "d1", taken_at: "2026-05-08T15:14:00Z" },
+        days_of_week: 127,
+        scheduled_today: true,
+        schedule_label: "",
       },
     ],
   };

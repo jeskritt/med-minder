@@ -1,5 +1,8 @@
 import type { components } from "@/api/v1";
-import type { MedicationFormValues } from "./medicationFormSchema";
+import {
+  minutesToDuration,
+  type MedicationFormValues,
+} from "./medicationFormSchema";
 
 type MedicationOut = components["schemas"]["MedicationOut"];
 
@@ -14,6 +17,13 @@ type MedicationOut = components["schemas"]["MedicationOut"];
 export function defaultsFromMedication(
   med: MedicationOut,
 ): MedicationFormValues {
+  const minInterval = minutesToDuration(med.min_interval_minutes ?? null);
+  const windowDuration = minutesToDuration(med.window_duration_minutes ?? null);
+  const pillBased =
+    med.pill_strength !== null &&
+    med.pill_strength !== undefined &&
+    med.pills_per_dose !== null &&
+    med.pills_per_dose !== undefined;
   return {
     name: med.name,
     quantity_per_dose: String(med.quantity_per_dose),
@@ -35,19 +45,24 @@ export function defaultsFromMedication(
         ? ""
         : String(med.refill_threshold),
     timer_preference: med.timer_preference,
-    min_interval_minutes:
-      med.min_interval_minutes === null ||
-      med.min_interval_minutes === undefined
+    min_interval_value: minInterval.value,
+    min_interval_unit: minInterval.unit,
+    window_duration_value: windowDuration.value,
+    window_duration_unit: windowDuration.unit,
+    pill_based: pillBased,
+    pill_strength:
+      med.pill_strength === null || med.pill_strength === undefined
         ? ""
-        : String(med.min_interval_minutes),
-    window_duration_minutes:
-      med.window_duration_minutes === null ||
-      med.window_duration_minutes === undefined
+        : String(med.pill_strength),
+    pills_per_dose:
+      med.pills_per_dose === null || med.pills_per_dose === undefined
         ? ""
-        : String(med.window_duration_minutes),
-    schedules: med.schedules.map((s) => ({
-      time_of_day: s.time_of_day.slice(0, 5),
-    })),
+        : String(med.pills_per_dose),
+    max_doses_per_day:
+      med.max_doses_per_day === null || med.max_doses_per_day === undefined
+        ? ""
+        : String(med.max_doses_per_day),
+    selected_schedule_ids: med.schedules.map((s) => s.id),
     conflicts: [],
   };
 }

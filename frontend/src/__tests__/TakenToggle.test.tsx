@@ -34,6 +34,9 @@ function seedToday(client: QueryClient): TodayResponse {
         quantity_per_dose: "10.000",
         unit: "mg",
         dose: null,
+        days_of_week: 127,
+        scheduled_today: true,
+        schedule_label: "",
       },
     ],
   };
