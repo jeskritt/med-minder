@@ -201,7 +201,7 @@ export function MedicationForm({
           id="name"
           type="text"
           autoComplete="off"
-          className="mt-1 w-full rounded border px-3 py-2"
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
           {...register("name")}
         />
         {errors.name && (
@@ -211,7 +211,7 @@ export function MedicationForm({
         )}
       </div>
 
-      <fieldset className="rounded border p-3">
+      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
         <legend className="px-1 text-sm font-medium">Dosage</legend>
         <label className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("pill_based")} />
@@ -236,7 +236,7 @@ export function MedicationForm({
                 id="quantity_per_dose"
                 type="text"
                 inputMode="decimal"
-                className="mt-1 w-full rounded border px-3 py-2"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                 {...register("quantity_per_dose")}
               />
               {errors.quantity_per_dose && (
@@ -255,7 +255,7 @@ export function MedicationForm({
                 list="med-units"
                 autoComplete="off"
                 placeholder="mg"
-                className="mt-1 w-full rounded border px-3 py-2"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                 {...register("unit")}
               />
               <datalist id="med-units">
@@ -286,7 +286,7 @@ export function MedicationForm({
                   id="pill_strength"
                   type="text"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded border px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                   {...register("pill_strength")}
                 />
                 {errors.pill_strength && (
@@ -305,7 +305,7 @@ export function MedicationForm({
                   list="med-units"
                   autoComplete="off"
                   placeholder="mg"
-                  className="mt-1 w-full rounded border px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                   {...register("unit")}
                 />
                 <datalist id="med-units">
@@ -332,7 +332,7 @@ export function MedicationForm({
                 type="number"
                 min={1}
                 step={1}
-                className="mt-1 w-32 rounded border px-3 py-2"
+                className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                 {...register("pills_per_dose")}
               />
               {errors.pills_per_dose && (
@@ -359,7 +359,7 @@ export function MedicationForm({
         </label>
         <select
           id="timer_preference"
-          className="mt-1 w-full rounded border px-3 py-2"
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
           {...register("timer_preference")}
         >
           <option value="none">None (boolean taken today)</option>
@@ -386,12 +386,12 @@ export function MedicationForm({
               type="number"
               min={1}
               step={1}
-              className="w-24 rounded border px-3 py-2"
+              className="w-24 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
               {...register("min_interval_value")}
             />
             <select
               aria-label="Interval unit"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
               {...register("min_interval_unit")}
             >
               <option value="min">minutes</option>
@@ -424,12 +424,12 @@ export function MedicationForm({
               type="number"
               min={1}
               step={1}
-              className="w-24 rounded border px-3 py-2"
+              className="w-24 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
               {...register("window_duration_value")}
             />
             <select
               aria-label="Window unit"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
               {...register("window_duration_unit")}
             >
               <option value="min">minutes</option>
@@ -456,7 +456,7 @@ export function MedicationForm({
           min={0}
           max={24}
           step={1}
-          className="mt-1 w-32 rounded border px-3 py-2"
+          className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
           {...register("times_per_day")}
         />
         {errors.times_per_day && (
@@ -483,7 +483,7 @@ export function MedicationForm({
             type="number"
             min={1}
             step={1}
-            className="mt-1 w-32 rounded border px-3 py-2"
+            className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("max_doses_per_day")}
           />
           {errors.max_doses_per_day && (
@@ -502,7 +502,7 @@ export function MedicationForm({
           <input
             id="start_date"
             type="date"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("start_date")}
           />
           {errors.start_date && (
@@ -518,7 +518,7 @@ export function MedicationForm({
           <input
             id="end_date"
             type="date"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("end_date")}
           />
           {errors.end_date && (
@@ -549,7 +549,7 @@ export function MedicationForm({
           min={1}
           step={1}
           disabled={untracked}
-          className="mt-1 w-32 rounded border px-3 py-2 disabled:bg-gray-100"
+          className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:bg-gray-100"
           {...register("total_doses")}
         />
         {errors.total_doses && (
@@ -569,7 +569,7 @@ export function MedicationForm({
             type="number"
             min={0}
             step={1}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("refill_count")}
           />
           {errors.refill_count && (
@@ -590,7 +590,7 @@ export function MedicationForm({
             type="number"
             min={0}
             step={1}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("refill_threshold")}
           />
           {errors.refill_threshold && (
@@ -607,7 +607,7 @@ export function MedicationForm({
         timesPerDay={timesPerDay}
       />
 
-      <fieldset className="rounded border p-3">
+      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
         <legend className="px-1 text-sm font-medium">Conflicts with</legend>
         <p className="mb-2 text-xs text-gray-600">
           Pair this medication with another of yours and set a cooldown. The
@@ -724,7 +724,7 @@ export function MedicationForm({
       <button
         type="submit"
         disabled={submittingNow}
-        className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+        className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
       >
         {submittingNow
           ? "Saving…"

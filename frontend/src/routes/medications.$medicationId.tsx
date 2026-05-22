@@ -4,6 +4,7 @@ import { useMedicationDetail } from "@/hooks/useMedicationDetail";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
 import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
+import { formatQuantity } from "@/lib/format";
 
 export const Route = createFileRoute("/medications/$medicationId")({
   beforeLoad: async () => {
@@ -20,12 +21,12 @@ function MedicationDetailPage() {
   const detail = useMedicationDetail(medicationId);
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <Link to="/medications" className="text-sm text-blue-600 underline">
+    <main className="mx-auto max-w-2xl px-4 py-6">
+      <Link to="/medications" className="text-sm text-blue-600 hover:underline">
         ← Medications
       </Link>
 
-      {detail.isLoading && <p className="mt-4 text-gray-600">Loading…</p>}
+      {detail.isLoading && <p className="mt-4 text-slate-500">Loading…</p>}
       {detail.isError && (
         <p role="alert" className="mt-4 text-red-600">
           Could not load this medication.
@@ -33,12 +34,14 @@ function MedicationDetailPage() {
       )}
 
       {detail.isSuccess && (
-        <article className="mt-4 space-y-3">
+        <article className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <header>
-            <h1 className="text-2xl font-bold">{detail.data.name}</h1>
-            <p className="text-sm text-gray-600">
-              {detail.data.quantity_per_dose} {detail.data.unit} ·{" "}
-              {detail.data.times_per_day}× daily
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {detail.data.name}
+            </h1>
+            <p className="text-sm text-slate-500">
+              {formatQuantity(detail.data.quantity_per_dose)} {detail.data.unit}{" "}
+              · {detail.data.times_per_day}× daily
             </p>
           </header>
 

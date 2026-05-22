@@ -85,7 +85,7 @@ export function SchedulePicker({
     Number.isFinite(timesPerDay) && timesPerDay !== selected.length;
 
   return (
-    <fieldset className="mt-4 rounded border p-3">
+    <fieldset className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
       <legend className="px-1 text-sm font-medium">Schedules</legend>
       <p className="text-xs text-gray-600">
         Pick existing time slots (or add new ones). Schedules are shared across

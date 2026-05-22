@@ -4,6 +4,7 @@ import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
 import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
 import { InteractionIndicator } from "@/components/InteractionIndicator";
+import { formatQuantity } from "@/lib/format";
 
 type MedicationOut = components["schemas"]["MedicationOut"];
 
@@ -25,7 +26,7 @@ export function MedicationList({
 }: MedicationListProps) {
   if (items.length === 0) {
     return (
-      <p className="mt-4 text-gray-600">
+      <p className="mt-4 text-slate-500">
         No medications yet.{" "}
         <Link to="/medications/new" className="text-blue-600 underline">
           Add your first one
@@ -36,14 +37,14 @@ export function MedicationList({
   }
 
   return (
-    <ul className="mt-4 divide-y rounded border print:border-0">
+    <ul className="mt-4 space-y-3 print:space-y-1">
       {items.map((med) => (
         <li
           key={med.id}
-          className="flex items-start justify-between gap-4 p-3 print:p-1"
+          className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-1 print:shadow-none"
         >
-          <div>
-            <div className="font-medium">
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-900">
               {med.timer_state?.mode === "multi_sub_dose" ? (
                 <Link
                   to="/medications/$medicationId"
@@ -55,11 +56,11 @@ export function MedicationList({
               ) : (
                 med.name
               )}{" "}
-              <span className="text-sm text-gray-600">
-                ({med.quantity_per_dose} {med.unit})
+              <span className="text-sm font-normal text-slate-500">
+                {formatQuantity(med.quantity_per_dose)} {med.unit}
               </span>
             </div>
-            <div className="text-sm text-gray-700">
+            <div className="text-sm text-slate-500">
               {med.times_per_day}× daily — {formatTimes(med)}
             </div>
             {med.timer_state?.mode === "count_up" && (
@@ -101,7 +102,7 @@ export function MedicationList({
             <Link
               to="/medications/$id/edit"
               params={{ id: med.id }}
-              className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
+              className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
               Edit
             </Link>
@@ -110,7 +111,7 @@ export function MedicationList({
                 type="button"
                 onClick={() => onDelete(med.id)}
                 disabled={deletingId === med.id}
-                className="rounded bg-red-600 px-2 py-1 text-sm text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-2.5 py-1 text-sm font-medium text-white transition hover:bg-red-700 active:scale-95 disabled:opacity-50"
               >
                 {deletingId === med.id ? "Deleting…" : "Delete"}
               </button>

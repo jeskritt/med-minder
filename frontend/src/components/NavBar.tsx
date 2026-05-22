@@ -18,7 +18,7 @@ export function NavBar() {
 
   return (
     <nav
-      className="flex items-center justify-between border-b bg-white px-6 py-3 print:hidden"
+      className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/80 px-5 py-3 backdrop-blur-md print:hidden"
       aria-label="Primary"
     >
       <div className="flex items-center gap-6">
@@ -49,7 +49,7 @@ export function NavBar() {
               type="button"
               onClick={handleLogout}
               disabled={logout.isPending}
-              className="rounded border px-3 py-1 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               {logout.isPending ? "Logging out…" : "Logout"}
             </button>

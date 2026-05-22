@@ -11,6 +11,7 @@ import { CountDownButton } from "@/components/timers/CountDownButton";
 import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
 import { DoseProgressBar } from "@/components/today/DoseProgressBar";
 import { OutOfScheduleConfirmModal } from "@/components/today/OutOfScheduleConfirmModal";
+import { formatQuantity } from "@/lib/format";
 
 export const Route = createFileRoute("/today")({
   beforeLoad: async () => {
@@ -214,11 +215,13 @@ function TodayPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-bold">Today</h1>
+    <main className="mx-auto max-w-2xl px-4 py-6">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        Today
+      </h1>
 
       {today.isLoading && (
-        <p className="mt-4 text-gray-600">Loading today's schedule…</p>
+        <p className="mt-4 text-slate-500">Loading today's schedule…</p>
       )}
 
       {today.isError && (
@@ -226,7 +229,7 @@ function TodayPage() {
       )}
 
       {today.isSuccess && groups.length === 0 && (
-        <p className="mt-4 text-gray-600">Nothing scheduled for today.</p>
+        <p className="mt-4 text-slate-500">Nothing scheduled for today.</p>
       )}
 
       {takeAllReport && (
@@ -271,12 +274,14 @@ function TodayPage() {
             <section
               key={group.schedule_id}
               data-testid={`today-group-${group.schedule_id}`}
-              className="rounded border bg-white"
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
             >
-              <header className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <header className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
                 <div>
-                  <p className="font-medium">{headerTitle}</p>
-                  <p className="text-xs text-gray-500">{headerTime}</p>
+                  <p className="font-semibold text-slate-900">{headerTitle}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    {headerTime}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -285,13 +290,13 @@ function TodayPage() {
                     void handleTakeAll(group);
                   }}
                   disabled={take.isPending}
-                  className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-95 disabled:opacity-50"
                 >
                   Take all
                 </button>
               </header>
 
-              <ul className="divide-y">
+              <ul className="divide-y divide-slate-100">
                 {group.items.map((item) => {
                   const muted = !item.scheduled_today;
                   const before = onBeforeTakeFor(item);
@@ -302,12 +307,12 @@ function TodayPage() {
                       className={
                         "px-4 py-3 " +
                         (muted ? "italic opacity-70 " : "") +
-                        (item.dose !== null ? "bg-gray-50 text-gray-500" : "")
+                        (item.dose !== null ? "bg-slate-50/60" : "")
                       }
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-medium">
+                          <p className="truncate font-semibold text-slate-900">
                             {item.timer_state?.mode === "multi_sub_dose" ? (
                               <Link
                                 to="/medications/$medicationId"
@@ -319,59 +324,20 @@ function TodayPage() {
                             ) : (
                               item.name
                             )}{" "}
-                            <span className="text-sm font-normal text-gray-600">
-                              ({item.quantity_per_dose} {item.unit})
+                            <span className="text-sm font-normal text-slate-500">
+                              {formatQuantity(item.quantity_per_dose)}{" "}
+                              {item.unit}
                             </span>
                           </p>
                           {muted && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-slate-500">
                               not normally scheduled today
                             </p>
                           )}
                           {item.dose !== null && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs font-medium text-green-600">
                               {formatTakenAt(item.dose.taken_at)}
                             </p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-2">
-                          <Link
-                            to="/medications/$id/edit"
-                            params={{ id: item.medication_id }}
-                            className="rounded border px-2 py-1 text-xs hover:bg-gray-50"
-                          >
-                            Edit
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete(item.medication_id, item.name)
-                            }
-                            disabled={deletingId === item.medication_id}
-                            className="rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
-                          >
-                            {deletingId === item.medication_id
-                              ? "Deleting…"
-                              : "Delete"}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-2">
-                        <DoseProgressBar item={item} />
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          {item.timer_state?.mode === "count_up" && (
-                            <p className="text-xs text-gray-600">
-                              <CountUpDisplay state={item.timer_state} />
-                            </p>
-                          )}
-                          {item.interaction_state && (
-                            <InteractionIndicator
-                              state={item.interaction_state}
-                            />
                           )}
                         </div>
                         <div className="shrink-0">
@@ -397,6 +363,46 @@ function TodayPage() {
                               onBeforeTake={before}
                             />
                           )}
+                        </div>
+                      </div>
+
+                      <div className="mt-2.5">
+                        <DoseProgressBar item={item} />
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          {item.timer_state?.mode === "count_up" && (
+                            <p className="text-xs text-slate-500">
+                              <CountUpDisplay state={item.timer_state} />
+                            </p>
+                          )}
+                          {item.interaction_state && (
+                            <InteractionIndicator
+                              state={item.interaction_state}
+                            />
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3 text-xs">
+                          <Link
+                            to="/medications/$id/edit"
+                            params={{ id: item.medication_id }}
+                            className="font-medium text-slate-400 hover:text-slate-700"
+                          >
+                            Edit
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDelete(item.medication_id, item.name)
+                            }
+                            disabled={deletingId === item.medication_id}
+                            className="font-medium text-slate-400 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {deletingId === item.medication_id
+                              ? "Deleting…"
+                              : "Delete"}
+                          </button>
                         </div>
                       </div>
                     </li>

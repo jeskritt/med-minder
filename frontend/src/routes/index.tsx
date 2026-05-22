@@ -17,19 +17,19 @@ function HomePage() {
   const { data: user, isLoading: userLoading } = useCurrentUser();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-          Hello MedMinder
+        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+          MedMinder
         </h1>
-        <p className="mt-4 text-lg text-gray-600">
+        <p className="mt-3 text-lg text-slate-500">
           Personal medication tracker
         </p>
 
         <p className="mt-6">
           <Link
             to="/today"
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+            className="inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-95"
           >
             Today
           </Link>
@@ -63,14 +63,14 @@ function HomePage() {
             {user ? (
               <Link
                 to="/medications"
-                className="rounded bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
               >
                 Open my medications
               </Link>
             ) : (
               <Link
                 to="/login"
-                className="rounded bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
               >
                 Sign in
               </Link>

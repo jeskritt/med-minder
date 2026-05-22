@@ -12,9 +12,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootComponent() {
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       <NavBar />
       <Outlet />
-    </>
+    </div>
   );
 }

@@ -14,6 +14,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Cross-platform dev: the container runs Linux while the source is
+    // bind-mounted from a Windows/macOS host, where inotify events don't
+    // cross the boundary. Poll so HMR sees host edits.
+    watch: { usePolling: true },
     proxy: {
       "/api": {
         target: "http://localhost:8000",

@@ -118,11 +118,16 @@ function EditMedicationPage() {
   const errored = medsQuery.isError || rulesQuery.isError || !med;
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
+    <main className="mx-auto max-w-2xl px-4 py-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Edit medication</h1>
-        <Link to="/medications" className="text-sm text-blue-600 underline">
-          ← Back to list
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Edit medication
+        </h1>
+        <Link
+          to="/medications"
+          className="text-sm text-blue-600 hover:underline"
+        >
+          ← Back
         </Link>
       </div>
 
