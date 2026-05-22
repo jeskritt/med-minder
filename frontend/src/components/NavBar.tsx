@@ -29,9 +29,18 @@ export function NavBar() {
           <ul className="flex items-center gap-4 text-sm">
             <li>
               <Link
+                to="/today"
+                className="text-slate-600 hover:text-blue-600"
+                activeProps={{ className: "text-blue-600 font-semibold" }}
+              >
+                Today
+              </Link>
+            </li>
+            <li>
+              <Link
                 to="/medications"
-                className="text-gray-700 hover:text-blue-600"
-                activeProps={{ className: "text-blue-600 font-medium" }}
+                className="text-slate-600 hover:text-blue-600"
+                activeProps={{ className: "text-blue-600 font-semibold" }}
               >
                 Medications
               </Link>

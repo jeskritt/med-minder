@@ -58,7 +58,7 @@ const EMPTY_DEFAULTS: MedicationFormValues = {
   min_interval_unit: "min",
   window_duration_value: "",
   window_duration_unit: "min",
-  pill_based: false,
+  pill_based: true,
   pill_strength: "",
   pills_per_dose: "",
   max_doses_per_day: "",

@@ -56,6 +56,8 @@ function setup(available = AVAILABLE) {
 
 async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/^name$/i), "Sumatriptan");
+  // Pill-based defaults ON; uncheck to reveal the plain quantity field.
+  await user.click(screen.getByLabelText(/pill-based/i));
   await user.type(screen.getByLabelText(/^quantity per dose$/i), "1");
   await user.clear(screen.getByLabelText(/^unit$/i));
   await user.type(screen.getByLabelText(/^unit$/i), "tablet");

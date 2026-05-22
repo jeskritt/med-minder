@@ -59,9 +59,24 @@ function renderForm(onSubmit: Mock<OnSubmit> = vi.fn<OnSubmit>()) {
   };
 }
 
+// Pill-based defaults ON; uncheck to reveal the plain quantity field.
+async function ensureQuantityMode(
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> {
+  await user.click(screen.getByLabelText(/pill-based/i));
+}
+
 describe("MedicationForm (Add)", () => {
-  it("renders core inputs and submit button", () => {
+  it("defaults to pill-based mode", () => {
     renderForm();
+    expect(screen.getByLabelText(/pill-based/i)).toBeChecked();
+    expect(screen.getByLabelText(/strength per pill/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/pills per dose/i)).toBeInTheDocument();
+  });
+
+  it("renders core inputs and submit button", async () => {
+    const { user } = renderForm();
+    await ensureQuantityMode(user);
     expect(screen.getByLabelText(/^name$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^quantity per dose$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^unit$/i)).toBeInTheDocument();
@@ -84,6 +99,7 @@ describe("MedicationForm (Add)", () => {
 
   it("rejects an end date before the start date", async () => {
     const { user, onSubmit } = renderForm();
+    await ensureQuantityMode(user);
     await user.type(screen.getByLabelText(/^name$/i), "Ibuprofen");
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "200");
     await user.clear(screen.getByLabelText(/^unit$/i));
@@ -100,6 +116,7 @@ describe("MedicationForm (Add)", () => {
 
   it("rejects total_doses=0 unless Untracked is checked", async () => {
     const { user, onSubmit } = renderForm();
+    await ensureQuantityMode(user);
     await user.type(screen.getByLabelText(/^name$/i), "Ibuprofen");
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "200");
     await user.clear(screen.getByLabelText(/^unit$/i));
@@ -125,6 +142,7 @@ describe("MedicationForm (Add)", () => {
     const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
 
+    await ensureQuantityMode(user);
     await user.type(screen.getByLabelText(/^name$/i), "Ibuprofen");
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "200");
     await user.clear(screen.getByLabelText(/^unit$/i));
@@ -174,6 +192,7 @@ describe("MedicationForm (Add)", () => {
 
   it("blocks count_down submission without a minimum interval", async () => {
     const { user, onSubmit } = renderForm();
+    await ensureQuantityMode(user);
     await user.type(screen.getByLabelText(/^name$/i), "Ibuprofen");
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "200");
     await user.clear(screen.getByLabelText(/^unit$/i));
@@ -194,6 +213,7 @@ describe("MedicationForm (Add)", () => {
   it("submits count_up timer_preference cleanly", async () => {
     const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
+    await ensureQuantityMode(user);
     await user.type(screen.getByLabelText(/^name$/i), "Sumatriptan");
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "1");
     await user.clear(screen.getByLabelText(/^unit$/i));
@@ -213,6 +233,7 @@ describe("MedicationForm (Add)", () => {
   it("converts min_interval value+unit into minutes on submit", async () => {
     const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
+    await ensureQuantityMode(user);
     await user.type(screen.getByLabelText(/^name$/i), "Tramadol");
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "50");
     await user.clear(screen.getByLabelText(/^unit$/i));
@@ -236,8 +257,8 @@ describe("MedicationForm (Add)", () => {
   it("derives quantity_per_dose from pill_strength × pills_per_dose when pill-based", async () => {
     const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
+    // Pill-based is the default — no need to toggle it on.
     await user.type(screen.getByLabelText(/^name$/i), "Tylenol");
-    await user.click(screen.getByLabelText(/pill-based/i));
     await user.type(screen.getByLabelText(/strength per pill/i), "500");
     await user.clear(screen.getByLabelText(/^unit$/i));
     await user.type(screen.getByLabelText(/^unit$/i), "mg");

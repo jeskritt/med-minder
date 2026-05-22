@@ -1,4 +1,5 @@
 import type { components } from "@/api/v1";
+import { formatQuantity } from "@/lib/format";
 import {
   minutesToDuration,
   type MedicationFormValues,
@@ -26,7 +27,7 @@ export function defaultsFromMedication(
     med.pills_per_dose !== undefined;
   return {
     name: med.name,
-    quantity_per_dose: String(med.quantity_per_dose),
+    quantity_per_dose: formatQuantity(med.quantity_per_dose),
     unit: med.unit,
     times_per_day: String(med.times_per_day),
     start_date: med.start_date ?? "",
@@ -53,7 +54,7 @@ export function defaultsFromMedication(
     pill_strength:
       med.pill_strength === null || med.pill_strength === undefined
         ? ""
-        : String(med.pill_strength),
+        : formatQuantity(med.pill_strength),
     pills_per_dose:
       med.pills_per_dose === null || med.pills_per_dose === undefined
         ? ""
