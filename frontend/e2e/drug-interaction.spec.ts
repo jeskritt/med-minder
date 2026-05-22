@@ -22,7 +22,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { login, medIdByName } from "./helpers";
+import { login, medIdByName, setPlainDose, addSchedule } from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -48,22 +48,18 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     // Med B first so it exists in A's "Conflicts with" selector.
     await page.goto("/medications/new");
     await page.getByLabel(/^name$/i).fill(bName);
-    await page.getByLabel(/^dosage$/i).fill("1");
-    await page.getByLabel(/^unit$/i).fill("tab");
+    await setPlainDose(page, "1", "tab");
     await page.getByLabel(/untracked/i).check();
-    await page.getByRole("button", { name: /add schedule/i }).click();
-    await page.getByLabel(/schedule 1 time/i).fill(slot);
+    await addSchedule(page, slot);
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
 
     // Med A, paired with B (120-minute cooldown).
     await page.goto("/medications/new");
     await page.getByLabel(/^name$/i).fill(aName);
-    await page.getByLabel(/^dosage$/i).fill("1");
-    await page.getByLabel(/^unit$/i).fill("tab");
+    await setPlainDose(page, "1", "tab");
     await page.getByLabel(/untracked/i).check();
-    await page.getByRole("button", { name: /add schedule/i }).click();
-    await page.getByLabel(/schedule 1 time/i).fill(slot);
+    await addSchedule(page, slot);
     await page.getByRole("button", { name: /add interaction/i }).click();
     await page.getByLabel(/^medication$/i).selectOption({ label: bName });
     await page.getByLabel(/cooldown/i).fill("120");

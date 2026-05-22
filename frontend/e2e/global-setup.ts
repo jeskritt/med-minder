@@ -103,6 +103,23 @@ async function ensureGrannyMedication(): Promise<void> {
   const body = (await list.json()) as { items: { name: string }[] };
   if (body.items.some((m) => m.name === GRANNY_MED_NAME)) return;
 
+  // UX enhancements: schedules are shared user-level resources; create
+  // the slot first, then attach the medication by id. Use the current
+  // local time so the granny smoke's "Mark taken" lands inside the
+  // ±2h window and isn't intercepted by the out-of-schedule confirm.
+  const slot = new Date().toTimeString().slice(0, 5);
+  const schedResp = await fetch(`${API}/api/v1/schedules`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ time_of_day: slot, label: "Morning" }),
+  });
+  if (schedResp.status !== 201) {
+    throw new Error(
+      `global-setup: granny schedule create failed (HTTP ${schedResp.status})`,
+    );
+  }
+  const scheduleId = ((await schedResp.json()) as { id: string }).id;
+
   const create = await fetch(`${API}/api/v1/medications`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: cookie },
@@ -111,7 +128,7 @@ async function ensureGrannyMedication(): Promise<void> {
       times_per_day: 1,
       quantity_per_dose: "10.000",
       unit: "mg",
-      schedules: ["08:00"],
+      schedules: [scheduleId],
     }),
   });
   if (create.status !== 201) {

@@ -26,7 +26,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { login, medIdByName } from "./helpers";
+import { login, medIdByName, setPlainDose, addSchedule } from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -54,15 +54,11 @@ test.describe("Timer modes — count_down boundary", () => {
     // Create a count_down med with the smallest tractable interval (1 minute).
     await page.goto("/medications/new");
     await page.getByLabel(/^name$/i).fill(medName);
-    await page.getByLabel(/^dosage$/i).fill("1");
-    await page.getByLabel(/^unit$/i).fill("tab");
+    await setPlainDose(page, "1", "tab");
     await page.getByLabel(/untracked/i).check();
     await page.getByLabel(/timer mode/i).selectOption({ value: "count_down" });
     await page.getByLabel(/minimum interval/i).fill("1");
-    await page.getByRole("button", { name: /add schedule/i }).click();
-    await page
-      .getByLabel(/schedule 1 time/i)
-      .fill(new Date().toLocaleTimeString("en-GB").slice(0, 5));
+    await addSchedule(page, new Date().toLocaleTimeString("en-GB").slice(0, 5));
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
 
@@ -149,8 +145,7 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
     // Create a multi_sub_dose med: 3 sub-doses in a 6-hour window.
     await page.goto("/medications/new");
     await page.getByLabel(/^name$/i).fill(medName);
-    await page.getByLabel(/^dosage$/i).fill("1");
-    await page.getByLabel(/^unit$/i).fill("tab");
+    await setPlainDose(page, "1", "tab");
     await page.getByLabel(/untracked/i).check();
     await page.getByLabel(/times per day/i).fill("3");
     await page
