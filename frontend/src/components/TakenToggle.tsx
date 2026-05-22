@@ -11,7 +11,11 @@ import { formatRemaining } from "@/lib/timers";
 import type { TodayItem } from "@/hooks/useToday";
 
 export interface TakenToggleProps {
-  scheduleId: string;
+  /**
+   * Optional — absent for unscheduled (PRN) timer rows on /today,
+   * which have no schedule slot. Present for normal scheduled slots.
+   */
+  scheduleId?: string;
   medicationId: string;
   dose: TodayItem["dose"];
   timezone?: string;
@@ -60,7 +64,9 @@ export function TakenToggle({
 
   const handleConfirm = () => {
     setConfirmOpen(false);
-    if (dose) {
+    // Untake is only reachable for a taken scheduled slot; PRN rows
+    // have `dose === null`, so `scheduleId` is always present here.
+    if (dose && scheduleId) {
       untake.mutate({
         doseId: dose.id,
         scheduleId,

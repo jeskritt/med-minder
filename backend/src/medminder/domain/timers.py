@@ -19,6 +19,12 @@ if TYPE_CHECKING:
 
 TimerMode = Literal["count_up", "count_down", "multi_sub_dose"]
 
+# UX enhancements: an unscheduled count_up med has no intrinsic expiry,
+# so for the "show on /today while the timer is running" rule we treat
+# its timer as active only within 24h of the last dose — matching the
+# frontend's existing "over 24h ago" display cap (`lib/timers.ts`).
+COUNT_UP_ACTIVE_HORIZON_SECONDS = 86_400
+
 
 @dataclass(frozen=True)
 class CountUpPayload:
@@ -320,7 +326,42 @@ def compute_timer_state(
     raise ValueError(f"Unknown timer_preference: {pref!r}")
 
 
+def is_timer_active(state: TimerState | None) -> bool:
+    """Whether ``state`` represents a *running* (not-yet-expired) timer.
+
+    Single source of truth for the UX-enhancement rule "show an
+    unscheduled timer med on /today only while its timer is running":
+
+    - ``count_down``: counting down toward the next allowed dose.
+    - ``multi_sub_dose``: the current window is open (full-but-open
+      still counts — it stays until the window closes by duration).
+    - ``count_up``: a dose exists and it was within the 24h horizon
+      (count_up has no natural expiry; see
+      :data:`COUNT_UP_ACTIVE_HORIZON_SECONDS`).
+    """
+    if state is None:
+        return False
+    if state.mode == "count_down":
+        return (
+            state.count_down is not None
+            and state.count_down.remaining_seconds > 0
+        )
+    if state.mode == "multi_sub_dose":
+        return (
+            state.multi_sub_dose is not None
+            and state.multi_sub_dose.active_window is not None
+        )
+    if state.mode == "count_up":
+        return (
+            state.count_up is not None
+            and state.count_up.elapsed_seconds is not None
+            and state.count_up.elapsed_seconds <= COUNT_UP_ACTIVE_HORIZON_SECONDS
+        )
+    return False
+
+
 __all__ = [
+    "COUNT_UP_ACTIVE_HORIZON_SECONDS",
     "ActiveWindow",
     "CountDownPayload",
     "CountUpPayload",
@@ -332,5 +373,6 @@ __all__ = [
     "WindowFullError",
     "compute_timer_state",
     "group_windows",
+    "is_timer_active",
     "multi_sub_dose_window_full",
 ]

@@ -76,9 +76,9 @@ function isOverdoseRed(item: TodayItem): boolean {
   return false;
 }
 
-function scheduledMsToday(item: TodayItem, now: number): number {
+function scheduledMsToday(scheduledTime: string, now: number): number {
   const ref = new Date(now);
-  const [hh, mm] = item.scheduled_time.split(":");
+  const [hh, mm] = scheduledTime.split(":");
   ref.setHours(Number(hh), Number(mm), 0, 0);
   return ref.getTime();
 }
@@ -86,15 +86,19 @@ function scheduledMsToday(item: TodayItem, now: number): number {
 function pickColor(item: TodayItem, now: number): DoseProgressColor {
   if (item.dose !== null) return "green";
   if (isOverdoseRed(item)) return "red";
-  if (!item.scheduled_today) return "neutral";
-  const scheduledAt = scheduledMsToday(item, now);
+  // Unscheduled (PRN) rows have no day-of-week / scheduled-time horizon.
+  if (!item.scheduled_today || item.scheduled_time === null) return "neutral";
+  const scheduledAt = scheduledMsToday(item.scheduled_time, now);
   if (now - scheduledAt > LATE_AFTER_MS) return "amber";
   return "neutral";
 }
 
 function pickValue(item: TodayItem, now: number): number {
   if (item.dose !== null) return 1;
-  const scheduledAt = scheduledMsToday(item, now);
+  // PRN rows have no scheduled horizon to fill against — render empty;
+  // the per-mode control (countdown / window) carries the real readout.
+  if (item.scheduled_time === null) return 0;
+  const scheduledAt = scheduledMsToday(item.scheduled_time, now);
   const elapsed = now - scheduledAt;
   if (elapsed <= 0) return 0;
   return Math.min(1, elapsed / WARN_HORIZON_MS);

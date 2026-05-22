@@ -59,6 +59,9 @@ function formatTakenAt(taken_at: string): string {
 }
 
 function isOutOfSchedule(item: TodayItem, now: number): boolean {
+  // Unscheduled (PRN) timer rows have no slot — taking them is never
+  // "out of schedule", so the confirm modal never intercepts them.
+  if (item.schedule_id === null || item.scheduled_time === null) return false;
   if (!item.scheduled_today) return true;
   const ref = new Date(now);
   const { h, m } = parseHHMM(item.scheduled_time);
@@ -66,9 +69,13 @@ function isOutOfSchedule(item: TodayItem, now: number): boolean {
   return Math.abs(now - ref.getTime()) > OUT_OF_SCHEDULE_HORIZON_MS;
 }
 
+// Synthetic group key for unscheduled (PRN) timer rows, which share a
+// single "As needed" group instead of a per-schedule one.
+const PRN_GROUP_KEY = "__prn__";
+
 interface GroupedItems {
-  schedule_id: string;
-  scheduled_time: string;
+  schedule_id: string | null;
+  scheduled_time: string | null;
   schedule_label: string;
   items: TodayItem[];
 }
@@ -76,11 +83,12 @@ interface GroupedItems {
 function groupByScheduleId(items: TodayItem[]): GroupedItems[] {
   const map = new Map<string, GroupedItems>();
   for (const item of items) {
-    const existing = map.get(item.schedule_id);
+    const key = item.schedule_id ?? PRN_GROUP_KEY;
+    const existing = map.get(key);
     if (existing) {
       existing.items.push(item);
     } else {
-      map.set(item.schedule_id, {
+      map.set(key, {
         schedule_id: item.schedule_id,
         scheduled_time: item.scheduled_time,
         schedule_label: item.schedule_label,
@@ -88,9 +96,10 @@ function groupByScheduleId(items: TodayItem[]): GroupedItems[] {
       });
     }
   }
-  // Preserve the server's HH:MM ordering — the today_view query already
-  // orders by Schedule.time_of_day, Medication.name; the dict above is
-  // insertion-ordered in JS so groups inherit that order.
+  // Preserve the server's ordering — today_view orders scheduled slots
+  // by Schedule.time_of_day, Medication.name and the endpoint appends
+  // PRN rows last; the Map is insertion-ordered so the "As needed"
+  // group lands after the time-ordered groups.
   return Array.from(map.values());
 }
 
@@ -170,6 +179,14 @@ function TodayPage() {
   const handleTakeAll = useCallback(
     async (group: GroupedItems) => {
       const now = Date.now();
+      const takeable = group.items.filter((i) => canTakeNow(i).ok);
+      // If any takeable item is out of schedule, confirm once for the
+      // whole group (mirrors the per-row "Mark taken" gate). Cancel
+      // aborts the entire Take-all — nothing is marked.
+      if (takeable.some((i) => isOutOfSchedule(i, now))) {
+        const proceed = await requestConfirm();
+        if (!proceed) return;
+      }
       const taken: string[] = [];
       const skipped: { name: string; reason: string }[] = [];
       for (const item of group.items) {
@@ -178,14 +195,13 @@ function TodayPage() {
           skipped.push({ name: item.name, reason: check.reason ?? "skipped" });
           continue;
         }
-        if (isOutOfSchedule(item, now)) {
-          skipped.push({ name: item.name, reason: "out of schedule" });
-          continue;
-        }
+        // Out-of-schedule items are now included — the confirm above
+        // covered them. Drug-interaction / hard-block items were
+        // already filtered out by canTakeNow (no bulk override).
         try {
           await take.mutateAsync({
             medicationId: item.medication_id,
-            scheduleId: item.schedule_id,
+            scheduleId: item.schedule_id ?? undefined,
           });
           taken.push(item.name);
         } catch (e) {
@@ -197,7 +213,7 @@ function TodayPage() {
       }
       setTakeAllReport({ taken: taken.length, skipped });
     },
-    [take],
+    [take, requestConfirm],
   );
 
   const handleDelete = (id: string, name: string) => {
@@ -265,40 +281,53 @@ function TodayPage() {
 
       <div className="mt-4 space-y-4">
         {groups.map((group) => {
+          const isPrn = group.schedule_id === null;
+          const groupKey = group.schedule_id ?? PRN_GROUP_KEY;
           const headerTitle =
-            group.schedule_label.trim() === ""
-              ? `${dayBandFor(group.scheduled_time)} meds`
-              : group.schedule_label;
-          const headerTime = formatTime12h(group.scheduled_time);
+            group.schedule_label.trim() !== ""
+              ? group.schedule_label
+              : group.scheduled_time !== null
+                ? `${dayBandFor(group.scheduled_time)} meds`
+                : "As needed";
+          const headerTime =
+            group.scheduled_time !== null
+              ? formatTime12h(group.scheduled_time)
+              : null;
           return (
             <section
-              key={group.schedule_id}
-              data-testid={`today-group-${group.schedule_id}`}
+              key={groupKey}
+              data-testid={`today-group-${groupKey}`}
               className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
             >
               <header className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">{headerTitle}</p>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                    {headerTime}
-                  </p>
+                  {headerTime && (
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      {headerTime}
+                    </p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  data-testid={`take-all-${group.schedule_id}`}
-                  onClick={() => {
-                    void handleTakeAll(group);
-                  }}
-                  disabled={take.isPending}
-                  className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-95 disabled:opacity-50"
-                >
-                  Take all
-                </button>
+                {!isPrn && (
+                  <button
+                    type="button"
+                    data-testid={`take-all-${groupKey}`}
+                    onClick={() => {
+                      void handleTakeAll(group);
+                    }}
+                    disabled={take.isPending}
+                    className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                  >
+                    Take all
+                  </button>
+                )}
               </header>
 
               <ul className="divide-y divide-slate-100">
                 {group.items.map((item) => {
-                  const muted = !item.scheduled_today;
+                  // PRN rows have no day-of-week concept — never mute them.
+                  const muted =
+                    item.schedule_id !== null && !item.scheduled_today;
                   const before = onBeforeTakeFor(item);
                   return (
                     <li
@@ -345,19 +374,19 @@ function TodayPage() {
                             <CountDownButton
                               state={item.timer_state}
                               medicationId={item.medication_id}
-                              scheduleId={item.schedule_id}
+                              scheduleId={item.schedule_id ?? undefined}
                               onBeforeTake={before}
                             />
                           ) : item.timer_state?.mode === "multi_sub_dose" ? (
                             <MultiSubDoseCard
                               state={item.timer_state}
                               medicationId={item.medication_id}
-                              scheduleId={item.schedule_id}
+                              scheduleId={item.schedule_id ?? undefined}
                               onBeforeTake={before}
                             />
                           ) : (
                             <TakenToggle
-                              scheduleId={item.schedule_id}
+                              scheduleId={item.schedule_id ?? undefined}
                               medicationId={item.medication_id}
                               dose={item.dose}
                               onBeforeTake={before}

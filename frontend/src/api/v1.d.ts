@@ -844,14 +844,17 @@ export interface components {
         };
         /**
          * TodayItem
-         * @description One scheduled slot. The UI keys rows on ``(schedule_id, medication_id)``.
+         * @description One Today row. Scheduled rows key on ``(schedule_id, medication_id)``.
+         *
+         *     UX enhancements: rows can also be **unscheduled timer meds** shown
+         *     while their timer is running. Those carry ``schedule_id = None`` and
+         *     ``scheduled_time = None`` (no slot); the frontend groups them under
+         *     an "As needed" header, never mutes them, and never gates their take
+         *     with the out-of-schedule confirm.
          */
         TodayItem: {
-            /**
-             * Schedule Id
-             * Format: uuid
-             */
-            schedule_id: string;
+            /** Schedule Id */
+            schedule_id: string | null;
             /**
              * Medication Id
              * Format: uuid
@@ -859,11 +862,8 @@ export interface components {
             medication_id: string;
             /** Name */
             name: string;
-            /**
-             * Scheduled Time
-             * Format: time
-             */
-            scheduled_time: string;
+            /** Scheduled Time */
+            scheduled_time: string | null;
             /** Quantity Per Dose */
             quantity_per_dose: string;
             /** Unit */

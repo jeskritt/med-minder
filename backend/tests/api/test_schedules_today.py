@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, time, timedelta
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -194,3 +194,205 @@ async def test_today_surfaces_days_of_week_and_scheduled_today(
     assert by_label["Weekday Morning"]["days_of_week"] == 0b0011111
     assert by_label["Weekend Brunch"]["scheduled_today"] is False
     assert by_label["Weekend Brunch"]["days_of_week"] == 0b1100000
+
+
+# --- UX-enhancements: unscheduled timer meds appear while running ----------
+#
+# These rely on the live timer state (computed against `datetime.now`),
+# so doses are placed relative to *now*, not the target date.
+
+
+async def test_today_includes_unscheduled_count_down_while_running(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await create_user(
+        session,
+        email="prn-cd@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="PRN Ibuprofen",
+        timer_preference="count_down",
+        min_interval_minutes=60,
+    )
+    # Dosed 10 min ago → ~50 min still on the clock → row should show.
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        taken_at=datetime.now(UTC) - timedelta(minutes=10),
+    )
+    await session.flush()
+
+    await _login(client, "prn-cd@example.com")
+    resp = await client.get("/api/schedules/today")
+    assert resp.status_code == 200, resp.text
+    items = resp.json()["items"]
+    assert len(items) == 1
+    item = items[0]
+    assert item["medication_id"] == str(med.id)
+    assert item["schedule_id"] is None
+    assert item["scheduled_time"] is None
+    assert item["scheduled_today"] is False
+    assert item["timer_state"]["mode"] == "count_down"
+
+
+async def test_today_excludes_unscheduled_count_down_after_interval(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await create_user(
+        session,
+        email="prn-cd-done@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="PRN Ibuprofen",
+        timer_preference="count_down",
+        min_interval_minutes=60,
+    )
+    # Dosed 2 h ago → 60 min interval elapsed → timer expired → no row.
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        taken_at=datetime.now(UTC) - timedelta(hours=2),
+    )
+    await session.flush()
+
+    await _login(client, "prn-cd-done@example.com")
+    resp = await client.get("/api/schedules/today")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["items"] == []
+
+
+async def test_today_unscheduled_count_up_respects_24h_horizon(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await create_user(
+        session,
+        email="prn-cu@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    recent = await make_medication(
+        session, user=user, name="Recent CU", timer_preference="count_up"
+    )
+    stale = await make_medication(
+        session, user=user, name="Stale CU", timer_preference="count_up"
+    )
+    await make_dose(
+        session,
+        user=user,
+        medication=recent,
+        taken_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+    await make_dose(
+        session,
+        user=user,
+        medication=stale,
+        taken_at=datetime.now(UTC) - timedelta(hours=25),
+    )
+    await session.flush()
+
+    await _login(client, "prn-cu@example.com")
+    resp = await client.get("/api/schedules/today")
+    assert resp.status_code == 200, resp.text
+    med_ids = {item["medication_id"] for item in resp.json()["items"]}
+    assert str(recent.id) in med_ids
+    assert str(stale.id) not in med_ids
+
+
+async def test_today_unscheduled_multi_sub_dose_window_open_then_closed(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await create_user(
+        session,
+        email="prn-msd@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    open_med = await make_medication(
+        session,
+        user=user,
+        name="Open Window",
+        timer_preference="multi_sub_dose",
+        window_duration_minutes=360,
+    )
+    closed_med = await make_medication(
+        session,
+        user=user,
+        name="Closed Window",
+        timer_preference="multi_sub_dose",
+        window_duration_minutes=360,
+    )
+    # Open: dosed 30 min ago, window (6 h) still open.
+    await make_dose(
+        session,
+        user=user,
+        medication=open_med,
+        taken_at=datetime.now(UTC) - timedelta(minutes=30),
+    )
+    # Closed: dosed 7 h ago, window expired.
+    await make_dose(
+        session,
+        user=user,
+        medication=closed_med,
+        taken_at=datetime.now(UTC) - timedelta(hours=7),
+    )
+    await session.flush()
+
+    await _login(client, "prn-msd@example.com")
+    resp = await client.get("/api/schedules/today")
+    assert resp.status_code == 200, resp.text
+    med_ids = {item["medication_id"] for item in resp.json()["items"]}
+    assert str(open_med.id) in med_ids
+    assert str(closed_med.id) not in med_ids
+
+
+async def test_today_scheduled_timer_med_not_duplicated_as_prn(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """A timer med linked to a schedule lists once (scheduled), not twice."""
+    user = await create_user(
+        session,
+        email="sched-cd@example.com",
+        name="U",
+        role="user",
+        password=_PASSWORD,
+    )
+    med = await make_medication(
+        session,
+        user=user,
+        name="Scheduled CD",
+        timer_preference="count_down",
+        min_interval_minutes=60,
+    )
+    sched = await make_schedule(session, user=user)
+    session.add(
+        ScheduleMedication(schedule_id=sched.id, medication_id=med.id)
+    )
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime.now(UTC) - timedelta(minutes=10),
+    )
+    await session.flush()
+
+    await _login(client, "sched-cd@example.com")
+    resp = await client.get("/api/schedules/today")
+    assert resp.status_code == 200, resp.text
+    items = resp.json()["items"]
+    assert len(items) == 1
+    assert items[0]["schedule_id"] == str(sched.id)

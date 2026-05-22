@@ -501,6 +501,41 @@ async def load_non_voided_history_for_meds(
     return out
 
 
+async def load_unscheduled_timer_meds(
+    session: AsyncSession,
+    *,
+    user: User,
+) -> list[Medication]:
+    """Return the user's active timer meds that have no schedule slot.
+
+    UX enhancements: these surface on /today (while their timer is
+    running) so the user sees PRN/timer cycles alongside scheduled
+    slots. "Unscheduled" = no row in ``schedule_medications`` linking
+    the med to a non-deleted schedule. "Timer" = ``timer_preference``
+    other than ``none``. Scoped to the user's own non-deleted meds.
+    """
+    linked_to_active_schedule = (
+        select(ScheduleMedication.medication_id)
+        .join(Schedule, Schedule.id == ScheduleMedication.schedule_id)
+        .where(
+            ScheduleMedication.medication_id == Medication.id,
+            Schedule.deleted_at.is_(None),
+        )
+        .exists()
+    )
+    stmt = (
+        select(Medication)
+        .where(
+            Medication.user_id == user.id,
+            Medication.deleted_at.is_(None),
+            Medication.timer_preference != "none",
+            not_(linked_to_active_schedule),
+        )
+        .order_by(Medication.name)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def load_active_interaction_state(
     session: AsyncSession,
     *,
@@ -604,6 +639,7 @@ __all__ = [
     "create_dose",
     "load_active_interaction_state",
     "load_non_voided_history_for_meds",
+    "load_unscheduled_timer_meds",
     "today_view",
     "void_dose",
 ]

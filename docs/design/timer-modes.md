@@ -68,14 +68,31 @@ should not require new server-side concepts. If a future mode needs
 data the schema doesn't carry, that's a schema change first, design
 change second.
 
-## Open questions
+## Timer meds on the Today screen (UX-enhancements)
 
-- Does `count_up` need a soft cap ("over 24h ago") to stop showing
-  meaningless precision?
+`/today` shows scheduled slots **plus** unscheduled timer meds while
+their timer is *running*, so the user sees the whole picture on one
+screen. "Running" is `domain.timers.is_timer_active(state)`:
+
+- `count_down` — counting toward the next allowed dose
+  (`remaining_seconds > 0`); the row drops off the moment it reaches 0.
+- `multi_sub_dose` — the current window is open (it stays even when all
+  slots are used, until the window closes by duration; then it drops).
+- `count_up` — within **24h** of the last dose (see the resolved
+  open question below); past 24h the row drops until the next dose.
+
+These rows carry `schedule_id = null` / `scheduled_time = null`, group
+under an "As needed" header, are never muted, and are never gated by
+the out-of-schedule confirm.
+
+## Open questions (resolved)
+
+- **Does `count_up` need a soft cap?** — **Yes, 24h.** count_up has no
+  intrinsic expiry, so the UI caps the display at "over 24h ago" and
+  the Today screen drops an unscheduled count_up row once it passes
+  `COUNT_UP_ACTIVE_HORIZON_SECONDS` (86 400) since the last dose.
 - For `multi_sub_dose`, what happens when the user *misses* a sub-dose
   and the window expires? Skip silently, mark missed in adherence,
-  or surface a warning?
-- Mobile haptics on count-down hitting zero — yes/no? Probably yes
-  for accessibility (sighted+haptic > sighted alone).
-
-These get resolved in the Phase 5 PRs.
+  or surface a warning? *(still open — adherence is a later phase)*
+- Mobile haptics on count-down hitting zero — **yes** (implemented in
+  Phase 5: a single vibration on the zero crossing while visible).

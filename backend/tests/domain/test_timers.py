@@ -7,14 +7,18 @@ also drives the frontend vitest suite (T017).
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from medminder.domain.timers import compute_timer_state
+from medminder.domain.timers import (
+    COUNT_UP_ACTIVE_HORIZON_SECONDS,
+    compute_timer_state,
+    is_timer_active,
+)
 
 _FIXTURE = Path(__file__).parent / "fixtures" / "timer_cases.json"
 _CASES: dict[str, list[dict[str, Any]]] = json.loads(_FIXTURE.read_text())
@@ -138,6 +142,74 @@ def test_multi_sub_dose_cases(case: dict[str, Any]) -> None:
         ]
         assert win.slots_used == expected_window["slots_used"]
         assert win.slots_remaining == expected_window["slots_remaining"]
+
+
+_NOW = datetime(2026, 5, 22, 12, 0, tzinfo=UTC)
+
+
+def _state_for(
+    med_payload: dict[str, Any],
+    dose_ages_seconds: list[int],
+) -> Any:
+    """Build a TimerState from a med spec + dose ages (newest-first)."""
+    med = _make_med(med_payload)
+    doses = [
+        SimpleNamespace(taken_at=_NOW - timedelta(seconds=age))
+        for age in dose_ages_seconds
+    ]
+    return compute_timer_state(med, doses, now=_NOW)
+
+
+def test_is_timer_active_none() -> None:
+    assert is_timer_active(None) is False
+    # timer_preference="none" yields no state, which is inactive.
+    assert (
+        compute_timer_state(_make_med({"timer_preference": "none"}), [], now=_NOW)
+        is None
+    )
+
+
+def test_is_timer_active_count_down() -> None:
+    med = {"timer_preference": "count_down", "min_interval_minutes": 60}
+    # Dosed 10 min ago → 50 min still on the clock → running.
+    assert is_timer_active(_state_for(med, [600])) is True
+    # Dosed 2 h ago → interval elapsed → not running.
+    assert is_timer_active(_state_for(med, [7200])) is False
+    # Never dosed → nothing counting.
+    assert is_timer_active(_state_for(med, [])) is False
+
+
+def test_is_timer_active_multi_sub_dose() -> None:
+    med = {
+        "timer_preference": "multi_sub_dose",
+        "window_duration_minutes": 360,
+        "times_per_day": 3,
+    }
+    # One dose 1 h ago → window open → running.
+    assert is_timer_active(_state_for(med, [3600])) is True
+    # Window full (3/3) but not yet closed by duration → still running.
+    assert is_timer_active(_state_for(med, [600, 1200, 1800])) is True
+    # Last dose 7 h ago → window closed → not running.
+    assert is_timer_active(_state_for(med, [7 * 3600])) is False
+    # Never dosed → no active window.
+    assert is_timer_active(_state_for(med, [])) is False
+
+
+def test_is_timer_active_count_up_24h_horizon() -> None:
+    med = {"timer_preference": "count_up"}
+    # Within the 24 h horizon → running.
+    assert is_timer_active(_state_for(med, [3600])) is True
+    # Exactly at the horizon → still running (inclusive).
+    assert (
+        is_timer_active(_state_for(med, [COUNT_UP_ACTIVE_HORIZON_SECONDS])) is True
+    )
+    # One second past the horizon → expired.
+    assert (
+        is_timer_active(_state_for(med, [COUNT_UP_ACTIVE_HORIZON_SECONDS + 1]))
+        is False
+    )
+    # Never dosed → elapsed is None → inactive.
+    assert is_timer_active(_state_for(med, [])) is False
 
 
 def test_multi_sub_dose_zero_times_per_day_degrades_to_none() -> None:

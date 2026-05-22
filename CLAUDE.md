@@ -62,6 +62,7 @@ CI gate worth knowing about: `alembic upgrade head` then `alembic check` runs ag
 - `routeTree.gen.ts` and `api/v1.d.ts` are generated. Edits will be overwritten.
 - `CORS_ORIGINS` defaults to deny-all in production — set it explicitly when deploying.
 - `just` recipes assume bash; on Windows use Git Bash or WSL, not PowerShell.
+- **UX-enhancements batch (see ADR-0009):** schedules are shared user-level resources managed via `GET/POST/DELETE /api/v1/schedules`; a med save attaches them by id (it no longer creates per-med schedule rows). Pill-based meds (`pill_strength` + `pills_per_dose`) derive `quantity_per_dose` server-side. `multi_sub_dose` has a second `max_doses_per_day` cap → `daily_cap_reached` 409. `/today` drops the day-of-week filter (rows mute instead), gates off-schedule takes behind a confirm, and **`TodayItem.schedule_id` / `scheduled_time` are nullable** — unscheduled timer meds surface under "As needed" while their timer runs (`domain.timers.is_timer_active`; count_up uses a 24h horizon).
 
 <!-- SPECKIT START -->
 **Phase 6 — Drug-Interaction Cooldowns** is in progress. Plan and
