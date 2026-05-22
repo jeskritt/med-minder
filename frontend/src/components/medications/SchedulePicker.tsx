@@ -64,6 +64,7 @@ export function SchedulePicker({
   const [editTime, setEditTime] = useState("");
   const [editLabel, setEditLabel] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [confirmingMoveId, setConfirmingMoveId] = useState<string | null>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -109,14 +110,10 @@ export function SchedulePicker({
   const cancelEdit = () => {
     setEditingId(null);
     setEditError(null);
+    setConfirmingMoveId(null);
   };
 
-  const handleEditSave = async (s: ScheduleOut) => {
-    if (editTime === "") {
-      setEditError("Pick a time of day.");
-      return;
-    }
-    setEditError(null);
+  const doUpdate = async (s: ScheduleOut) => {
     try {
       await updateSchedule.mutateAsync({
         id: s.id,
@@ -133,6 +130,27 @@ export function SchedulePicker({
       );
     }
   };
+
+  const handleEditSave = async (s: ScheduleOut) => {
+    if (editTime === "") {
+      setEditError("Pick a time of day.");
+      return;
+    }
+    setEditError(null);
+    // Moving a shared time shifts every attached med — confirm first
+    // (mirrors the delete guard). Label-only edits or unattached
+    // schedules save directly.
+    const timeChanged = editTime !== formatTimeOfDay(s.time_of_day);
+    const attached = s.medications ?? [];
+    if (timeChanged && attached.length > 0) {
+      setConfirmingMoveId(s.id);
+      return;
+    }
+    await doUpdate(s);
+  };
+
+  const confirmingMove =
+    schedules.find((s) => s.id === confirmingMoveId) ?? null;
 
   const deleting = schedules.find((s) => s.id === deletingId) ?? null;
 
@@ -429,6 +447,53 @@ export function SchedulePicker({
                 className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
               >
                 {deleteSchedule.isPending ? "Deleting…" : "Delete schedule"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmingMove !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Move schedule time"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-lg">
+            <h2 className="text-base font-semibold">
+              Move “{displayLabel(confirmingMove)}” to {editTime}?
+            </h2>
+            <p className="mt-2 text-sm text-gray-700">
+              This time is shared by:
+            </p>
+            <ul className="mt-1 list-disc pl-5 text-sm text-gray-700">
+              {(confirmingMove.medications ?? []).map((m) => (
+                <li key={m.id}>{m.name}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-sm text-gray-700">
+              Their reminders and Today slots all shift.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmingMoveId(null)}
+                className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = confirmingMove;
+                  setConfirmingMoveId(null);
+                  void doUpdate(target);
+                }}
+                disabled={updateSchedule.isPending}
+                className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {updateSchedule.isPending ? "Moving…" : "Move time"}
               </button>
             </div>
           </div>

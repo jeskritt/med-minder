@@ -188,6 +188,93 @@ describe("MedicationForm (Add)", () => {
     expect(opts.body.time_of_day).toBe("09:30");
   });
 
+  function mockScheduleWithAspirin() {
+    mockGet.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: SCHEDULE_ID,
+            label: "Morning",
+            time_of_day: "08:00:00",
+            days_of_week: 127,
+            medications: [{ id: "med-1", name: "Aspirin" }],
+          },
+        ],
+      },
+      response: new Response(null, { status: 200 }),
+    } as unknown as Awaited<ReturnType<typeof client.GET>>);
+    mockPut.mockResolvedValue({
+      data: {
+        id: SCHEDULE_ID,
+        label: "Morning",
+        time_of_day: "09:30:00",
+        days_of_week: 127,
+        medications: [{ id: "med-1", name: "Aspirin" }],
+      },
+      response: new Response(null, { status: 200 }),
+    } as unknown as Awaited<ReturnType<typeof client.PUT>>);
+  }
+
+  it("confirms before moving a time shared by attached meds (PUT)", async () => {
+    mockScheduleWithAspirin();
+    const { user } = renderForm();
+    await user.click(
+      await screen.findByRole("button", { name: /edit morning/i }),
+    );
+    const timeInput = screen.getByLabelText(/^time$/i);
+    await user.clear(timeInput);
+    await user.type(timeInput, "09:30");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    // A confirm modal naming the affected med appears; no PUT yet.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/aspirin/i)).toBeInTheDocument();
+    expect(mockPut).not.toHaveBeenCalled();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: /move time/i }),
+    );
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(1));
+    const opts = mockPut.mock.calls[0][1] as { body: { time_of_day: string } };
+    expect(opts.body.time_of_day).toBe("09:30");
+  });
+
+  it("cancelling the move warning leaves the time unchanged", async () => {
+    mockScheduleWithAspirin();
+    const { user } = renderForm();
+    await user.click(
+      await screen.findByRole("button", { name: /edit morning/i }),
+    );
+    const timeInput = screen.getByLabelText(/^time$/i);
+    await user.clear(timeInput);
+    await user.type(timeInput, "09:30");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /cancel/i }));
+
+    expect(mockPut).not.toHaveBeenCalled();
+    // Still in the edit row (Save button present, no dialog).
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
+  });
+
+  it("a label-only edit saves without the move warning", async () => {
+    mockScheduleWithAspirin();
+    const { user } = renderForm();
+    await user.click(
+      await screen.findByRole("button", { name: /edit morning/i }),
+    );
+    const labelInput = screen.getByLabelText(/label \(optional\)/i);
+    await user.clear(labelInput);
+    await user.type(labelInput, "Wake-up");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    // Time unchanged → no modal, PUT fires directly.
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("warns about attached meds then deletes via the trash icon", async () => {
     mockGet.mockResolvedValue({
       data: {
