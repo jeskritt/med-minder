@@ -21,13 +21,18 @@ class MinIntervalViolation(BaseModel):
 
 
 class WindowFullViolation(BaseModel):
-    """HTTP 409 body when a multi_sub_dose med's active window is full."""
+    """HTTP 409 body when a multi_sub_dose med has the max doses active.
+
+    Rolling model: ``slots_total`` is the max-concurrent cap and
+    ``next_available_at`` is when the oldest active dose's window expires
+    (a slot frees then).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["window_full"]
     medication_id: uuid.UUID
-    window_end: datetime
+    next_available_at: datetime
     slots_used: int = Field(ge=1)
     slots_total: int = Field(ge=1)
 

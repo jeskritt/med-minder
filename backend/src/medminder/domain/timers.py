@@ -39,20 +39,28 @@ class CountDownPayload:
 
 
 @dataclass(frozen=True)
-class ActiveWindow:
-    window_start: datetime
-    window_end: datetime
-    doses_in_window: list[datetime]
-    slots_used: int
-    slots_remaining: int
+class ActiveSubDose:
+    """A non-voided dose still inside its own rolling window."""
+
+    taken_at: datetime
+    expires_at: datetime  # taken_at + window_duration
 
 
 @dataclass(frozen=True)
 class MultiSubDosePayload:
+    """Rolling per-dose window state.
+
+    Each dose opens its own ``window_duration`` window; at most
+    ``max_concurrent`` of them may overlap ("max N at a time"). A dose
+    is "active" while ``now`` is inside its window.
+    """
+
     window_duration_seconds: int
-    slots_total: int
-    active_window: ActiveWindow | None
-    previous_window_unused_slots: int
+    max_concurrent: int
+    active_sub_doses: list[ActiveSubDose]  # oldest-first
+    slots_used: int
+    slots_remaining: int
+    next_available_at: datetime | None  # earliest expiry when full, else None
 
 
 @dataclass(frozen=True)
@@ -85,22 +93,27 @@ class MinIntervalNotElapsedError(Exception):
 
 
 class WindowFullError(Exception):
-    """Raised when a multi_sub_dose med's active window is already full."""
+    """Raised when a multi_sub_dose med already has the max doses active.
+
+    ``slots_total`` is the max-concurrent cap (N); ``slots_used`` is how
+    many doses are currently active; ``next_available_at`` is when the
+    oldest active dose's window expires and a slot frees.
+    """
 
     def __init__(
         self,
         *,
         medication_id: uuid.UUID,
-        window_end: datetime,
+        next_available_at: datetime,
         slots_used: int,
         slots_total: int,
     ) -> None:
         super().__init__(
-            f"multi_sub_dose window full for medication {medication_id}: "
+            f"multi_sub_dose at capacity for medication {medication_id}: "
             f"{slots_used}/{slots_total}."
         )
         self.medication_id = medication_id
-        self.window_end = window_end
+        self.next_available_at = next_available_at
         self.slots_used = slots_used
         self.slots_total = slots_total
 
@@ -129,57 +142,48 @@ class DailyCapReachedError(Exception):
         self.count_today = count_today
 
 
-def group_windows(
-    taken_ats_oldest_first: list[datetime],
+def _active_at(
+    taken_ats: list[datetime],
+    at: datetime,
     window_duration: timedelta,
-) -> list[tuple[datetime, list[datetime]]]:
-    """Group dose timestamps into non-overlapping windows.
+) -> list[datetime]:
+    """Doses whose own rolling window covers ``at`` — i.e. taken in
+    ``(at - window_duration, at]``. Returned sorted oldest-first.
 
-    A dose extends the current window if it falls before that window's
-    end; otherwise it opens a new window. Single source of truth for
-    multi_sub_dose window arithmetic — used by both ``compute_timer_state``
-    and the ``create_dose`` overdose guard.
+    Single source of truth for the multi_sub_dose rolling model, shared
+    by ``compute_timer_state`` and the ``create_dose`` overdose guard.
     """
-    windows: list[tuple[datetime, list[datetime]]] = []
-    for taken in taken_ats_oldest_first:
-        if windows:
-            start, members = windows[-1]
-            if taken < start + window_duration:
-                members.append(taken)
-                continue
-        windows.append((taken, [taken]))
-    return windows
+    lower = at - window_duration
+    return sorted(t for t in taken_ats if lower < t <= at)
 
 
 def multi_sub_dose_window_full(
     med: Medication,
-    non_voided_taken_ats_oldest_first: list[datetime],
+    non_voided_taken_ats: list[datetime],
     prospective_taken_at: datetime,
 ) -> WindowFullError | None:
-    """Return a ``WindowFullError`` iff a dose at ``prospective_taken_at``
-    would land in an existing window that is already at capacity.
+    """Return a ``WindowFullError`` iff taking a dose at
+    ``prospective_taken_at`` would exceed the max-concurrent cap.
 
-    Order-independent and consistent with ``compute_timer_state``'s
-    window model: a window spans ``[start, start + window_duration)``
-    and holds at most ``times_per_day`` non-voided doses.
+    Rolling-window model: each dose is "active" for ``window_duration``;
+    at most ``times_per_day`` (= max concurrent) may overlap. Blocked
+    when ``window_duration`` already holds that many. Order-independent.
     """
     if med.window_duration_minutes is None or med.window_duration_minutes <= 0:
         return None
     window_duration = timedelta(minutes=med.window_duration_minutes)
     slots_total = med.times_per_day
-    for start, members in group_windows(
-        non_voided_taken_ats_oldest_first, window_duration
-    ):
-        end = start + window_duration
-        if start <= prospective_taken_at < end:
-            if len(members) >= slots_total:
-                return WindowFullError(
-                    medication_id=med.id,
-                    window_end=end,
-                    slots_used=len(members),
-                    slots_total=slots_total,
-                )
-            return None
+    active = _active_at(
+        non_voided_taken_ats, prospective_taken_at, window_duration
+    )
+    if len(active) >= slots_total:
+        # The oldest active dose ages out first → frees the next slot.
+        return WindowFullError(
+            medication_id=med.id,
+            next_available_at=active[0] + window_duration,
+            slots_used=len(active),
+            slots_total=slots_total,
+        )
     return None
 
 
@@ -262,65 +266,37 @@ def compute_timer_state(
             )
         window_duration = timedelta(minutes=med.window_duration_minutes)
         window_duration_seconds = med.window_duration_minutes * 60
-        slots_total = med.times_per_day
+        max_concurrent = med.times_per_day
 
         newest = doses[0] if doses else None
         last_dose_at = newest.taken_at if newest is not None else None
 
-        if not doses:
-            return TimerState(
-                mode="multi_sub_dose",
-                as_of=now,
-                last_dose_at=None,
-                multi_sub_dose=MultiSubDosePayload(
-                    window_duration_seconds=window_duration_seconds,
-                    slots_total=slots_total,
-                    active_window=None,
-                    previous_window_unused_slots=0,
-                ),
-            )
-
-        # Group oldest-first into non-overlapping windows (shared helper —
-        # same arithmetic the create_dose overdose guard uses).
-        windows = group_windows(
-            [d.taken_at for d in reversed(doses)], window_duration
+        # Rolling model: a dose is "active" while now is inside its own
+        # window. At most `max_concurrent` may overlap; the oldest active
+        # dose frees the next slot when its window expires.
+        active = _active_at([d.taken_at for d in doses], now, window_duration)
+        active_sub_doses = [
+            ActiveSubDose(taken_at=t, expires_at=t + window_duration)
+            for t in active
+        ]
+        slots_used = len(active_sub_doses)
+        slots_remaining = max(0, max_concurrent - slots_used)
+        next_available_at = (
+            active_sub_doses[0].expires_at
+            if slots_used >= max_concurrent and active_sub_doses
+            else None
         )
-
-        start, members = windows[-1]
-        end = start + window_duration
-
-        if start <= now < end:
-            slots_used = len(members)
-            return TimerState(
-                mode="multi_sub_dose",
-                as_of=now,
-                last_dose_at=last_dose_at,
-                multi_sub_dose=MultiSubDosePayload(
-                    window_duration_seconds=window_duration_seconds,
-                    slots_total=slots_total,
-                    active_window=ActiveWindow(
-                        window_start=start,
-                        window_end=end,
-                        doses_in_window=list(members),
-                        slots_used=slots_used,
-                        slots_remaining=max(0, slots_total - slots_used),
-                    ),
-                    previous_window_unused_slots=0,
-                ),
-            )
-
-        # Latest window has expired (no new window started since, by
-        # construction). Surface its unused-slot count for the banner.
-        unused = max(0, slots_total - len(members))
         return TimerState(
             mode="multi_sub_dose",
             as_of=now,
             last_dose_at=last_dose_at,
             multi_sub_dose=MultiSubDosePayload(
                 window_duration_seconds=window_duration_seconds,
-                slots_total=slots_total,
-                active_window=None,
-                previous_window_unused_slots=unused,
+                max_concurrent=max_concurrent,
+                active_sub_doses=active_sub_doses,
+                slots_used=slots_used,
+                slots_remaining=slots_remaining,
+                next_available_at=next_available_at,
             ),
         )
     raise ValueError(f"Unknown timer_preference: {pref!r}")
@@ -333,8 +309,9 @@ def is_timer_active(state: TimerState | None) -> bool:
     unscheduled timer med on /today only while its timer is running":
 
     - ``count_down``: counting down toward the next allowed dose.
-    - ``multi_sub_dose``: the current window is open (full-but-open
-      still counts — it stays until the window closes by duration).
+    - ``multi_sub_dose``: at least one dose is still inside its own
+      rolling window (``slots_used > 0``); drops off once every
+      per-dose window has expired.
     - ``count_up``: a dose exists and it was within the 24h horizon
       (count_up has no natural expiry; see
       :data:`COUNT_UP_ACTIVE_HORIZON_SECONDS`).
@@ -349,7 +326,7 @@ def is_timer_active(state: TimerState | None) -> bool:
     if state.mode == "multi_sub_dose":
         return (
             state.multi_sub_dose is not None
-            and state.multi_sub_dose.active_window is not None
+            and state.multi_sub_dose.slots_used > 0
         )
     if state.mode == "count_up":
         return (
@@ -362,7 +339,7 @@ def is_timer_active(state: TimerState | None) -> bool:
 
 __all__ = [
     "COUNT_UP_ACTIVE_HORIZON_SECONDS",
-    "ActiveWindow",
+    "ActiveSubDose",
     "CountDownPayload",
     "CountUpPayload",
     "DailyCapReachedError",
@@ -372,7 +349,6 @@ __all__ = [
     "TimerState",
     "WindowFullError",
     "compute_timer_state",
-    "group_windows",
     "is_timer_active",
     "multi_sub_dose_window_full",
 ]

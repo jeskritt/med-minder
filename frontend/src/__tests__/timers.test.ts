@@ -54,15 +54,11 @@ interface MultiSubDoseCase {
     last_dose_at: string | null;
     multi_sub_dose: {
       window_duration_seconds: number;
-      slots_total: number;
-      active_window: {
-        window_start: string;
-        window_end: string;
-        doses_in_window: string[];
-        slots_used: number;
-        slots_remaining: number;
-      } | null;
-      previous_window_unused_slots: number;
+      max_concurrent: number;
+      active_sub_doses: { taken_at: string; expires_at: string }[];
+      slots_used: number;
+      slots_remaining: number;
+      next_available_at: string | null;
     };
   };
 }
@@ -188,7 +184,7 @@ describe("formatRemaining", () => {
 
 describe("windowProgress", () => {
   it.each(fixture.multi_sub_dose)(
-    "$name: reports used/total/expiredUnused",
+    "$name: reports used/total/remaining/nextAvailableAt",
     (c: MultiSubDoseCase) => {
       const p = c.expected.multi_sub_dose;
       const state: TimerStateOut = {
@@ -198,9 +194,10 @@ describe("windowProgress", () => {
         multi_sub_dose: p,
       };
       expect(windowProgress(state)).toEqual({
-        used: p.active_window?.slots_used ?? 0,
-        total: p.slots_total,
-        expiredUnused: p.previous_window_unused_slots,
+        used: p.slots_used,
+        total: p.max_concurrent,
+        remaining: p.slots_remaining,
+        nextAvailableAt: p.next_available_at,
       });
     },
   );
@@ -215,7 +212,8 @@ describe("windowProgress", () => {
     expect(windowProgress(state)).toEqual({
       used: 0,
       total: 0,
-      expiredUnused: 0,
+      remaining: 0,
+      nextAvailableAt: null,
     });
   });
 });

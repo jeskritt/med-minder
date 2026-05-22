@@ -209,7 +209,7 @@ async def test_count_down_zero_clamp_in_today_response(
 async def test_multi_sub_dose_in_today_response(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    """multi_sub_dose active-window payload surfaces in the today view."""
+    """multi_sub_dose rolling-window payload surfaces in the today view."""
     today = datetime.now(UTC).date()
 
     user = await create_user(
@@ -252,17 +252,17 @@ async def test_multi_sub_dose_in_today_response(
     assert timer is not None
     assert timer["mode"] == "multi_sub_dose"
     payload = timer["multi_sub_dose"]
-    assert payload["slots_total"] == 3
-    assert payload["previous_window_unused_slots"] == 0
-    assert payload["active_window"] is not None
-    assert payload["active_window"]["slots_used"] == 1
-    assert payload["active_window"]["slots_remaining"] == 2
+    assert payload["max_concurrent"] == 3
+    assert payload["slots_used"] == 1
+    assert payload["slots_remaining"] == 2
+    assert payload["next_available_at"] is None
+    assert len(payload["active_sub_doses"]) == 1
 
 
-async def test_multi_sub_dose_expired_window_banner_counter(
+async def test_multi_sub_dose_expired_dose_inactive(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    """An expired window with unused slots reports previous_window_unused_slots."""
+    """A dose whose per-dose window has expired no longer counts as active."""
     today = datetime.now(UTC).date()
 
     user = await create_user(
@@ -284,7 +284,7 @@ async def test_multi_sub_dose_expired_window_banner_counter(
     sched = await make_schedule(session, user=user)
     session.add(ScheduleMedication(schedule_id=sched.id, medication_id=med.id))
 
-    # Dose 8h ago → its 6h window expired 2h ago with 2 of 3 slots unused.
+    # Dose 8h ago → its 6h window expired 2h ago → no longer active.
     await make_dose(
         session,
         user=user,
@@ -301,8 +301,10 @@ async def test_multi_sub_dose_expired_window_banner_counter(
     )
     assert resp.status_code == 200, resp.text
     payload = resp.json()["items"][0]["timer_state"]["multi_sub_dose"]
-    assert payload["active_window"] is None
-    assert payload["previous_window_unused_slots"] == 2
+    assert payload["active_sub_doses"] == []
+    assert payload["slots_used"] == 0
+    assert payload["slots_remaining"] == 3
+    assert payload["next_available_at"] is None
 
 
 async def test_count_up_soft_deleted_excluded(

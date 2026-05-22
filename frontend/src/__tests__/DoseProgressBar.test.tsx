@@ -89,7 +89,7 @@ describe("DoseProgressBar", () => {
     expect(getColor(container)).toBe("red");
   });
 
-  it("is red when the multi_sub_dose window is full", () => {
+  it("is red when the multi_sub_dose med is at capacity", () => {
     const { container } = render(
       <DoseProgressBar
         item={{
@@ -100,19 +100,24 @@ describe("DoseProgressBar", () => {
             last_dose_at: "2026-05-08T12:00:00Z",
             multi_sub_dose: {
               window_duration_seconds: 21600,
-              slots_total: 3,
-              active_window: {
-                window_start: "2026-05-08T11:00:00Z",
-                window_end: "2026-05-08T17:00:00Z",
-                slots_used: 3,
-                slots_remaining: 0,
-                doses_in_window: [
-                  "2026-05-08T11:00:00Z",
-                  "2026-05-08T11:30:00Z",
-                  "2026-05-08T12:00:00Z",
-                ],
-              },
-              previous_window_unused_slots: 0,
+              max_concurrent: 3,
+              active_sub_doses: [
+                {
+                  taken_at: "2026-05-08T11:00:00Z",
+                  expires_at: "2026-05-08T17:00:00Z",
+                },
+                {
+                  taken_at: "2026-05-08T11:30:00Z",
+                  expires_at: "2026-05-08T17:30:00Z",
+                },
+                {
+                  taken_at: "2026-05-08T12:00:00Z",
+                  expires_at: "2026-05-08T18:00:00Z",
+                },
+              ],
+              slots_used: 3,
+              slots_remaining: 0,
+              next_available_at: "2026-05-08T17:00:00Z",
             },
           },
         }}

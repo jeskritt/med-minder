@@ -133,3 +133,90 @@ async def test_user_cannot_see_another_users_schedules(
     resp = await client.get("/api/v1/schedules")
     assert resp.status_code == 200
     assert resp.json()["items"] == []
+
+
+async def test_put_updates_time_label_and_dow(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await _login(client, session, email="sched-put@example.com")
+    created = await client.post(
+        "/api/v1/schedules",
+        json={"time_of_day": "08:00", "label": "Morning"},
+    )
+    sched_id = created.json()["id"]
+
+    resp = await client.put(
+        f"/api/v1/schedules/{sched_id}",
+        json={"time_of_day": "09:30", "label": "Mid-morning", "days_of_week": 31},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["time_of_day"] == "09:30:00"
+    assert body["label"] == "Mid-morning"
+    assert body["days_of_week"] == 31
+
+    listed = await client.get("/api/v1/schedules")
+    item = listed.json()["items"][0]
+    assert item["time_of_day"] == "09:30:00"
+    assert item["label"] == "Mid-morning"
+
+
+async def test_put_unknown_id_404(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await _login(client, session, email="sched-put-404@example.com")
+    resp = await client.put(
+        f"/api/v1/schedules/{uuid.uuid4()}",
+        json={"time_of_day": "09:00"},
+    )
+    assert resp.status_code == 404
+
+
+async def test_user_cannot_update_another_users_schedule(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await _login(client, session, email="owner-put@example.com")
+    created = await client.post(
+        "/api/v1/schedules", json={"time_of_day": "10:00"}
+    )
+    sched_id = created.json()["id"]
+
+    await client.post("/auth/logout")
+    client.cookies.clear()
+    await _login(client, session, email="intruder-put@example.com")
+    resp = await client.put(
+        f"/api/v1/schedules/{sched_id}",
+        json={"time_of_day": "11:00"},
+    )
+    assert resp.status_code == 404
+
+
+async def test_list_includes_attached_medications(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await _login(client, session, email="sched-attached@example.com")
+    morning = await client.post(
+        "/api/v1/schedules", json={"time_of_day": "08:00", "label": "Morning"}
+    )
+    morning_id = morning.json()["id"]
+    await client.post(
+        "/api/v1/schedules", json={"time_of_day": "20:00", "label": "Evening"}
+    )
+
+    med = await client.post(
+        "/api/v1/medications",
+        json={
+            "name": "Aspirin",
+            "quantity_per_dose": "100",
+            "unit": "mg",
+            "times_per_day": 1,
+            "schedules": [morning_id],
+        },
+    )
+    assert med.status_code == 201, med.text
+
+    listed = await client.get("/api/v1/schedules")
+    items = {s["label"]: s for s in listed.json()["items"]}
+    assert [m["name"] for m in items["Morning"]["medications"]] == ["Aspirin"]
+    # Unattached schedule reports an empty medications list.
+    assert items["Evening"]["medications"] == []

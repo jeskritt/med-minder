@@ -115,7 +115,7 @@ function canTakeNow(item: TodayItem): { ok: boolean; reason?: string } {
     return { ok: false, reason: "min-interval not elapsed" };
   }
   const msd = item.timer_state?.multi_sub_dose;
-  if (msd?.active_window && msd.active_window.slots_remaining === 0) {
+  if (msd && msd.slots_remaining === 0) {
     return { ok: false, reason: "window full" };
   }
   return { ok: true };

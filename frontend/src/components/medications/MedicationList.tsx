@@ -61,7 +61,10 @@ export function MedicationList({
               </span>
             </div>
             <div className="text-sm text-slate-500">
-              {med.times_per_day}× daily — {formatTimes(med)}
+              {med.timer_state?.mode === "multi_sub_dose"
+                ? `max ${med.times_per_day} at a time`
+                : `${med.times_per_day}× daily`}{" "}
+              — {formatTimes(med)}
             </div>
             {med.timer_state?.mode === "count_up" && (
               <div className="text-sm text-gray-700">

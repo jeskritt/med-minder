@@ -33,9 +33,8 @@ export function MultiSubDoseCard({
 
   if (!payload) return null;
 
-  const { used, total, expiredUnused } = windowProgress(state);
-  const win = payload.active_window;
-  const isFull = win !== null && win.slots_remaining === 0;
+  const { used, total, remaining, nextAvailableAt } = windowProgress(state);
+  const isFull = remaining === 0;
 
   const handleClick = async () => {
     if (isFull || take.isPending) return;
@@ -46,35 +45,32 @@ export function MultiSubDoseCard({
   return (
     <div className="space-y-1">
       <p className="text-sm text-gray-700">
-        {used} of {total} this window
-        {win && (
-          <span className="ml-2 text-gray-500">
-            · window ends {formatTime(win.window_end)}
-          </span>
-        )}
+        max {total} at a time
+        <span className="ml-2 text-gray-500">
+          · {used}/{total} active
+        </span>
       </p>
 
-      {win && win.doses_in_window.length > 0 && (
+      {payload.active_sub_doses.length > 0 && (
         <ul className="text-xs text-gray-500">
-          {win.doses_in_window.map((d, i) => (
-            <li key={`${d}-${i}`}>
-              Sub-dose {i + 1}: {formatTime(d)}
+          {payload.active_sub_doses.map((d) => (
+            <li key={d.taken_at}>
+              Dose {formatTime(d.taken_at)} — frees {formatTime(d.expires_at)}
             </li>
           ))}
         </ul>
       )}
 
-      {expiredUnused > 0 && (
+      {isFull && nextAvailableAt && (
         <p role="status" className="text-xs text-amber-700">
-          Last window ended with {expiredUnused} of {total} slots unused — tap
-          when ready
+          Max {total} at a time — next dose at {formatTime(nextAvailableAt)}
         </p>
       )}
 
       {take.error instanceof WindowFullError && (
         <p role="alert" className="mt-1 text-xs text-red-600">
-          Window full — {take.error.body.slots_used} of{" "}
-          {take.error.body.slots_total} this window
+          Max {take.error.body.slots_total} at a time — next dose at{" "}
+          {formatTime(take.error.body.next_available_at)}
         </p>
       )}
 
@@ -91,7 +87,7 @@ export function MultiSubDoseCard({
             : "rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         }
       >
-        {isFull ? "Window full" : "Dose available"}
+        {isFull ? "Max reached" : "Dose available"}
       </button>
     </div>
   );

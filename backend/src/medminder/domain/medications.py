@@ -104,9 +104,9 @@ def validate_medication_input(payload: MedicationInput) -> None:
         payload.timer_preference == "multi_sub_dose"
         and payload.times_per_day < 1
     ):
-        # times_per_day is the per-window slot count (slots_total); a
-        # multi_sub_dose med with 0 slots is meaningless and breaks the
-        # timer-state wire model (MultiSubDosePayload.slots_total >= 1).
+        # times_per_day is the max-concurrent cap ("max at a time"); a
+        # multi_sub_dose med with 0 is meaningless and breaks the
+        # timer-state wire model (MultiSubDosePayload.max_concurrent >= 1).
         raise InvalidMedicationError(
             "multi_sub_dose timer_preference requires times_per_day >= 1"
         )
@@ -120,7 +120,7 @@ def validate_medication_input(payload: MedicationInput) -> None:
     if payload.pills_per_dose is not None and payload.pills_per_dose < 1:
         raise InvalidMedicationError("pills_per_dose must be >= 1")
     # multi_sub_dose daily cap: only meaningful on that mode; must be
-    # >= the per-window slot cap (times_per_day).
+    # >= the max-at-a-time cap (times_per_day).
     if payload.max_doses_per_day is not None:
         if payload.timer_preference != "multi_sub_dose":
             raise InvalidMedicationError(

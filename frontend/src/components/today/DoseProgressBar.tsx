@@ -70,7 +70,7 @@ function isOverdoseRed(item: TodayItem): boolean {
   const cd = item.timer_state?.count_down;
   if (cd && cd.remaining_seconds > 0) return true;
   const msd = item.timer_state?.multi_sub_dose;
-  if (msd?.active_window && msd.active_window.slots_remaining === 0) {
+  if (msd && msd.slots_remaining === 0) {
     return true;
   }
   return false;

@@ -4,6 +4,12 @@
 
 Accepted
 
+> §3 (the `multi_sub_dose` per-window slot cap) and §5's "window is
+> open" phrasing are **superseded by ADR-0010**, which replaced the
+> tiled single-window model with rolling per-dose windows
+> (`times_per_day` = max-at-a-time). `max_doses_per_day` as a separate
+> daily cap is unchanged.
+
 ## Context
 
 After Phase 6 shipped, manual testing surfaced a cluster of usability

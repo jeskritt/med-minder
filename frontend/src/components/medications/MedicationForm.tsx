@@ -55,9 +55,9 @@ const EMPTY_DEFAULTS: MedicationFormValues = {
   refill_threshold: "",
   timer_preference: "none",
   min_interval_value: "",
-  min_interval_unit: "min",
+  min_interval_unit: "hour",
   window_duration_value: "",
-  window_duration_unit: "min",
+  window_duration_unit: "hour",
   pill_based: true,
   pill_strength: "",
   pills_per_dose: "",
@@ -151,10 +151,12 @@ export function MedicationForm({
 
   const submittingNow = isSubmitting || formSubmitting;
   const timesPerDayLabel =
-    timerPreference === "multi_sub_dose" ? "Times per window" : "Times per day";
+    timerPreference === "multi_sub_dose"
+      ? "Max doses at a time"
+      : "Times per day";
   const timesPerDayHint =
     timerPreference === "multi_sub_dose"
-      ? "Slots available inside each window (the per-window cap)."
+      ? "The most overlapping doses allowed at once; each dose stays active for the window above."
       : "How many scheduled doses per day.";
 
   const derivedQuantity =
@@ -187,8 +189,8 @@ export function MedicationForm({
             (overdose guard).
           </li>
           <li>
-            <strong>Multi sub-dose</strong> — group small doses into rolling
-            windows; cap per-window and (optionally) per-day.
+            <strong>Multi sub-dose</strong> — each dose opens its own rolling
+            window; cap how many overlap at once (and optionally per day).
           </li>
         </ul>
       </aside>
@@ -475,8 +477,8 @@ export function MedicationForm({
             Max doses per day (optional)
           </label>
           <p className="text-xs text-gray-600">
-            Cap across the whole day, on top of the per-window slot cap above.
-            Leave blank for no daily cap.
+            Hard cap across the whole day, on top of the max-at-a-time cap
+            above. Leave blank for no daily cap.
           </p>
           <input
             id="max_doses_per_day"
@@ -605,6 +607,7 @@ export function MedicationForm({
         control={control}
         errors={errors}
         timesPerDay={timesPerDay}
+        showParity={timerPreference !== "multi_sub_dose"}
       />
 
       <fieldset className="rounded-xl border border-slate-200 bg-white p-4">

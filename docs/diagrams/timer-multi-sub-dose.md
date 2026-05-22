@@ -1,70 +1,62 @@
 # Timer state diagram: multi_sub_dose
 
-The `multi_sub_dose` mode lets a medication be taken up to
-`times_per_day` times inside a rolling `window_duration_minutes`
-window. A window is opened by the first dose taken while no window is
-active; subsequent doses inside that window fill its slots. The window
-exists solely to prevent overdose — no missed-slot record is persisted
-when it expires with slots unused (FR-008).
+The `multi_sub_dose` mode lets a medication be taken repeatedly, but
+bounds **concurrency**: each dose opens its own rolling
+`window_duration_minutes` window, and at most `times_per_day` doses
+(the "max at a time" cap, `N`) may overlap. Equivalently, no more than
+`N` non-voided doses may fall in any rolling `window_duration` period.
+The cap exists solely to prevent overdose — no missed-dose record is
+persisted (FR-008). An optional `max_doses_per_day` adds a separate
+hard daily ceiling. See **ADR-0010** for why this replaced the original
+single-tiled-window model.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> inactive
-    inactive --> partial : first dose\n(window opens, slot 1 used)
-    partial --> partial : another dose\n(slot used, still room)
-    partial --> full : final dose\n(slots_used == slots_total)
-    full --> window_expired : now ≥ window_end
-    partial --> window_expired : now ≥ window_end\n(slots left unused)
-    window_expired --> inactive : no banner\n(window was full)
-    window_expired --> inactive_with_banner : unused slots remain\n(FR-008b banner shown)
-    inactive_with_banner --> partial : next dose\n(new window opens, banner clears)
-    inactive --> partial : next dose\n(new window opens)
+    [*] --> idle
+    idle --> active : dose taken\n(slots_used = 1)
+    active --> active : another dose\n(slots_used < N) / oldest expires\n(slots_used stays > 0)
+    active --> full : dose taken\n(slots_used == N)
+    full --> active : oldest active dose's\nwindow expires\n(a slot frees)
+    active --> idle : every active dose's\nwindow expires
 
-    note right of inactive
-        active_window = null
-        previous_window_unused_slots = 0
+    note right of idle
+        active_sub_doses = []
+        slots_used = 0, slots_remaining = N
+        next_available_at = null
         CTA: "Dose available" (enabled)
     end note
 
-    note right of partial
-        active_window present
-        slots_remaining > 0
+    note right of active
+        0 < slots_used < N
+        next_available_at = null
         CTA: "Dose available" (enabled, FR-008a)
     end note
 
     note right of full
-        active_window present
-        slots_remaining == 0
-        CTA disabled until window_end
-    end note
-
-    note right of inactive_with_banner
-        active_window = null
-        previous_window_unused_slots > 0
-        Passive banner: "Last window ended with
-        N of M slots unused — tap when ready"
-        (informational; does NOT block the CTA)
+        slots_used == N
+        next_available_at = oldest active dose's expiry
+        CTA disabled until next_available_at
     end note
 ```
 
-## Window invariants (data-model.md §"Window invariants")
+## Rolling-window invariants (data-model.md §"Window invariants")
 
-1. A window has fixed length `window_duration_minutes`.
-2. `window_start = first_dose.taken_at` for the dose that opened the
-   window. A dose opens a window iff, at its `taken_at`, no window was
-   active.
-3. A window is active iff `window_start ≤ now < window_end` AND there
-   exists at least one non-voided dose with `taken_at ∈ [window_start,
-   window_end)`.
-4. `slots_used = |{ d ∈ non_voided_doses : window_start ≤ d.taken_at <
-   window_end }|`.
-5. The mark-as-taken control is disabled iff a window is active AND
-   `slots_used ≥ slots_total`.
-6. `previous_window_unused_slots` is computed from the most-recently
-   expired window ONLY IF no new window has been started since that one
-   expired. A new dose creates a new window AND clears the banner
-   simultaneously.
+1. Each non-voided dose is "active" for `window_duration_minutes` after
+   its `taken_at`.
+2. At a time `t`, the active doses are those taken in
+   `(t - window_duration, t]`.
+3. `slots_used = |active doses at t|`; `slots_remaining = max(0, N -
+   slots_used)`.
+4. The mark-as-taken control is disabled (and a prospective dose 409s
+   with `window_full`) iff `slots_used ≥ N`.
+5. `next_available_at = (oldest active dose).taken_at +
+   window_duration` when at capacity, else `null` — the moment the
+   oldest active dose ages out and frees a slot.
+6. The med's timer is "running" (and surfaces on `/today` when
+   unscheduled) iff `slots_used > 0`.
 
 Voided doses (Phase 4 `dose_voids`) are filtered at the SQL boundary
 (`load_non_voided_history_for_meds`) before the state machine runs, so
-the algorithm never sees them.
+the algorithm never sees them. The single source of truth for the
+active-set arithmetic is `domain.timers._active_at`, shared by
+`compute_timer_state` and the `multi_sub_dose_window_full` guard.

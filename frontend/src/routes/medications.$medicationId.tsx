@@ -41,7 +41,10 @@ function MedicationDetailPage() {
             </h1>
             <p className="text-sm text-slate-500">
               {formatQuantity(detail.data.quantity_per_dose)} {detail.data.unit}{" "}
-              · {detail.data.times_per_day}× daily
+              ·{" "}
+              {detail.data.timer_state?.mode === "multi_sub_dose"
+                ? `max ${detail.data.times_per_day} at a time`
+                : `${detail.data.times_per_day}× daily`}
             </p>
           </header>
 

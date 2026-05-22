@@ -263,7 +263,7 @@ export interface paths {
         };
         /**
          * List Schedules
-         * @description Return every active schedule for the calling user.
+         * @description Return every active schedule for the calling user, with attached meds.
          */
         get: operations["list_schedules_api_v1_schedules_get"];
         put?: never;
@@ -286,7 +286,14 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Update Schedule
+         * @description Update a user-level schedule's time, label, and day-of-week mask.
+         *
+         *     Edits propagate to every medication attached to the schedule (that is
+         *     the point of shared schedules). Attached links are untouched.
+         */
+        put: operations["update_schedule_api_v1_schedules__schedule_id__put"];
         post?: never;
         /**
          * Delete Schedule
@@ -306,24 +313,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ActiveWindow */
-        ActiveWindow: {
+        /** ActiveSubDose */
+        ActiveSubDose: {
             /**
-             * Window Start
+             * Taken At
              * Format: date-time
              */
-            window_start: string;
+            taken_at: string;
             /**
-             * Window End
+             * Expires At
              * Format: date-time
              */
-            window_end: string;
-            /** Doses In Window */
-            doses_in_window: string[];
-            /** Slots Used */
-            slots_used: number;
-            /** Slots Remaining */
-            slots_remaining: number;
+            expires_at: string;
         };
         /**
          * ConflictOut
@@ -730,32 +731,16 @@ export interface components {
         MultiSubDosePayload: {
             /** Window Duration Seconds */
             window_duration_seconds: number;
-            /** Slots Total */
-            slots_total: number;
-            active_window: components["schemas"]["ActiveWindow"] | null;
-            /** Previous Window Unused Slots */
-            previous_window_unused_slots: number;
-        };
-        /**
-         * ScheduleCreateBody
-         * @description Inbound payload for ``POST /api/v1/schedules``.
-         */
-        ScheduleCreateBody: {
-            /**
-             * Time Of Day
-             * Format: time
-             */
-            time_of_day: string;
-            /**
-             * Label
-             * @default
-             */
-            label: string;
-            /**
-             * Days Of Week
-             * @default 127
-             */
-            days_of_week: number;
+            /** Max Concurrent */
+            max_concurrent: number;
+            /** Active Sub Doses */
+            active_sub_doses: components["schemas"]["ActiveSubDose"][];
+            /** Slots Used */
+            slots_used: number;
+            /** Slots Remaining */
+            slots_remaining: number;
+            /** Next Available At */
+            next_available_at: string | null;
         };
         /**
          * ScheduleCrudOut
@@ -776,11 +761,26 @@ export interface components {
             time_of_day: string;
             /** Days Of Week */
             days_of_week: number;
+            /** Medications */
+            medications?: components["schemas"]["ScheduleMedRef"][];
         };
         /** ScheduleListOut */
         ScheduleListOut: {
             /** Items */
             items: components["schemas"]["ScheduleCrudOut"][];
+        };
+        /**
+         * ScheduleMedRef
+         * @description A medication currently attached to a schedule (for delete warnings).
+         */
+        ScheduleMedRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /**
          * ScheduleOut
@@ -792,6 +792,27 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Time Of Day
+             * Format: time
+             */
+            time_of_day: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Days Of Week
+             * @default 127
+             */
+            days_of_week: number;
+        };
+        /**
+         * ScheduleWriteBody
+         * @description Inbound payload for ``POST`` / ``PUT`` ``/api/v1/schedules``.
+         */
+        ScheduleWriteBody: {
             /**
              * Time Of Day
              * Format: time
@@ -908,7 +929,11 @@ export interface components {
         };
         /**
          * WindowFullViolation
-         * @description HTTP 409 body when a multi_sub_dose med's active window is full.
+         * @description HTTP 409 body when a multi_sub_dose med has the max doses active.
+         *
+         *     Rolling model: ``slots_total`` is the max-concurrent cap and
+         *     ``next_available_at`` is when the oldest active dose's window expires
+         *     (a slot frees then).
          */
         WindowFullViolation: {
             /**
@@ -922,10 +947,10 @@ export interface components {
              */
             medication_id: string;
             /**
-             * Window End
+             * Next Available At
              * Format: date-time
              */
-            window_end: string;
+            next_available_at: string;
             /** Slots Used */
             slots_used: number;
             /** Slots Total */
@@ -1407,12 +1432,47 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScheduleCreateBody"];
+                "application/json": components["schemas"]["ScheduleWriteBody"];
             };
         };
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleCrudOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_schedule_api_v1_schedules__schedule_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleWriteBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

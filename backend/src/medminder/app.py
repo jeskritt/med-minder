@@ -111,7 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         body = WindowFullViolation(
             code="window_full",
             medication_id=exc.medication_id,
-            window_end=exc.window_end,
+            next_available_at=exc.next_available_at,
             slots_used=exc.slots_used,
             slots_total=exc.slots_total,
         )

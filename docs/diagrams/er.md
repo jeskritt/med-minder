@@ -35,8 +35,9 @@ that don't render cleanly in Mermaid:
   and `pills_per_dose` are paired by CHECK (both NULL or both set);
   when set the med is "pill-based" and `quantity_per_dose` is derived
   (`pill_strength * pills_per_dose`). `max_doses_per_day` adds a
-  per-day cap for `multi_sub_dose` meds alongside the per-window slot
-  cap. Schedules became shared user-level resources (managed via
+  per-day cap for `multi_sub_dose` meds alongside the max-at-a-time cap
+  (`times_per_day`; see ADR-0010). Schedules became shared user-level
+  resources (managed via
   `GET/POST/DELETE /api/v1/schedules`); `schedule_medications` already
   modelled the M:N link, so no new table was needed.
 

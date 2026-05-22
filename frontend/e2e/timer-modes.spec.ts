@@ -58,6 +58,8 @@ test.describe("Timer modes — count_down boundary", () => {
     await page.getByLabel(/untracked/i).check();
     await page.getByLabel(/timer mode/i).selectOption({ value: "count_down" });
     await page.getByLabel(/minimum interval/i).fill("1");
+    // Unit defaults to "hours"; this scenario needs a 1-*minute* cooldown.
+    await page.getByLabel(/interval unit/i).selectOption({ value: "min" });
     await addSchedule(page, new Date().toLocaleTimeString("en-GB").slice(0, 5));
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
@@ -152,13 +154,15 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
       .getByLabel(/timer mode/i)
       .selectOption({ value: "multi_sub_dose" });
     await page.getByLabel(/window duration/i).fill("360");
+    // Unit defaults to "hours"; this scenario means a 360-*minute* (6h) window.
+    await page.getByLabel(/window unit/i).selectOption({ value: "min" });
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
 
     // Drive the CTA on the single-med detail page (isolated from the
     // multi-med list), scoped to the detail <main> and targeted by the
     // stable dose-control test id (not the dynamic "Dose available" ⇄
-    // "Window full" label).
+    // "Max reached" label).
     await page.goto("/medications");
     await page.getByRole("link", { name: medName, exact: true }).click();
     await expect(page).toHaveURL(/\/medications\/[0-9a-f-]{36}$/);
@@ -184,12 +188,12 @@ test.describe("Timer modes — multi_sub_dose window fill", () => {
         ),
         cta.click(),
       ]);
-      await expect(detail.getByText(`${i} of 3`)).toBeVisible();
+      await expect(detail.getByText(new RegExp(`${i}/3 active`))).toBeVisible();
     }
 
-    // Fourth state: window is full → same control is now disabled
-    // ("Window full"), no overdose.
+    // Fourth state: at capacity → same control is now disabled
+    // ("Max reached"), no overdose.
     await expect(cta).toBeDisabled();
-    await expect(cta).toHaveText(/window full/i);
+    await expect(cta).toHaveText(/max reached/i);
   });
 });

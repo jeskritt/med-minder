@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ vi.mock("@/lib/api", () => ({
   client: {
     POST: vi.fn(),
     GET: vi.fn(),
+    PUT: vi.fn(),
     DELETE: vi.fn(),
   },
   setApiContext: vi.fn(),
@@ -22,12 +23,16 @@ type OnSubmit = (body: MedicationBody) => void | Promise<void>;
 
 const mockGet = vi.mocked(client.GET);
 const mockPost = vi.mocked(client.POST);
+const mockPut = vi.mocked(client.PUT);
+const mockDelete = vi.mocked(client.DELETE);
 
 const SCHEDULE_ID = "11111111-1111-1111-1111-111111111111";
 
 beforeEach(() => {
   mockGet.mockReset();
   mockPost.mockReset();
+  mockPut.mockReset();
+  mockDelete.mockReset();
   mockGet.mockResolvedValue({
     data: {
       items: [
@@ -36,6 +41,7 @@ beforeEach(() => {
           label: "Morning",
           time_of_day: "08:00:00",
           days_of_week: 127,
+          medications: [],
         },
       ],
     },
@@ -138,6 +144,85 @@ describe("MedicationForm (Add)", () => {
     expect(await screen.findByText(/heads up: you set/i)).toBeInTheDocument();
   });
 
+  it("hides the parity warning for multi_sub_dose", async () => {
+    const { user } = renderForm();
+    await user.selectOptions(
+      screen.getByLabelText(/timer mode/i),
+      "multi_sub_dose",
+    );
+    const cap = screen.getByLabelText(/max doses at a time/i);
+    await user.clear(cap);
+    await user.type(cap, "3");
+    // times_per_day is a concurrency cap here, not a schedule count → no warning.
+    expect(screen.queryByText(/heads up: you set/i)).not.toBeInTheDocument();
+  });
+
+  it("edits a schedule inline via the pen icon (PUT)", async () => {
+    mockPut.mockResolvedValue({
+      data: {
+        id: SCHEDULE_ID,
+        label: "Wake-up",
+        time_of_day: "09:30:00",
+        days_of_week: 127,
+        medications: [],
+      },
+      response: new Response(null, { status: 200 }),
+    } as unknown as Awaited<ReturnType<typeof client.PUT>>);
+
+    const { user } = renderForm();
+    await user.click(
+      await screen.findByRole("button", { name: /edit morning/i }),
+    );
+    const timeInput = screen.getByLabelText(/^time$/i);
+    await user.clear(timeInput);
+    await user.type(timeInput, "09:30");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(1));
+    expect(mockPut.mock.calls[0][0]).toBe("/api/v1/schedules/{schedule_id}");
+    const opts = mockPut.mock.calls[0][1] as {
+      params: { path: { schedule_id: string } };
+      body: { time_of_day: string };
+    };
+    expect(opts.params.path.schedule_id).toBe(SCHEDULE_ID);
+    expect(opts.body.time_of_day).toBe("09:30");
+  });
+
+  it("warns about attached meds then deletes via the trash icon", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: SCHEDULE_ID,
+            label: "Morning",
+            time_of_day: "08:00:00",
+            days_of_week: 127,
+            medications: [{ id: "med-1", name: "Aspirin" }],
+          },
+        ],
+      },
+      response: new Response(null, { status: 200 }),
+    } as unknown as Awaited<ReturnType<typeof client.GET>>);
+    mockDelete.mockResolvedValue({
+      data: undefined,
+      error: undefined,
+      response: new Response(null, { status: 204 }),
+    } as unknown as Awaited<ReturnType<typeof client.DELETE>>);
+
+    const { user } = renderForm();
+    await user.click(
+      await screen.findByRole("button", { name: /delete morning/i }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/aspirin/i)).toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole("button", { name: /delete schedule/i }),
+    );
+
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledTimes(1));
+    expect(mockDelete.mock.calls[0][0]).toBe("/api/v1/schedules/{schedule_id}");
+  });
+
   it("submits a valid payload as the API body shape", async () => {
     const onSubmit = vi.fn<OnSubmit>();
     const { user } = renderForm(onSubmit);
@@ -151,7 +236,10 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^times per day$/i), "1");
     await user.click(screen.getByLabelText(/untracked/i));
     // Toggle the "Morning" chip → adds its id to selected_schedule_ids.
-    await user.click(await screen.findByRole("button", { name: /morning/i }));
+    // (The exact-name matcher avoids the sibling Edit/Delete icon buttons.)
+    await user.click(
+      await screen.findByRole("button", { name: "Morning (08:00)" }),
+    );
     await user.click(screen.getByRole("button", { name: /add medication/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));

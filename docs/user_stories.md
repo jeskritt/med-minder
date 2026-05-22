@@ -24,12 +24,15 @@ medical paperwork.
 taken → confirm timestamp is visible.
 
 ### Billy Bat — short-term acute pain meds with sub-doses
-Recovering from ACL surgery, prescribed T3. May take 3 in a 6-hour
-window but wants a steady level — takes 1 every 2 hours. Needs
+Recovering from ACL surgery, prescribed T3. May have at most 3 doses
+active at a time, each "lasting" 6 hours (no more than 3 in any rolling
+6-hour span), but wants a steady level — takes 1 every 2 hours. Needs
 reminders that can be snoozed mid-task.
 
 **Primary flow:** receive reminder → snooze for an hour → mark next
-sub-dose taken → see remaining sub-dose slots in the window.
+sub-dose taken → see how many doses are still active and, when at the
+max-at-a-time cap, when the next dose is allowed. (Rolling per-dose
+windows — see ADR-0010.)
 
 ### Migraine Molly — drug-interaction-aware scheduling
 Gets migraines and takes a migraine medication that conflicts with

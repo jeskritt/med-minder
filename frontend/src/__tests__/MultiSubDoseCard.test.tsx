@@ -19,6 +19,7 @@ import type { components } from "@/api/v1";
 
 type TimerStateOut = components["schemas"]["TimerStateOut"];
 
+const WINDOW_S = 21600; // 6h
 const mockPost = vi.mocked(client.POST);
 
 function withQueryClient(children: ReactNode): ReactNode {
@@ -26,53 +27,44 @@ function withQueryClient(children: ReactNode): ReactNode {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-function inactiveNoBanner(): TimerStateOut {
+function inactive(): TimerStateOut {
   return {
     mode: "multi_sub_dose",
     as_of: new Date().toISOString(),
     last_dose_at: null,
     multi_sub_dose: {
-      window_duration_seconds: 21600,
-      slots_total: 3,
-      active_window: null,
-      previous_window_unused_slots: 0,
+      window_duration_seconds: WINDOW_S,
+      max_concurrent: 3,
+      active_sub_doses: [],
+      slots_used: 0,
+      slots_remaining: 3,
+      next_available_at: null,
     },
   };
 }
 
-function activeWindow(used: number): TimerStateOut {
+/** `used` doses still active, oldest taken 1h ago, 30m apart. */
+function active(used: number): TimerStateOut {
   const now = Date.now();
+  const subs = Array.from({ length: used }, (_, i) => {
+    const takenMs = now - 3600_000 + i * 1800_000;
+    return {
+      taken_at: new Date(takenMs).toISOString(),
+      expires_at: new Date(takenMs + WINDOW_S * 1000).toISOString(),
+    };
+  });
+  const full = used >= 3;
   return {
     mode: "multi_sub_dose",
     as_of: new Date(now).toISOString(),
-    last_dose_at: new Date(now - 3600_000).toISOString(),
+    last_dose_at: subs.length ? subs[subs.length - 1].taken_at : null,
     multi_sub_dose: {
-      window_duration_seconds: 21600,
-      slots_total: 3,
-      active_window: {
-        window_start: new Date(now - 3600_000).toISOString(),
-        window_end: new Date(now + 18000_000).toISOString(),
-        doses_in_window: Array.from({ length: used }, (_, i) =>
-          new Date(now - 3600_000 + i * 600_000).toISOString(),
-        ),
-        slots_used: used,
-        slots_remaining: 3 - used,
-      },
-      previous_window_unused_slots: 0,
-    },
-  };
-}
-
-function expiredWithUnused(unused: number): TimerStateOut {
-  return {
-    mode: "multi_sub_dose",
-    as_of: new Date().toISOString(),
-    last_dose_at: new Date(Date.now() - 8 * 3600_000).toISOString(),
-    multi_sub_dose: {
-      window_duration_seconds: 21600,
-      slots_total: 3,
-      active_window: null,
-      previous_window_unused_slots: unused,
+      window_duration_seconds: WINDOW_S,
+      max_concurrent: 3,
+      active_sub_doses: subs,
+      slots_used: used,
+      slots_remaining: Math.max(0, 3 - used),
+      next_available_at: full ? subs[0].expires_at : null,
     },
   };
 }
@@ -82,52 +74,37 @@ afterEach(() => {
 });
 
 describe("MultiSubDoseCard", () => {
-  it("shows an enabled 'Dose available' CTA when no window is active", () => {
+  it("shows an enabled 'Dose available' CTA when nothing is active", () => {
     render(
       withQueryClient(
-        <MultiSubDoseCard state={inactiveNoBanner()} medicationId="m1" />,
+        <MultiSubDoseCard state={inactive()} medicationId="m1" />,
       ),
     );
-    const cta = screen.getByRole("button", { name: /dose available/i });
-    expect(cta).toBeEnabled();
-  });
-
-  it("shows slot progress and keeps the CTA enabled mid-window", () => {
-    render(
-      withQueryClient(
-        <MultiSubDoseCard state={activeWindow(1)} medicationId="m1" />,
-      ),
-    );
-    expect(screen.getByText(/1 of 3/i)).toBeInTheDocument();
+    expect(screen.getByText(/max 3 at a time/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /dose available/i }),
     ).toBeEnabled();
   });
 
-  it("disables the control when the active window is full", () => {
+  it("shows active-dose count and keeps the CTA enabled below capacity", () => {
     render(
-      withQueryClient(
-        <MultiSubDoseCard state={activeWindow(3)} medicationId="m1" />,
-      ),
+      withQueryClient(<MultiSubDoseCard state={active(1)} medicationId="m1" />),
     );
-    expect(screen.getByText(/3 of 3/i)).toBeInTheDocument();
-    expect(screen.getByRole("button")).toBeDisabled();
-  });
-
-  it("renders the FR-008b passive banner without blocking the CTA", () => {
-    render(
-      withQueryClient(
-        <MultiSubDoseCard state={expiredWithUnused(2)} medicationId="m1" />,
-      ),
-    );
-    expect(
-      screen.getByText(
-        /last window ended with 2 of 3 slots unused — tap when ready/i,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/1\/3 active/i)).toBeInTheDocument();
+    // One per-dose row with its own "frees" time.
+    expect(screen.getByText(/frees/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /dose available/i }),
     ).toBeEnabled();
+  });
+
+  it("disables the control and shows the next-dose time at capacity", () => {
+    render(
+      withQueryClient(<MultiSubDoseCard state={active(3)} medicationId="m1" />),
+    );
+    expect(screen.getByText(/3\/3 active/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /max reached/i })).toBeDisabled();
+    expect(screen.getByText(/next dose at/i)).toBeInTheDocument();
   });
 
   it("fires the take mutation when the CTA is tapped", async () => {
@@ -139,7 +116,7 @@ describe("MultiSubDoseCard", () => {
     });
     render(
       withQueryClient(
-        <MultiSubDoseCard state={expiredWithUnused(2)} medicationId="m1" />,
+        <MultiSubDoseCard state={inactive()} medicationId="m1" />,
       ),
     );
     await user.click(screen.getByRole("button", { name: /dose available/i }));

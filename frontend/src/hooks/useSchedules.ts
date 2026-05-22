@@ -13,7 +13,8 @@ import { client } from "@/lib/api";
 import type { components } from "@/api/v1";
 
 export type ScheduleOut = components["schemas"]["ScheduleCrudOut"];
-type ScheduleCreateBody = components["schemas"]["ScheduleCreateBody"];
+export type ScheduleMedRef = components["schemas"]["ScheduleMedRef"];
+type ScheduleWriteBody = components["schemas"]["ScheduleWriteBody"];
 
 export const SCHEDULES_QUERY_KEY = ["schedules"] as const;
 
@@ -24,10 +25,22 @@ export async function listSchedules(): Promise<ScheduleOut[]> {
 }
 
 export async function createSchedule(
-  body: ScheduleCreateBody,
+  body: ScheduleWriteBody,
 ): Promise<ScheduleOut> {
   const { data, error } = await client.POST("/api/v1/schedules", { body });
   if (error || !data) throw new Error("Failed to create schedule");
+  return data;
+}
+
+export async function updateSchedule(
+  scheduleId: string,
+  body: ScheduleWriteBody,
+): Promise<ScheduleOut> {
+  const { data, error } = await client.PUT("/api/v1/schedules/{schedule_id}", {
+    params: { path: { schedule_id: scheduleId } },
+    body,
+  });
+  if (error || !data) throw new Error("Failed to update schedule");
   return data;
 }
 
@@ -49,6 +62,15 @@ export function useCreateSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createSchedule,
+    onSuccess: () => qc.invalidateQueries({ queryKey: SCHEDULES_QUERY_KEY }),
+  });
+}
+
+export function useUpdateSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ScheduleWriteBody }) =>
+      updateSchedule(id, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: SCHEDULES_QUERY_KEY }),
   });
 }

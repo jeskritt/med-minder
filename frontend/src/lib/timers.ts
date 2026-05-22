@@ -38,15 +38,17 @@ export function formatRemaining(seconds: number): string {
 export function windowProgress(state: TimerStateOut): {
   used: number;
   total: number;
-  expiredUnused: number;
+  remaining: number;
+  nextAvailableAt: string | null;
 } {
   if (state.mode !== "multi_sub_dose" || !state.multi_sub_dose) {
-    return { used: 0, total: 0, expiredUnused: 0 };
+    return { used: 0, total: 0, remaining: 0, nextAvailableAt: null };
   }
   const payload = state.multi_sub_dose;
   return {
-    used: payload.active_window?.slots_used ?? 0,
-    total: payload.slots_total,
-    expiredUnused: payload.previous_window_unused_slots,
+    used: payload.slots_used,
+    total: payload.max_concurrent,
+    remaining: payload.slots_remaining,
+    nextAvailableAt: payload.next_available_at,
   };
 }
