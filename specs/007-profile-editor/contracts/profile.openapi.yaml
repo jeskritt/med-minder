@@ -1,0 +1,138 @@
+openapi: 3.1.0
+info:
+  title: MedMinder Self-Service Profile Editor (Feature 007)
+  version: "0.7.0"
+  description: |
+    Contract fragment for the endpoint deltas this feature introduces. The
+    authoritative API document is the FastAPI-emitted OpenAPI spec at runtime;
+    this file documents the agreed shape pre-implementation so reviewers can
+    challenge it before code is written. The implementation MUST conform; CI
+    fails if the regenerated frontend client (`frontend/src/api/v1.d.ts`)
+    drifts from the runtime spec.
+
+    Deltas (both on the existing root-level `me` router — no `/api/v1` prefix):
+      - PATCH /me           — NEW: change the authenticated user's display name.
+      - POST  /me/password  — NEW: change own password (current-password re-auth);
+                              revokes all sessions and re-issues a fresh cookie.
+
+    Out of scope: changing the login email (admin/CLI only, FR-010). No new
+    persistent entities; see data-model.md.
+
+servers:
+  - url: /
+    description: Backend served at root; the frontend reaches it via the dev proxy or production reverse proxy.
+
+paths:
+  /me:
+    patch:
+      operationId: me_update_profile
+      summary: Update the authenticated user's display name
+      description: |
+        Updates the display name only. Requires no current-password re-auth and
+        has no session side effects (FR-007 / FR-009). The login email is not
+        editable here (FR-010).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated. Returns the refreshed current-user view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          description: Not authenticated.
+        "422":
+          description: Empty/whitespace-only or over-100-character name (validation error).
+
+  /me/password:
+    post:
+      operationId: me_change_password
+      summary: Change the authenticated user's password
+      description: |
+        Verifies `current_password`, then sets `new_password` (≥ 12 chars).
+        On success: ALL of the user's sessions are revoked and a fresh session
+        is issued for the current device via `Set-Cookie: mm_session=...`, so
+        this device stays signed in while every other device is logged out
+        (FR-005 / SC-003). No response body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChange"
+      responses:
+        "204":
+          description: |
+            Password changed. Response carries a fresh `mm_session` cookie
+            (rotated token); the previous session and all other sessions are
+            revoked.
+          headers:
+            Set-Cookie:
+              description: Fresh signed `mm_session` cookie for the current device.
+              schema:
+                type: string
+        "401":
+          description: Not authenticated (missing/expired/tampered session).
+        "403":
+          description: |
+            `current_password` is incorrect. Distinct from 401 (which the client
+            treats as session-expired and bounces to login) and from 422.
+        "422":
+          description: |
+            `new_password` shorter than the 12-character minimum (or fails
+            boundary validation).
+
+components:
+  schemas:
+
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Display name; trimmed, non-empty after trimming.
+
+    PasswordChange:
+      type: object
+      additionalProperties: false
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: The user's existing password; verified server-side.
+        new_password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: |
+            New password. The 12-character minimum is enforced server-side
+            (domain `password_too_short`) and surfaced as 422 — not hardcoded
+            in this schema, to keep MIN_PASSWORD_LENGTH a single source of truth.
+
+    Me:
+      type: object
+      description: |
+        Public view of the authenticated user (existing contract; unchanged).
+        Returned by GET /me and by PATCH /me.
+      additionalProperties: false
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          enum: ["admin", "user"]

@@ -49,6 +49,12 @@ class NoChangesSpecifiedError(DomainError):
     pass
 
 
+class IncorrectPasswordError(DomainError):
+    """Raised when a self-service password change supplies a wrong current password."""
+
+    pass
+
+
 def _utcnow() -> datetime:
     return datetime.now(UTC)
 
@@ -154,6 +160,41 @@ async def update_user(
     return user
 
 
+async def change_own_password(
+    session: AsyncSession,
+    *,
+    user: User,
+    current_password: str,
+    new_password: str,
+) -> None:
+    """Self-service password change for the already-authenticated ``user``.
+
+    Verifies ``current_password`` before any mutation, enforces the shared
+    12-char minimum, sets the new hash, then revokes **all** of the user's
+    sessions (the API layer re-issues a fresh session for the current device,
+    so this device stays signed in while every other device is logged out —
+    FR-005).
+
+    Takes the authenticated :class:`User` object rather than an email/id, so
+    there is no parameter that could target another user (FR-006).
+
+    Raises:
+    - IncorrectPasswordError: if ``current_password`` does not verify (→ 403).
+    - PasswordTooShortError: if ``new_password`` < 12 chars (→ 422).
+    """
+    if not verify_password(user.password_hash, current_password):
+        raise IncorrectPasswordError("Current password is incorrect.")
+    if password_too_short(new_password):
+        raise PasswordTooShortError(
+            f"Password must be at least 12 characters (got {len(new_password)})."
+        )
+    user.password_hash = hash_password(new_password)
+    await session.flush()
+    # FR-005: revoke every session; the API layer mints a fresh one for the
+    # current device (mirrors the CLI password-change revoke in update_user).
+    await revoke_all_user_sessions(session, user_id=user.id)
+
+
 async def soft_delete_user(session: AsyncSession, *, email: str) -> uuid.UUID:
     user = await get_user_by_email(session, email=email)
     if user is None:
@@ -168,9 +209,11 @@ async def soft_delete_user(session: AsyncSession, *, email: str) -> uuid.UUID:
 __all__ = [
     "DomainError",
     "DuplicateEmailError",
+    "IncorrectPasswordError",
     "NoChangesSpecifiedError",
     "PasswordTooShortError",
     "UserNotFoundError",
+    "change_own_password",
     "create_user",
     "get_user_by_email",
     "hash_password",

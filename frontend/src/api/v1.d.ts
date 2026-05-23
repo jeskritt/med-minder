@@ -90,6 +90,38 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Update Me
+         * @description Update the authenticated user's display name (no session effects).
+         *
+         *     Reuses the shared ``update_user`` domain helper, scoped to the caller's
+         *     own email — there is no path to rename another user (FR-006/FR-009).
+         */
+        patch: operations["update_me_me_patch"];
+        trace?: never;
+    };
+    "/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Change the caller's password, then re-issue a fresh session cookie.
+         *
+         *     ``change_own_password`` verifies the current password, sets the new hash,
+         *     and revokes *all* of the user's sessions. We then mint a new session for
+         *     this device and set its cookie (mirrors ``POST /auth/login``), so the
+         *     current device stays signed in while other devices are logged out (FR-005).
+         */
+        post: operations["change_password_me_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -743,6 +775,28 @@ export interface components {
             next_available_at: string | null;
         };
         /**
+         * PasswordChange
+         * @description Inbound body for ``POST /me/password``.
+         *
+         *     The 12-char minimum is intentionally *not* encoded here — it stays in
+         *     ``domain.passwords`` (``MIN_PASSWORD_LENGTH``) so the rule is shared with
+         *     the CLI and login and surfaces the same message (FR-004).
+         */
+        PasswordChange: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /**
+         * ProfileUpdate
+         * @description Inbound body for ``PATCH /me`` — display name only (FR-007/FR-010).
+         */
+        ProfileUpdate: {
+            /** Name */
+            name: string;
+        };
+        /**
          * ScheduleCrudOut
          * @description Public view of a user-level schedule.
          */
@@ -1052,6 +1106,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    update_me_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_password_me_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
