@@ -531,77 +531,97 @@ export function MedicationForm({
         </div>
       </div>
 
-      <div>
-        <label className="inline-flex items-center gap-2 text-sm font-medium">
+      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
+        <legend className="px-1 text-sm font-medium">Course length</legend>
+        <p className="text-xs text-gray-600">
+          For a fixed course (e.g. a 14-day antibiotic) — the total number of
+          doses it runs from start to finish. This is the size of the
+          prescription, not how much you have on hand right now.
+        </p>
+
+        <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" {...register("untracked")} />
           Untracked / As Needed
         </label>
         <p className="text-xs text-gray-600">
-          When checked, no fixed total-dose count is recorded.
+          Check this for ongoing or as-needed meds that have no fixed course
+          length.
         </p>
-      </div>
 
-      <div>
-        <label htmlFor="total_doses" className="block text-sm font-medium">
-          Total doses
-        </label>
-        <input
-          id="total_doses"
-          type="number"
-          min={1}
-          step={1}
-          disabled={untracked}
-          className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:bg-gray-100"
-          {...register("total_doses")}
-        />
-        {errors.total_doses && (
-          <p role="alert" className="mt-1 text-sm text-red-600">
-            {errors.total_doses.message}
+        <div className="mt-3">
+          <label htmlFor="total_doses" className="block text-sm font-medium">
+            Total doses
+          </label>
+          <p className="text-xs text-gray-600">
+            Total doses in the whole course.
           </p>
-        )}
-      </div>
+          <input
+            id="total_doses"
+            type="number"
+            min={1}
+            step={1}
+            disabled={untracked}
+            className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:bg-gray-100"
+            {...register("total_doses")}
+          />
+          {errors.total_doses && (
+            <p role="alert" className="mt-1 text-sm text-red-600">
+              {errors.total_doses.message}
+            </p>
+          )}
+        </div>
+      </fieldset>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="refill_count" className="block text-sm font-medium">
-            {pillBased ? "Pills on hand" : "Refill count"}
-          </label>
-          <input
-            id="refill_count"
-            type="number"
-            min={0}
-            step={1}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-            {...register("refill_count")}
-          />
-          {errors.refill_count && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.refill_count.message}
-            </p>
-          )}
+      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
+        <legend className="px-1 text-sm font-medium">
+          Supply &amp; refills
+        </legend>
+        <p className="text-xs text-gray-600">
+          How much you have on hand now and when to be reminded to refill —
+          separate from the course length above.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="refill_count" className="block text-sm font-medium">
+              {pillBased ? "Pills on hand" : "Refill count"}
+            </label>
+            <input
+              id="refill_count"
+              type="number"
+              min={0}
+              step={1}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              {...register("refill_count")}
+            />
+            {errors.refill_count && (
+              <p role="alert" className="mt-1 text-sm text-red-600">
+                {errors.refill_count.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="refill_threshold"
+              className="block text-sm font-medium"
+            >
+              Refill threshold
+            </label>
+            <input
+              id="refill_threshold"
+              type="number"
+              min={0}
+              step={1}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              {...register("refill_threshold")}
+            />
+            {errors.refill_threshold && (
+              <p role="alert" className="mt-1 text-sm text-red-600">
+                {errors.refill_threshold.message}
+              </p>
+            )}
+          </div>
         </div>
-        <div>
-          <label
-            htmlFor="refill_threshold"
-            className="block text-sm font-medium"
-          >
-            Refill threshold
-          </label>
-          <input
-            id="refill_threshold"
-            type="number"
-            min={0}
-            step={1}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-            {...register("refill_threshold")}
-          />
-          {errors.refill_threshold && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.refill_threshold.message}
-            </p>
-          )}
-        </div>
-      </div>
+      </fieldset>
 
       <SchedulePicker
         control={control}

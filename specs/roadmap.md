@@ -106,7 +106,12 @@ both directions.
 
 - Scheduled reminders via APScheduler.
 - Web Push delivery with VAPID keys.
-- Refill reminders when medication supply is running low.
+- Refill reminders when medication supply is running low. This requires
+  **supply to be live**: taking (and voiding) a dose decrements/restores
+  the on-hand count (`refill_count` / `doses_remaining`) so "running low"
+  fires on real data. Today these fields are display-only (the list shows
+  "Refill: N on hand, warn at M" but nothing changes N) — Phase 7 owns
+  making the count live and warning at `refill_threshold`.
 - One-hour snooze action.
 - Quiet hours per user.
 - **Schedule mutations reschedule reminders.** Creating, editing
@@ -130,6 +135,11 @@ both directions.
 - Calendar and/or stacked-bar view of adherence per medication.
 - Color coding for taken / missed / skipped.
 - CSV export.
+- **Course progress & completion.** For fixed-course meds
+  (`medications.total_doses`), show doses-taken-of-total (e.g. "9 of 14")
+  and surface when a course is complete. This is the feature that gives
+  `total_doses` (course size, captured since Phase 3) its meaning;
+  distinct from the Phase 7 refill/supply tracking.
 
 ## Phase 10 — Hardening
 
