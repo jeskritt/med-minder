@@ -75,10 +75,22 @@ export async function setPlainDose(
  * Add a new schedule slot through the SchedulePicker (UX enhancements
  * replaced the old per-med time inputs with a shared-schedule chip
  * picker). Creates the slot and auto-selects its chip.
+ *
+ * Pass a unique `label` when a test needs to target this slot's
+ * chip / edit / delete controls unambiguously — the shared dev DB
+ * accumulates many same-time chips, and the controls key on the
+ * displayed label.
  */
-export async function addSchedule(page: Page, time: string): Promise<void> {
+export async function addSchedule(
+  page: Page,
+  time: string,
+  label?: string,
+): Promise<void> {
   await page.getByRole("button", { name: /add a new schedule/i }).click();
   await page.getByLabel(/^time$/i).fill(time);
+  if (label !== undefined) {
+    await page.getByLabel(/label \(optional\)/i).fill(label);
+  }
   await page.getByRole("button", { name: /^add$/i }).click();
 }
 

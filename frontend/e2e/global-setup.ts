@@ -97,28 +97,56 @@ async function ensureGrannyMedication(): Promise<void> {
   if (!setCookie) throw new Error("global-setup: no session cookie returned");
   const cookie = setCookie.split(";")[0];
 
+  // UX enhancements: schedules are shared user-level resources. Refresh
+  // (or create) granny's "Morning" slot at the CURRENT local time on
+  // every run, so the smoke's "Mark taken" always lands inside the ±2h
+  // window and isn't intercepted by the out-of-schedule confirm. Without
+  // the refresh the slot's time froze at first-creation and drifted out
+  // of the window over days (the smoke then hit the confirm modal).
+  const slot = new Date().toTimeString().slice(0, 5);
+  const schedList = await fetch(`${API}/api/v1/schedules`, {
+    headers: { Cookie: cookie },
+  });
+  const schedItems = (
+    (await schedList.json()) as { items: { id: string; label: string }[] }
+  ).items;
+  const existingSlot = schedItems.find((s) => s.label === "Morning");
+  let scheduleId: string;
+  if (existingSlot) {
+    const upd = await fetch(`${API}/api/v1/schedules/${existingSlot.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({
+        time_of_day: slot,
+        label: "Morning",
+        days_of_week: 127,
+      }),
+    });
+    if (upd.status !== 200) {
+      throw new Error(
+        `global-setup: granny schedule refresh failed (HTTP ${upd.status})`,
+      );
+    }
+    scheduleId = existingSlot.id;
+  } else {
+    const schedResp = await fetch(`${API}/api/v1/schedules`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ time_of_day: slot, label: "Morning" }),
+    });
+    if (schedResp.status !== 201) {
+      throw new Error(
+        `global-setup: granny schedule create failed (HTTP ${schedResp.status})`,
+      );
+    }
+    scheduleId = ((await schedResp.json()) as { id: string }).id;
+  }
+
   const list = await fetch(`${API}/api/v1/medications`, {
     headers: { Cookie: cookie },
   });
   const body = (await list.json()) as { items: { name: string }[] };
   if (body.items.some((m) => m.name === GRANNY_MED_NAME)) return;
-
-  // UX enhancements: schedules are shared user-level resources; create
-  // the slot first, then attach the medication by id. Use the current
-  // local time so the granny smoke's "Mark taken" lands inside the
-  // ±2h window and isn't intercepted by the out-of-schedule confirm.
-  const slot = new Date().toTimeString().slice(0, 5);
-  const schedResp = await fetch(`${API}/api/v1/schedules`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify({ time_of_day: slot, label: "Morning" }),
-  });
-  if (schedResp.status !== 201) {
-    throw new Error(
-      `global-setup: granny schedule create failed (HTTP ${schedResp.status})`,
-    );
-  }
-  const scheduleId = ((await schedResp.json()) as { id: string }).id;
 
   const create = await fetch(`${API}/api/v1/medications`, {
     method: "POST",
