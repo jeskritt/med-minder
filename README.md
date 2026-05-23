@@ -34,7 +34,21 @@ just dev
 #    Frontend: http://localhost:5173
 #    Backend:  http://localhost:8000
 #    API docs: http://localhost:8000/docs
+
+# 5. Create your first user (admin CLI — password is read from stdin, 12+ chars).
+#    There is no public sign-up; users are provisioned by the admin.
+echo 'a strong passphrase 12+ chars' | medminder-admin user add \
+    --email you@example.com --name "Your Name" --role admin --password-stdin
+
+#    Forgot a password later? An admin can set a temporary one the same way:
+echo 'temporary passphrase' | medminder-admin user update \
+    --email you@example.com --password-stdin
 ```
+
+Once signed in, click your name in the nav bar to **change your own display name or
+password** — so the admin never needs to know your password. (After a password change,
+your other devices are signed out.) See [`backend/README.md`](backend/README.md) for the
+full admin CLI.
 
 ## Common commands
 
