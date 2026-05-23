@@ -92,6 +92,10 @@ test.describe("Schedule management", () => {
     await createMedWithSchedule(page, { medName, label, time: "09:00" });
 
     await page.goto("/medications/new");
+    // Delete lives inside the edit panel — open it first.
+    await page
+      .getByRole("button", { name: new RegExp(`Edit ${label}`) })
+      .click();
     await page
       .getByRole("button", { name: new RegExp(`Delete ${label}`) })
       .click();
@@ -102,9 +106,9 @@ test.describe("Schedule management", () => {
     await expect(dialog.getByText(medName)).toBeVisible();
     await dialog.getByRole("button", { name: /delete schedule/i }).click();
 
-    // Chip is gone…
+    // The schedule is gone (its chip/edit affordance disappears)…
     await expect(
-      page.getByRole("button", { name: new RegExp(`Delete ${label}`) }),
+      page.getByRole("button", { name: new RegExp(`Edit ${label}`) }),
     ).toHaveCount(0);
 
     // …and the med is unscheduled (detached), not deleted.

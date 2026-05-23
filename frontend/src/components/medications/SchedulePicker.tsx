@@ -162,6 +162,10 @@ export function SchedulePicker({
       if (selected.includes(deleting.id)) {
         field.onChange(selected.filter((x) => x !== deleting.id));
       }
+      // Close the edit panel too (delete is triggered from inside it).
+      if (editingId === deleting.id) {
+        setEditingId(null);
+      }
       setDeletingId(null);
     } catch {
       // Leave the modal open; the list query will surface load errors.
@@ -252,6 +256,17 @@ export function SchedulePicker({
                       >
                         Cancel
                       </button>
+                      {/* Delete is reached from inside the edit panel
+                          (not the chip) and routes through the existing
+                          confirm modal; ml-auto keeps it clear of Save. */}
+                      <button
+                        type="button"
+                        aria-label={`Delete ${displayLabel(s)}`}
+                        onClick={() => setDeletingId(s.id)}
+                        className="ml-auto rounded border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                      >
+                        Delete schedule
+                      </button>
                     </div>
                     {editError && (
                       <p role="alert" className="mt-2 text-sm text-red-600">
@@ -264,47 +279,30 @@ export function SchedulePicker({
             }
             const isSelected = selected.includes(s.id);
             return (
-              <li key={s.id} className="inline-flex items-center">
-                <span
+              <li key={s.id} className="inline-flex items-center gap-1">
+                {/* Select toggle — comfortable (~44px) touch height. */}
+                <button
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => toggle(s.id)}
                   className={
                     isSelected
-                      ? "inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-1 text-sm text-white"
-                      : "inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-1 text-sm"
+                      ? "inline-flex min-h-11 items-center rounded-full bg-blue-600 px-4 text-sm text-white hover:bg-blue-700"
+                      : "inline-flex min-h-11 items-center rounded-full border border-gray-300 px-4 text-sm hover:bg-gray-50"
                   }
                 >
-                  <button
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() => toggle(s.id)}
-                    className="px-1 hover:underline"
-                  >
-                    {displayLabel(s)}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Edit ${displayLabel(s)}`}
-                    onClick={() => startEdit(s)}
-                    className={
-                      isSelected
-                        ? "rounded px-1 text-white/90 hover:text-white"
-                        : "rounded px-1 text-gray-500 hover:text-gray-800"
-                    }
-                  >
-                    ✎
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${displayLabel(s)}`}
-                    onClick={() => setDeletingId(s.id)}
-                    className={
-                      isSelected
-                        ? "rounded px-1 text-white/90 hover:text-white"
-                        : "rounded px-1 text-gray-500 hover:text-red-700"
-                    }
-                  >
-                    🗑
-                  </button>
-                </span>
+                  {displayLabel(s)}
+                </button>
+                {/* Single ~44px Edit affordance; Delete lives in the edit
+                    panel so there's no destructive icon to mis-tap here. */}
+                <button
+                  type="button"
+                  aria-label={`Edit ${displayLabel(s)}`}
+                  onClick={() => startEdit(s)}
+                  className="inline-flex size-11 items-center justify-center rounded-full text-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  ✎
+                </button>
               </li>
             );
           })}

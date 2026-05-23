@@ -275,7 +275,7 @@ describe("MedicationForm (Add)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("warns about attached meds then deletes via the trash icon", async () => {
+  it("warns about attached meds then deletes from the edit panel", async () => {
     mockGet.mockResolvedValue({
       data: {
         items: [
@@ -297,6 +297,10 @@ describe("MedicationForm (Add)", () => {
     } as unknown as Awaited<ReturnType<typeof client.DELETE>>);
 
     const { user } = renderForm();
+    // Delete now lives inside the edit panel — open it first.
+    await user.click(
+      await screen.findByRole("button", { name: /edit morning/i }),
+    );
     await user.click(
       await screen.findByRole("button", { name: /delete morning/i }),
     );
