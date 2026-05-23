@@ -17,9 +17,10 @@ from medminder.db.models import Medication, User
 from medminder.domain.doses import (
     load_active_interaction_state,
     load_non_voided_history_for_meds,
+    load_unscheduled_timer_meds,
     today_view,
 )
-from medminder.domain.timers import compute_timer_state
+from medminder.domain.timers import compute_timer_state, is_timer_active
 from medminder.domain.timezone import InvalidTimezoneError
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
@@ -46,7 +47,15 @@ async def get_today(
             detail=f"Unknown IANA timezone: {exc}",
         ) from exc
 
-    med_ids = list({item.medication_id for item in view.items})
+    # UX enhancements: also surface unscheduled timer meds whose timer
+    # is currently running, so /today shows the whole picture on one
+    # screen. Union their ids with the scheduled ones for a single
+    # history/conflict load.
+    unscheduled = await load_unscheduled_timer_meds(db, user=user)
+    med_ids = list(
+        {item.medication_id for item in view.items}
+        | {m.id for m in unscheduled}
+    )
     meds_by_id: dict[uuid.UUID, Medication] = {}
     if med_ids:
         rows = (
@@ -92,6 +101,34 @@ async def get_today(
                 interaction_state=to_interaction_state_out(
                     conflicts.get(item.medication_id)
                 ),
+                days_of_week=item.days_of_week,
+                scheduled_today=item.scheduled_today,
+                schedule_label=item.schedule_label,
+            )
+        )
+
+    # Append the running-timer PRN rows after the scheduled groups so
+    # the time-ordered slots render first and "As needed" sorts last.
+    for med in unscheduled:
+        state = compute_timer_state(med, history.get(med.id, []), now=now)
+        if not is_timer_active(state):
+            continue
+        items.append(
+            TodayItem(
+                schedule_id=None,
+                medication_id=med.id,
+                name=med.name,
+                scheduled_time=None,
+                quantity_per_dose=med.quantity_per_dose,
+                unit=med.unit,
+                dose=None,
+                timer_state=to_timer_state_out(state),
+                interaction_state=to_interaction_state_out(
+                    conflicts.get(med.id)
+                ),
+                days_of_week=0,
+                scheduled_today=False,
+                schedule_label="",
             )
         )
     return TodayResponse(date=view.date, timezone=view.timezone, items=items)

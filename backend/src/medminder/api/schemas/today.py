@@ -22,19 +22,32 @@ class TodayDose(BaseModel):
 
 
 class TodayItem(BaseModel):
-    """One scheduled slot. The UI keys rows on ``(schedule_id, medication_id)``."""
+    """One Today row. Scheduled rows key on ``(schedule_id, medication_id)``.
+
+    UX enhancements: rows can also be **unscheduled timer meds** shown
+    while their timer is running. Those carry ``schedule_id = None`` and
+    ``scheduled_time = None`` (no slot); the frontend groups them under
+    an "As needed" header, never mutes them, and never gates their take
+    with the out-of-schedule confirm.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    schedule_id: uuid.UUID
+    schedule_id: uuid.UUID | None
     medication_id: uuid.UUID
     name: str
-    scheduled_time: time
+    scheduled_time: time | None
     quantity_per_dose: Decimal
     unit: str
     dose: TodayDose | None
     timer_state: TimerStateOut | None = None
     interaction_state: InteractionStateOut | None = None
+    # UX enhancements: dow filter dropped server-side; the frontend
+    # uses these to mute non-scheduled rows visually and gate take.
+    # Unscheduled (PRN) rows set days_of_week=0, scheduled_today=False.
+    days_of_week: int
+    scheduled_today: bool
+    schedule_label: str
 
 
 class TodayResponse(BaseModel):

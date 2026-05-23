@@ -8,65 +8,38 @@ import {
   createMemoryHistory,
   RouterProvider,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 
-// Mock the API module
 vi.mock("@/lib/api", () => ({
+  client: { GET: vi.fn(), POST: vi.fn() },
+  setApiContext: vi.fn(),
   fetchHealthz: vi.fn(),
 }));
 
-import { fetchHealthz } from "@/lib/api";
-const mockFetchHealthz = vi.mocked(fetchHealthz);
+import { client } from "@/lib/api";
+import { Route as IndexRoute } from "@/routes/index";
 
-// ---------------------------------------------------------------------------
-// Test component — mirrors the real home page for isolated testing
-// ---------------------------------------------------------------------------
+const mockGet = vi.mocked(client.GET);
 
-function HomePageComponent() {
-  const healthQuery = useQuery({
-    queryKey: ["healthz"],
-    queryFn: fetchHealthz,
-    retry: false,
+function renderHome() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
   });
-
-  return (
-    <main>
-      <h1>Hello MedMinder</h1>
-      <div id="health-status">
-        {healthQuery.isLoading && <span>Checking backend…</span>}
-        {healthQuery.isSuccess && (
-          <span>Backend: {healthQuery.data.status}</span>
-        )}
-        {healthQuery.isError && <span>Backend: error</span>}
-      </div>
-    </main>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Router + providers wrapper
-// ---------------------------------------------------------------------------
-
-function createTestRouter() {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: HomePageComponent,
+    component: IndexRoute.options.component,
   });
-  const routeTree = rootRoute.addChildren([indexRoute]);
-  const memoryHistory = createMemoryHistory({ initialEntries: ["/"] });
-  return createRouter({ routeTree, history: memoryHistory });
-}
-
-function renderWithProviders() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-    },
+  const loginRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/login",
+    component: () => <div>LOGIN</div>,
   });
-  const router = createTestRouter();
-
+  const routeTree = rootRoute.addChildren([indexRoute, loginRoute]);
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -74,39 +47,68 @@ function renderWithProviders() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("Home page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders 'Hello MedMinder' heading", async () => {
-    mockFetchHealthz.mockResolvedValue({ status: "ok" });
-    renderWithProviders();
-
+  it("renders the MedMinder hero", async () => {
+    mockGet.mockResolvedValue({
+      response: new Response(null, { status: 401 }),
+      data: undefined,
+      error: undefined,
+    } as never);
+    renderHome();
     await waitFor(() => {
-      expect(screen.getByText("Hello MedMinder")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "MedMinder" }),
+      ).toBeInTheDocument();
     });
   });
 
-  it("shows success state when /healthz returns ok", async () => {
-    mockFetchHealthz.mockResolvedValue({ status: "ok" });
-    renderWithProviders();
-
+  it("shows a Sign in CTA when logged out", async () => {
+    mockGet.mockResolvedValue({
+      response: new Response(null, { status: 401 }),
+      data: undefined,
+      error: undefined,
+    } as never);
+    renderHome();
     await waitFor(() => {
-      expect(screen.getByText("Backend: ok")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /sign in/i }),
+      ).toBeInTheDocument();
     });
   });
 
-  it("shows error state when /healthz fails", async () => {
-    mockFetchHealthz.mockRejectedValue(new Error("Health check failed"));
-    renderWithProviders();
-
+  it("shows Today + medications CTAs when logged in", async () => {
+    mockGet.mockResolvedValue({
+      response: new Response(null, { status: 200 }),
+      data: { id: "u", name: "Testy", role: "user" },
+      error: undefined,
+    } as never);
+    renderHome();
     await waitFor(() => {
-      expect(screen.getByText("Backend: error")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /go to today/i }),
+      ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole("link", { name: /my medications/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show a backend health indicator", async () => {
+    mockGet.mockResolvedValue({
+      response: new Response(null, { status: 401 }),
+      data: undefined,
+      error: undefined,
+    } as never);
+    renderHome();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "MedMinder" }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/backend/i)).not.toBeInTheDocument();
   });
 });

@@ -106,9 +106,20 @@ both directions.
 
 - Scheduled reminders via APScheduler.
 - Web Push delivery with VAPID keys.
-- Refill reminders when medication supply is running low.
+- Refill reminders when medication supply is running low. This requires
+  **supply to be live**: taking (and voiding) a dose decrements/restores
+  the on-hand count (`refill_count` / `doses_remaining`) so "running low"
+  fires on real data. Today these fields are display-only (the list shows
+  "Refill: N on hand, warn at M" but nothing changes N) — Phase 7 owns
+  making the count live and warning at `refill_threshold`.
 - One-hour snooze action.
 - Quiet hours per user.
+- **Schedule mutations reschedule reminders.** Creating, editing
+  (time/label/days), or deleting a shared schedule must (re)generate or
+  cancel the affected `reminders` rows for every attached medication.
+  The schedule delete/time-move confirm modals (ADR-0009 / the
+  `ux_enhancments` schedule-mutability work) already tell users their
+  "reminders shift," so Phase 7 owns making that promise true.
 - ADR-0002 (in-process APScheduler vs Celery) moves from `Proposed`
   to `Accepted` with the chosen approach documented.
 
@@ -124,6 +135,11 @@ both directions.
 - Calendar and/or stacked-bar view of adherence per medication.
 - Color coding for taken / missed / skipped.
 - CSV export.
+- **Course progress & completion.** For fixed-course meds
+  (`medications.total_doses`), show doses-taken-of-total (e.g. "9 of 14")
+  and surface when a course is complete. This is the feature that gives
+  `total_doses` (course size, captured since Phase 3) its meaning;
+  distinct from the Phase 7 refill/supply tracking.
 
 ## Phase 10 — Hardening
 
@@ -140,15 +156,17 @@ Small infrastructure work tracked here so it does not get lost between
 feature phases. Items are pulled into the next phase that touches the
 same surface, or scheduled standalone when they grow risky to defer.
 
-- **Run the e2e smoke suite in CI.** `granny-smoke.spec.ts` and
-  `timer-modes.spec.ts` are reliably runnable locally and **green +
+- **Run the e2e smoke suite in CI.** `granny-smoke.spec.ts`,
+  `timer-modes.spec.ts`, `drug-interaction.spec.ts`, and
+  `schedules.spec.ts` are reliably runnable locally and **green +
   deterministic** (the e2e-fragility fix added a shared `login()`
   helper, an idempotent `e2e/global-setup.ts`, unique per-run med
   names, detail-scoped locators, an extended count_down test timeout,
   and refetch-awaited multi_sub_dose assertions; the `useTakeDose`
   cache-invalidation product fix was made along the way). They stay
-  skip-gated behind `E2E_RUN_GRANNY` / `E2E_RUN_TIMER_MODES` only
-  because CI does not yet stand up the docker stack. Wire the stack
+  skip-gated behind `E2E_RUN_GRANNY` / `E2E_RUN_TIMER_MODES` /
+  `E2E_RUN_DRUG_INTERACTION` / `E2E_RUN_SCHEDULES` only because CI does
+  not yet stand up the docker stack. Wire the stack
   into GitHub Actions and drop the skip gates so the smokes run on
   every PR. Phase 10 candidate ("Full Playwright suite … enforced in
   CI"). No code prerequisites remain — purely CI infra.

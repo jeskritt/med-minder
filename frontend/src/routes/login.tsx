@@ -58,24 +58,33 @@ function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
+      <div className="mb-6 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          MedMinder
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Your personal medication tracker
+        </p>
+      </div>
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="w-full max-w-sm rounded border bg-white p-6 shadow"
+        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
         aria-label="Sign in"
         noValidate
       >
-        <h1 className="mb-6 text-2xl font-bold">Sign in to MedMinder</h1>
-
         <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-slate-700"
+          >
             Email
           </label>
           <input
             id="email"
             type="email"
             autoComplete="username"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("email")}
           />
           {errors.email && (
@@ -86,14 +95,17 @@ function LoginPage() {
         </div>
 
         <div className="mb-4">
-          <label htmlFor="password" className="block text-sm font-medium">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-slate-700"
+          >
             Password
           </label>
           <input
             id="password"
             type="password"
             autoComplete="current-password"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
             {...register("password")}
           />
           {errors.password && (
@@ -112,7 +124,7 @@ function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting || loginMutation.isPending}
-          className="w-full rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
         >
           {loginMutation.isPending ? "Signing in…" : "Sign in"}
         </button>

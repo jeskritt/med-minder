@@ -3,6 +3,12 @@ info:
   title: MedMinder Timer Modes (Phase 5)
   version: "0.5.0"
   description: |
+    NOTE (stale): the `multi_sub_dose` timer payload and the
+    `window_full` 409 body documented here reflect Phase 5's original
+    tiled-window model. The shipped behavior is rolling per-dose windows
+    — see ADR-0010 and `frontend/src/api/v1.d.ts` for the current shape.
+    This Phase 5 artifact is kept as a historical record, not retro-fitted.
+
     Contract fragment for the four endpoint deltas Phase 5 introduces:
 
       - GET /api/schedules/today               — adds `timer_state` to each item.

@@ -39,21 +39,26 @@ Visually this is the most rewarding mode — the counter ticks down,
 and zero means "you can act now."
 
 ### Mode `multi_sub_dose` — Billy Bat
-The hardest mode. A medication has a *window* (e.g., 6 hours), inside
-which a fixed number of sub-doses (e.g., 3) can be taken. The user
-wants to spread them evenly to avoid pain valleys, but the only hard
-rule is the window total.
+The hardest mode. **Each dose opens its own rolling window** of
+`window_duration_minutes` (e.g., 6 hours), and at most
+`times_per_day` doses (the "max at a time" cap, e.g., 3) may overlap.
+Equivalently: no more than N non-voided doses in any rolling
+`window_duration` period. When the cap is reached, the next dose is
+allowed once the **oldest active dose's** window expires
+(`taken_at + window_duration`). A separate optional `max_doses_per_day`
+is a hard daily ceiling on top of the at-a-time cap. See
+**ADR-0010** for why this replaced the original single-tiled-window
+model.
 
-Two visual options were considered:
+> **Superseded design note.** Earlier drafts of this section described
+> one shared, non-overlapping window holding N sub-doses (tiled). That
+> didn't actually bound doses-per-period (you could take N at the end
+> of one tile and N at the start of the next). The rolling per-dose
+> model above is the shipped behavior.
 
-- **One bar split into N segments**, each segment shading in as the
-  user takes that sub-dose. This is compact but conflates "time
-  elapsed" with "doses taken" — they're different axes.
-- **N stacked bars**, one per sub-dose, each showing time-since-that
-  -sub-dose. This has more visual real estate but the axes line up.
-
-Working assumption: **N stacked bars**, with a parent bar showing the
-overall window. Revisit when 5c lands.
+The card renders one row per active dose ("Dose HH:MM — frees HH:MM")
+under a "max N at a time" header, and disables the CTA with a "next
+dose at HH:MM" hint when at capacity.
 
 ## What ties them together
 
@@ -68,14 +73,36 @@ should not require new server-side concepts. If a future mode needs
 data the schema doesn't carry, that's a schema change first, design
 change second.
 
-## Open questions
+## Timer meds on the Today screen (UX-enhancements)
 
-- Does `count_up` need a soft cap ("over 24h ago") to stop showing
-  meaningless precision?
-- For `multi_sub_dose`, what happens when the user *misses* a sub-dose
-  and the window expires? Skip silently, mark missed in adherence,
-  or surface a warning?
-- Mobile haptics on count-down hitting zero — yes/no? Probably yes
-  for accessibility (sighted+haptic > sighted alone).
+`/today` shows scheduled slots **plus** unscheduled timer meds while
+their timer is *running*, so the user sees the whole picture on one
+screen. "Running" is `domain.timers.is_timer_active(state)`:
 
-These get resolved in the Phase 5 PRs.
+- `count_down` — counting toward the next allowed dose
+  (`remaining_seconds > 0`); the row drops off the moment it reaches 0.
+- `multi_sub_dose` — at least one dose is still inside its own rolling
+  window (`slots_used > 0`); the row drops once every per-dose window
+  has expired.
+- `count_up` — within **24h** of the last dose (see the resolved
+  open question below); past 24h the row drops until the next dose.
+
+These rows carry `schedule_id = null` / `scheduled_time = null`, group
+under an "As needed" header, are never muted, and are never gated by
+the out-of-schedule confirm.
+
+## Open questions (resolved)
+
+- **Does `count_up` need a soft cap?** — **Yes, 24h.** count_up has no
+  intrinsic expiry, so the UI caps the display at "over 24h ago" and
+  the Today screen drops an unscheduled count_up row once it passes
+  `COUNT_UP_ACTIVE_HORIZON_SECONDS` (86 400) since the last dose.
+- **Does `multi_sub_dose` use a tiled or rolling window?** — **Rolling
+  per-dose windows** with a max-concurrent cap (ADR-0010). Each dose is
+  active for `window_duration`; at most `times_per_day` overlap.
+- For `multi_sub_dose`, what happens when the user under-doses across a
+  day (takes fewer than expected)? Skip silently, mark missed in
+  adherence, or surface a warning? *(still open — adherence is a later
+  phase)*
+- Mobile haptics on count-down hitting zero — **yes** (implemented in
+  Phase 5: a single vibration on the zero crossing while visible).

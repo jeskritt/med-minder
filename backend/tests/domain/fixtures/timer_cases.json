@@ -148,14 +148,16 @@
         "last_dose_at": null,
         "multi_sub_dose": {
           "window_duration_seconds": 21600,
-          "slots_total": 3,
-          "active_window": null,
-          "previous_window_unused_slots": 0
+          "max_concurrent": 3,
+          "active_sub_doses": [],
+          "slots_used": 0,
+          "slots_remaining": 3,
+          "next_available_at": null
         }
       }
     },
     {
-      "name": "one_of_three_mid_window",
+      "name": "one_active_mid_window",
       "med": {
         "timer_preference": "multi_sub_dose",
         "window_duration_minutes": 360,
@@ -168,20 +170,21 @@
         "last_dose_at": "2026-05-14T10:00:00Z",
         "multi_sub_dose": {
           "window_duration_seconds": 21600,
-          "slots_total": 3,
-          "active_window": {
-            "window_start": "2026-05-14T10:00:00Z",
-            "window_end": "2026-05-14T16:00:00Z",
-            "doses_in_window": ["2026-05-14T10:00:00Z"],
-            "slots_used": 1,
-            "slots_remaining": 2
-          },
-          "previous_window_unused_slots": 0
+          "max_concurrent": 3,
+          "active_sub_doses": [
+            {
+              "taken_at": "2026-05-14T10:00:00Z",
+              "expires_at": "2026-05-14T16:00:00Z"
+            }
+          ],
+          "slots_used": 1,
+          "slots_remaining": 2,
+          "next_available_at": null
         }
       }
     },
     {
-      "name": "three_of_three_full_window_disabled",
+      "name": "three_active_at_capacity",
       "med": {
         "timer_preference": "multi_sub_dose",
         "window_duration_minutes": 360,
@@ -198,24 +201,29 @@
         "last_dose_at": "2026-05-14T11:00:00Z",
         "multi_sub_dose": {
           "window_duration_seconds": 21600,
-          "slots_total": 3,
-          "active_window": {
-            "window_start": "2026-05-14T10:00:00Z",
-            "window_end": "2026-05-14T16:00:00Z",
-            "doses_in_window": [
-              "2026-05-14T10:00:00Z",
-              "2026-05-14T10:30:00Z",
-              "2026-05-14T11:00:00Z"
-            ],
-            "slots_used": 3,
-            "slots_remaining": 0
-          },
-          "previous_window_unused_slots": 0
+          "max_concurrent": 3,
+          "active_sub_doses": [
+            {
+              "taken_at": "2026-05-14T10:00:00Z",
+              "expires_at": "2026-05-14T16:00:00Z"
+            },
+            {
+              "taken_at": "2026-05-14T10:30:00Z",
+              "expires_at": "2026-05-14T16:30:00Z"
+            },
+            {
+              "taken_at": "2026-05-14T11:00:00Z",
+              "expires_at": "2026-05-14T17:00:00Z"
+            }
+          ],
+          "slots_used": 3,
+          "slots_remaining": 0,
+          "next_available_at": "2026-05-14T16:00:00Z"
         }
       }
     },
     {
-      "name": "expired_with_two_unused",
+      "name": "dose_older_than_window_inactive",
       "med": {
         "timer_preference": "multi_sub_dose",
         "window_duration_minutes": 360,
@@ -228,14 +236,16 @@
         "last_dose_at": "2026-05-14T02:00:00Z",
         "multi_sub_dose": {
           "window_duration_seconds": 21600,
-          "slots_total": 3,
-          "active_window": null,
-          "previous_window_unused_slots": 2
+          "max_concurrent": 3,
+          "active_sub_doses": [],
+          "slots_used": 0,
+          "slots_remaining": 3,
+          "next_available_at": null
         }
       }
     },
     {
-      "name": "most_recent_voided_two_survivors",
+      "name": "two_active_after_void",
       "med": {
         "timer_preference": "multi_sub_dose",
         "window_duration_minutes": 360,
@@ -251,23 +261,25 @@
         "last_dose_at": "2026-05-14T11:30:00Z",
         "multi_sub_dose": {
           "window_duration_seconds": 21600,
-          "slots_total": 3,
-          "active_window": {
-            "window_start": "2026-05-14T11:00:00Z",
-            "window_end": "2026-05-14T17:00:00Z",
-            "doses_in_window": [
-              "2026-05-14T11:00:00Z",
-              "2026-05-14T11:30:00Z"
-            ],
-            "slots_used": 2,
-            "slots_remaining": 1
-          },
-          "previous_window_unused_slots": 0
+          "max_concurrent": 3,
+          "active_sub_doses": [
+            {
+              "taken_at": "2026-05-14T11:00:00Z",
+              "expires_at": "2026-05-14T17:00:00Z"
+            },
+            {
+              "taken_at": "2026-05-14T11:30:00Z",
+              "expires_at": "2026-05-14T17:30:00Z"
+            }
+          ],
+          "slots_used": 2,
+          "slots_remaining": 1,
+          "next_available_at": null
         }
       }
     },
     {
-      "name": "back_to_back_windows_second_active",
+      "name": "rolling_old_dose_drops_out",
       "med": {
         "timer_preference": "multi_sub_dose",
         "window_duration_minutes": 360,
@@ -283,15 +295,16 @@
         "last_dose_at": "2026-05-14T11:00:00Z",
         "multi_sub_dose": {
           "window_duration_seconds": 21600,
-          "slots_total": 3,
-          "active_window": {
-            "window_start": "2026-05-14T11:00:00Z",
-            "window_end": "2026-05-14T17:00:00Z",
-            "doses_in_window": ["2026-05-14T11:00:00Z"],
-            "slots_used": 1,
-            "slots_remaining": 2
-          },
-          "previous_window_unused_slots": 0
+          "max_concurrent": 3,
+          "active_sub_doses": [
+            {
+              "taken_at": "2026-05-14T11:00:00Z",
+              "expires_at": "2026-05-14T17:00:00Z"
+            }
+          ],
+          "slots_used": 1,
+          "slots_remaining": 2,
+          "next_available_at": null
         }
       }
     }

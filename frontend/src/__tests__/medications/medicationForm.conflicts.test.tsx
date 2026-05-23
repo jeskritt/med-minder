@@ -1,6 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+vi.mock("@/lib/api", () => ({
+  client: {
+    POST: vi.fn(),
+    GET: vi.fn(),
+    DELETE: vi.fn(),
+  },
+  setApiContext: vi.fn(),
+  fetchHealthz: vi.fn(),
+}));
+
+import { client } from "@/lib/api";
 import {
   MedicationForm,
   type ConflictInput,
@@ -14,22 +27,41 @@ const AVAILABLE = [
   { id: "med-3", name: "Naproxen" },
 ];
 
+const mockGet = vi.mocked(client.GET);
+
+beforeEach(() => {
+  mockGet.mockReset();
+  mockGet.mockResolvedValue({
+    data: { items: [] },
+    response: new Response(null, { status: 200 }),
+  } as unknown as Awaited<ReturnType<typeof client.GET>>);
+});
+
 function setup(available = AVAILABLE) {
   const onSubmit = vi.fn<(b: MedicationBody, c: ConflictInput[]) => void>();
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <MedicationForm
-      mode="create"
-      availableMedications={available}
-      onSubmit={onSubmit}
-    />,
+    <QueryClientProvider client={queryClient}>
+      <MedicationForm
+        mode="create"
+        availableMedications={available}
+        onSubmit={onSubmit}
+      />
+    </QueryClientProvider>,
   );
   return { user: userEvent.setup(), onSubmit };
 }
 
 async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/^name$/i), "Sumatriptan");
-  await user.type(screen.getByLabelText(/^dosage$/i), "1");
+  // Pill-based defaults ON; uncheck to reveal the plain quantity field.
+  await user.click(screen.getByLabelText(/pill-based/i));
+  await user.type(screen.getByLabelText(/^quantity per dose$/i), "1");
+  await user.clear(screen.getByLabelText(/^unit$/i));
   await user.type(screen.getByLabelText(/^unit$/i), "tablet");
+  await user.click(screen.getByLabelText(/untracked/i));
 }
 
 describe("MedicationForm — Conflicts with", () => {

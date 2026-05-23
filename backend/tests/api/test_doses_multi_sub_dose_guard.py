@@ -94,7 +94,7 @@ async def test_multi_sub_dose_window_full_returns_409_with_violation_body(
     assert set(body.keys()) == {
         "code",
         "medication_id",
-        "window_end",
+        "next_available_at",
         "slots_used",
         "slots_total",
     }

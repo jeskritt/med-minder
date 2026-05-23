@@ -18,6 +18,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, func, not_, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -40,6 +41,7 @@ from medminder.domain.interactions import (
     detect_interaction_conflict,
 )
 from medminder.domain.timers import (
+    DailyCapReachedError,
     MinIntervalNotElapsedError,
     multi_sub_dose_window_full,
 )
@@ -167,6 +169,38 @@ async def create_dose(
         violation = multi_sub_dose_window_full(med, taken_ats, taken_at)
         if violation is not None:
             raise violation
+        # UX enhancements: per-day cap (`max_doses_per_day`) — sibling
+        # of the per-window slot cap above. Counts non-voided doses in
+        # the user-local "today" window (same bounds as `today_view`).
+        if med.max_doses_per_day is not None:
+            local_date = taken_at.astimezone(
+                ZoneInfo(user.timezone)
+            ).date()
+            day_bounds = resolve_today_bounds(
+                user_tz=user.timezone,
+                target_date=local_date,
+            )
+            count_today = int(
+                (
+                    await session.execute(
+                        select(func.count())
+                        .select_from(Dose)
+                        .where(
+                            Dose.user_id == user.id,
+                            Dose.medication_id == medication_id,
+                            Dose.taken_at >= day_bounds.start_utc,
+                            Dose.taken_at < day_bounds.end_utc,
+                            not_(voided_exists),
+                        )
+                    )
+                ).scalar_one()
+            )
+            if count_today >= med.max_doses_per_day:
+                raise DailyCapReachedError(
+                    medication_id=medication_id,
+                    max_per_day=med.max_doses_per_day,
+                    count_today=count_today,
+                )
 
     # --- Drug-interaction cooldown (Phase 6 / ADR-0008) ----------------
     # Runs AFTER the non-overridable Phase 5 overdose guards above so an
@@ -303,7 +337,16 @@ async def void_dose(
 
 @dataclass(frozen=True)
 class TodayItem:
-    """One per-slot row in the Today view."""
+    """One per-slot row in the Today view.
+
+    UX enhancements: the day-of-week filter is no longer applied at
+    the SQL layer — every linked (schedule, medication) slot surfaces
+    every day. The frontend uses ``days_of_week`` + ``scheduled_today``
+    to mute rows that aren't normally scheduled today (visual only) and
+    gates the take button via the out-of-schedule confirm modal.
+    ``schedule_label`` is the schedule's display label (may be empty
+    string → frontend falls back to HH:MM / a day-band).
+    """
 
     schedule_id: uuid.UUID
     medication_id: uuid.UUID
@@ -312,6 +355,9 @@ class TodayItem:
     quantity_per_dose: Decimal
     unit: str
     dose: Dose | None
+    days_of_week: int
+    scheduled_today: bool
+    schedule_label: str
 
 
 @dataclass(frozen=True)
@@ -367,7 +413,6 @@ async def today_view(
             Schedule.deleted_at.is_(None),
             Medication.user_id == user.id,
             Medication.deleted_at.is_(None),
-            Schedule.days_of_week.op("&")(dow_mask) != 0,
         )
         .order_by(Schedule.time_of_day, Medication.name)
     )
@@ -394,6 +439,9 @@ async def today_view(
                 quantity_per_dose=medication.quantity_per_dose,
                 unit=medication.unit,
                 dose=dose,
+                days_of_week=schedule.days_of_week,
+                scheduled_today=(schedule.days_of_week & dow_mask) != 0,
+                schedule_label=schedule.label or "",
             )
         elif dose is not None and (
             existing.dose is None or dose.taken_at > existing.dose.taken_at
@@ -406,6 +454,9 @@ async def today_view(
                 quantity_per_dose=medication.quantity_per_dose,
                 unit=medication.unit,
                 dose=dose,
+                days_of_week=schedule.days_of_week,
+                scheduled_today=(schedule.days_of_week & dow_mask) != 0,
+                schedule_label=schedule.label or "",
             )
 
     return TodayView(
@@ -448,6 +499,41 @@ async def load_non_voided_history_for_meds(
     for dose in rows:
         out[dose.medication_id].append(dose)
     return out
+
+
+async def load_unscheduled_timer_meds(
+    session: AsyncSession,
+    *,
+    user: User,
+) -> list[Medication]:
+    """Return the user's active timer meds that have no schedule slot.
+
+    UX enhancements: these surface on /today (while their timer is
+    running) so the user sees PRN/timer cycles alongside scheduled
+    slots. "Unscheduled" = no row in ``schedule_medications`` linking
+    the med to a non-deleted schedule. "Timer" = ``timer_preference``
+    other than ``none``. Scoped to the user's own non-deleted meds.
+    """
+    linked_to_active_schedule = (
+        select(ScheduleMedication.medication_id)
+        .join(Schedule, Schedule.id == ScheduleMedication.schedule_id)
+        .where(
+            ScheduleMedication.medication_id == Medication.id,
+            Schedule.deleted_at.is_(None),
+        )
+        .exists()
+    )
+    stmt = (
+        select(Medication)
+        .where(
+            Medication.user_id == user.id,
+            Medication.deleted_at.is_(None),
+            Medication.timer_preference != "none",
+            not_(linked_to_active_schedule),
+        )
+        .order_by(Medication.name)
+    )
+    return list((await session.execute(stmt)).scalars().all())
 
 
 async def load_active_interaction_state(
@@ -553,6 +639,7 @@ __all__ = [
     "create_dose",
     "load_active_interaction_state",
     "load_non_voided_history_for_meds",
+    "load_unscheduled_timer_meds",
     "today_view",
     "void_dose",
 ]

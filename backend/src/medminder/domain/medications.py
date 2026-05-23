@@ -3,15 +3,17 @@
 The pure helpers (``validate_medication_input``, ``InvalidMedicationError``)
 are tested without a DB or HTTP server, per Constitution Principle III.
 The async helpers wrap the SQLAlchemy operations the API layer needs:
-soft-delete on the medication, complete-replacement on the schedules.
+soft-delete on the medication; the schedule join rows
+(`ScheduleMedication`) are reconciled by id (UX enhancements made
+schedules a shared user-level resource).
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import delete, select
@@ -27,13 +29,20 @@ class InvalidMedicationError(ValueError):
 
 @dataclass(frozen=True)
 class MedicationInput:
-    """Canonical inbound shape for create/update.  Pure data."""
+    """Canonical inbound shape for create/update.  Pure data.
+
+    `schedules` is a list of **existing** `Schedule.id`s the medication
+    should be linked to (UX enhancements: schedules became shared
+    user-level resources). Validation rejects unknown / cross-user /
+    soft-deleted ids; `_replace_schedules` reconciles `ScheduleMedication`
+    join rows.
+    """
 
     name: str
     quantity_per_dose: Decimal
     unit: str
     times_per_day: int
-    schedules: Sequence[time]
+    schedules: Sequence[uuid.UUID] = field(default_factory=list)
     start_date: date | None = None
     end_date: date | None = None
     total_doses: int | None = None
@@ -42,6 +51,10 @@ class MedicationInput:
     timer_preference: TimerPreference = "none"
     min_interval_minutes: int | None = None
     window_duration_minutes: int | None = None
+    # UX enhancements (Phase 6.5):
+    pill_strength: Decimal | None = None
+    pills_per_dose: int | None = None
+    max_doses_per_day: int | None = None
 
 
 def validate_medication_input(payload: MedicationInput) -> None:
@@ -91,12 +104,53 @@ def validate_medication_input(payload: MedicationInput) -> None:
         payload.timer_preference == "multi_sub_dose"
         and payload.times_per_day < 1
     ):
-        # times_per_day is the per-window slot count (slots_total); a
-        # multi_sub_dose med with 0 slots is meaningless and breaks the
-        # timer-state wire model (MultiSubDosePayload.slots_total >= 1).
+        # times_per_day is the max-concurrent cap ("max at a time"); a
+        # multi_sub_dose med with 0 is meaningless and breaks the
+        # timer-state wire model (MultiSubDosePayload.max_concurrent >= 1).
         raise InvalidMedicationError(
             "multi_sub_dose timer_preference requires times_per_day >= 1"
         )
+    # Pill-based dosage: both-or-neither, both positive when set.
+    if (payload.pill_strength is None) != (payload.pills_per_dose is None):
+        raise InvalidMedicationError(
+            "pill_strength and pills_per_dose must be set together"
+        )
+    if payload.pill_strength is not None and payload.pill_strength <= 0:
+        raise InvalidMedicationError("pill_strength must be > 0")
+    if payload.pills_per_dose is not None and payload.pills_per_dose < 1:
+        raise InvalidMedicationError("pills_per_dose must be >= 1")
+    # multi_sub_dose daily cap: only meaningful on that mode; must be
+    # >= the max-at-a-time cap (times_per_day).
+    if payload.max_doses_per_day is not None:
+        if payload.timer_preference != "multi_sub_dose":
+            raise InvalidMedicationError(
+                "max_doses_per_day is only valid for multi_sub_dose"
+            )
+        if payload.max_doses_per_day < 1:
+            raise InvalidMedicationError(
+                "max_doses_per_day must be >= 1"
+            )
+        if payload.max_doses_per_day < payload.times_per_day:
+            raise InvalidMedicationError(
+                "max_doses_per_day must be >= times_per_day "
+                "(the per-window slot cap)"
+            )
+
+
+def _effective_quantity_per_dose(payload: MedicationInput) -> Decimal:
+    """Derive `quantity_per_dose` for the model write.
+
+    Pill-based meds (both `pill_strength` and `pills_per_dose` set):
+    quantity is `pill_strength * pills_per_dose` and overrides any
+    user-supplied `quantity_per_dose`. Non-pill meds use the supplied
+    value unchanged.
+    """
+    if (
+        payload.pill_strength is not None
+        and payload.pills_per_dose is not None
+    ):
+        return payload.pill_strength * Decimal(payload.pills_per_dose)
+    return payload.quantity_per_dose
 
 
 def _utcnow() -> datetime:
@@ -105,7 +159,7 @@ def _utcnow() -> datetime:
 
 def _set_writable_fields(med: Medication, payload: MedicationInput) -> None:
     med.name = payload.name.strip()
-    med.quantity_per_dose = payload.quantity_per_dose
+    med.quantity_per_dose = _effective_quantity_per_dose(payload)
     med.unit = payload.unit.strip()
     med.times_per_day = payload.times_per_day
     med.start_date = payload.start_date
@@ -116,6 +170,9 @@ def _set_writable_fields(med: Medication, payload: MedicationInput) -> None:
     med.timer_preference = payload.timer_preference
     med.min_interval_minutes = payload.min_interval_minutes
     med.window_duration_minutes = payload.window_duration_minutes
+    med.pill_strength = payload.pill_strength
+    med.pills_per_dose = payload.pills_per_dose
+    med.max_doses_per_day = payload.max_doses_per_day
 
 
 async def list_medications(
@@ -171,56 +228,81 @@ async def _replace_schedules(
     *,
     user_id: uuid.UUID,
     medication: Medication,
-    schedules: Sequence[time],
+    schedules: Sequence[uuid.UUID],
 ) -> list[Schedule]:
-    """Soft-delete previous schedule links and create fresh ones.
+    """Reconcile `ScheduleMedication` join rows for this medication.
 
-    Per research.md item 2 (complete-replacement strategy): drop the
-    M:M join rows for this medication, soft-delete the previously linked
-    schedule rows (so listings stop returning them), then create new
-    schedules + join rows for the supplied times.
+    UX enhancements: schedules are shared user-level resources owned
+    by a separate CRUD surface (`/api/v1/schedules`). The med form
+    sends a list of existing `Schedule.id`s; this function only
+    inserts/deletes M:M join rows — it does NOT create or
+    soft-delete Schedule rows. Validates each id belongs to the
+    user and is non-soft-deleted; raises `InvalidMedicationError`
+    on any unknown / cross-user / soft-deleted id.
     """
-    prev_link_stmt = select(ScheduleMedication.schedule_id).where(
-        ScheduleMedication.medication_id == medication.id
-    )
-    prev_schedule_ids = list(
-        (await session.execute(prev_link_stmt)).scalars().all()
-    )
-    if prev_schedule_ids:
-        await session.execute(
-            delete(ScheduleMedication).where(
-                ScheduleMedication.medication_id == medication.id
-            )
-        )
-        now = _utcnow()
-        prev_rows = (
-            await session.execute(
-                select(Schedule).where(Schedule.id.in_(prev_schedule_ids))
-            )
-        ).scalars().all()
-        for sched in prev_rows:
-            if sched.deleted_at is None:
-                sched.deleted_at = now
-
-    new_rows: list[Schedule] = []
-    for tod in schedules:
-        sched = Schedule(
-            user_id=user_id,
-            time_of_day=tod,
-            label=medication.name,
-        )
-        session.add(sched)
-        new_rows.append(sched)
-    if new_rows:
-        await session.flush()
-        for sched in new_rows:
-            session.add(
-                ScheduleMedication(
-                    schedule_id=sched.id, medication_id=medication.id
+    target_ids: list[uuid.UUID] = list(dict.fromkeys(schedules))  # dedupe, keep order
+    if target_ids:
+        owned = set(
+            (
+                await session.execute(
+                    select(Schedule.id).where(
+                        Schedule.id.in_(target_ids),
+                        Schedule.user_id == user_id,
+                        Schedule.deleted_at.is_(None),
+                    )
                 )
             )
+            .scalars()
+            .all()
+        )
+        missing = [sid for sid in target_ids if sid not in owned]
+        if missing:
+            raise InvalidMedicationError(
+                f"schedule not found or not owned: {missing[0]}"
+            )
+
+    current_ids = set(
+        (
+            await session.execute(
+                select(ScheduleMedication.schedule_id).where(
+                    ScheduleMedication.medication_id == medication.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    target_set = set(target_ids)
+
+    to_remove = current_ids - target_set
+    if to_remove:
+        await session.execute(
+            delete(ScheduleMedication).where(
+                ScheduleMedication.medication_id == medication.id,
+                ScheduleMedication.schedule_id.in_(to_remove),
+            )
+        )
+
+    to_add = target_set - current_ids
+    for sid in to_add:
+        session.add(
+            ScheduleMedication(
+                schedule_id=sid, medication_id=medication.id
+            )
+        )
+    if to_remove or to_add:
         await session.flush()
-    return new_rows
+
+    if not target_ids:
+        return []
+    rows = (
+        await session.execute(
+            select(Schedule)
+            .where(Schedule.id.in_(target_ids))
+            .order_by(Schedule.time_of_day)
+        )
+    ).scalars().all()
+    return list(rows)
 
 
 async def create_medication(
@@ -229,12 +311,12 @@ async def create_medication(
     user_id: uuid.UUID,
     payload: MedicationInput,
 ) -> tuple[Medication, list[Schedule]]:
-    """Create a medication and its inline schedules in one transaction."""
+    """Create a medication and link existing schedules in one transaction."""
     validate_medication_input(payload)
     med = Medication(
         user_id=user_id,
         name=payload.name.strip(),
-        quantity_per_dose=payload.quantity_per_dose,
+        quantity_per_dose=_effective_quantity_per_dose(payload),
         unit=payload.unit.strip(),
         times_per_day=payload.times_per_day,
         start_date=payload.start_date,
@@ -245,6 +327,9 @@ async def create_medication(
         window_duration_minutes=payload.window_duration_minutes,
         refill_count=payload.refill_count,
         refill_threshold=payload.refill_threshold,
+        pill_strength=payload.pill_strength,
+        pills_per_dose=payload.pills_per_dose,
+        max_doses_per_day=payload.max_doses_per_day,
     )
     session.add(med)
     await session.flush()
@@ -261,7 +346,7 @@ async def update_medication(
     medication_id: uuid.UUID,
     payload: MedicationInput,
 ) -> tuple[Medication, list[Schedule]] | None:
-    """Replace medication fields and inline schedules; ``None`` if missing."""
+    """Replace medication fields and schedule links; ``None`` if missing."""
     validate_medication_input(payload)
     med = await get_medication(
         session, user_id=user_id, medication_id=medication_id

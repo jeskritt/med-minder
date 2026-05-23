@@ -77,7 +77,8 @@ async def test_full_window_raises(session: AsyncSession) -> None:
     assert err.medication_id == med.id
     assert err.slots_used == 3
     assert err.slots_total == 3
-    assert err.window_end == start + timedelta(minutes=360)
+    # Oldest active dose (at `start`) frees a slot when its window expires.
+    assert err.next_available_at == start + timedelta(minutes=360)
 
 
 async def test_voided_dose_does_not_count_toward_fullness(
@@ -103,13 +104,14 @@ async def test_voided_dose_does_not_count_toward_fullness(
     assert dose.medication_id == med.id
 
 
-async def test_dose_after_window_expiry_opens_fresh_window(
+async def test_dose_after_windows_expire_is_allowed(
     session: AsyncSession,
 ) -> None:
     user = await make_user(session)
     med = await _msd_med(session, user, slots=3)
     now = datetime.now(UTC)
-    # Three doses ~8h ago: their 6h window expired ~2h ago, fully used.
+    # Three doses ~8h ago: each per-dose 6h window has expired, so none
+    # are active now.
     old = now - timedelta(hours=8)
     for offset in (0, 5, 10):
         await make_dose(
@@ -118,7 +120,7 @@ async def test_dose_after_window_expiry_opens_fresh_window(
             medication=med,
             taken_at=old + timedelta(minutes=offset),
         )
-    # A dose now opens a brand-new window — allowed despite the prior full one.
+    # No active sub-doses → a dose now is allowed.
     dose = await create_dose(
         session, user=user, medication_id=med.id, taken_at=now
     )

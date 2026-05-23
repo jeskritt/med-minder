@@ -66,20 +66,22 @@ function MedicationsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
+    <main className="mx-auto max-w-2xl px-4 py-6">
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-bold">Medications</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Medications
+        </h1>
         <div className="flex gap-2">
           <Link
             to="/medications/new"
-            className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-95"
           >
-            Add medication
+            Add
           </Link>
           <button
             type="button"
             onClick={handlePrint}
-            className="rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             Print
           </button>
@@ -88,7 +90,7 @@ function MedicationsPage() {
 
       <h1 className="hidden text-2xl font-bold print:block">Medications</h1>
 
-      {medsQuery.isLoading && <p className="mt-4 text-gray-600">Loading…</p>}
+      {medsQuery.isLoading && <p className="mt-4 text-slate-500">Loading…</p>}
       {medsQuery.isError && (
         <p role="alert" className="mt-4 text-red-600">
           Could not load medications.

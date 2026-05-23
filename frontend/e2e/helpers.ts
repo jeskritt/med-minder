@@ -53,6 +53,48 @@ export async function login(
 const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
 
 /**
+ * Switch the medication form out of its default pill-based mode and set
+ * a plain quantity-per-dose + unit. The form now defaults `pill_based`
+ * ON (most meds are pills), which hides the bare quantity field; these
+ * specs use simple "1 tab" doses, so flip it off first.
+ */
+export async function setPlainDose(
+  page: Page,
+  quantity: string,
+  unit: string,
+): Promise<void> {
+  const pill = page.getByLabel(/pill-based/i);
+  if (await pill.isChecked()) {
+    await pill.uncheck();
+  }
+  await page.getByLabel(/quantity per dose/i).fill(quantity);
+  await page.getByLabel(/^unit$/i).fill(unit);
+}
+
+/**
+ * Add a new schedule slot through the SchedulePicker (UX enhancements
+ * replaced the old per-med time inputs with a shared-schedule chip
+ * picker). Creates the slot and auto-selects its chip.
+ *
+ * Pass a unique `label` when a test needs to target this slot's
+ * chip / edit / delete controls unambiguously — the shared dev DB
+ * accumulates many same-time chips, and the controls key on the
+ * displayed label.
+ */
+export async function addSchedule(
+  page: Page,
+  time: string,
+  label?: string,
+): Promise<void> {
+  await page.getByRole("button", { name: /add a new schedule/i }).click();
+  await page.getByLabel(/^time$/i).fill(time);
+  if (label !== undefined) {
+    await page.getByLabel(/label \(optional\)/i).fill(label);
+  }
+  await page.getByRole("button", { name: /^add$/i }).click();
+}
+
+/**
  * Resolve a medication's id by its (unique-per-run) name via the API.
  * Used to target today-row controls by stable `data-testid` instead of
  * fragile name/text/role row scoping over a shared, accumulating dev DB.

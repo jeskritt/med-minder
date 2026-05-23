@@ -16,17 +16,24 @@ const positiveIntString = z
     "Must be a whole number greater than zero",
   );
 
+const positiveDecimalString = z
+  .string()
+  .trim()
+  .refine(
+    (v) => v === "" || (Number.isFinite(Number(v)) && Number(v) > 0),
+    "Must be a number greater than zero",
+  );
+
+const DURATION_UNIT = z.enum(["min", "hour", "day"]);
+export type DurationUnit = z.infer<typeof DURATION_UNIT>;
+
 export const medicationFormSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(200),
-    quantity_per_dose: z
-      .string()
-      .trim()
-      .refine((v) => v.length > 0, "Dosage is required")
-      .refine(
-        (v) => Number.isFinite(Number(v)) && Number(v) > 0,
-        "Dosage must be a positive number",
-      ),
+    // Quantity per dose: stays as a string for non-pill meds. When
+    // `pill_based` is true the form derives it from pill_strength *
+    // pills_per_dose and this field is ignored on submit.
+    quantity_per_dose: z.string().trim(),
     unit: z.string().trim().min(1, "Unit is required").max(50),
     times_per_day: z
       .string()
@@ -44,13 +51,23 @@ export const medicationFormSchema = z
       "count_down",
       "multi_sub_dose",
     ]),
-    min_interval_minutes: positiveIntString,
-    window_duration_minutes: positiveIntString,
-    schedules: z.array(
-      z.object({
-        time_of_day: z.string().min(1, "Time is required"),
-      }),
-    ),
+    // Duration fields split into value + unit pair for friendlier input;
+    // converted to minutes on submit. Stored as positive int strings.
+    min_interval_value: positiveIntString,
+    min_interval_unit: DURATION_UNIT,
+    window_duration_value: positiveIntString,
+    window_duration_unit: DURATION_UNIT,
+    // UX enhancements: pill-based dosage.
+    pill_based: z.boolean(),
+    pill_strength: positiveDecimalString,
+    pills_per_dose: positiveIntString,
+    // UX enhancements: multi_sub_dose per-day cap.
+    max_doses_per_day: optionalIntString,
+    // UX enhancements: schedules are shared user-level resources;
+    // the form sends existing ids rather than HH:MM strings.
+    // Ids come from the server (`/api/v1/schedules`); leave strict
+    // UUID-format validation to the backend.
+    selected_schedule_ids: z.array(z.string().min(1)),
     conflicts: z.array(
       z.object({
         other_medication_id: z.string().min(1, "Pick a medication"),
@@ -94,22 +111,45 @@ export const medicationFormSchema = z
   )
   .refine(
     (v) =>
-      v.timer_preference !== "count_down" ||
-      (/^[0-9]+$/.test(v.min_interval_minutes) &&
-        Number(v.min_interval_minutes) > 0),
+      v.pill_based ||
+      (Number.isFinite(Number(v.quantity_per_dose)) &&
+        Number(v.quantity_per_dose) > 0),
     {
-      message: "count_down requires a minimum interval in minutes",
-      path: ["min_interval_minutes"],
+      message: "Dosage must be a positive number",
+      path: ["quantity_per_dose"],
+    },
+  )
+  .refine((v) => !v.pill_based || Number(v.pill_strength) > 0, {
+    message: "Pill strength must be greater than zero",
+    path: ["pill_strength"],
+  })
+  .refine(
+    (v) =>
+      !v.pill_based ||
+      (/^[0-9]+$/.test(v.pills_per_dose) && Number(v.pills_per_dose) > 0),
+    {
+      message: "Pills per dose must be a whole number greater than zero",
+      path: ["pills_per_dose"],
+    },
+  )
+  .refine(
+    (v) =>
+      v.timer_preference !== "count_down" ||
+      (/^[0-9]+$/.test(v.min_interval_value) &&
+        Number(v.min_interval_value) > 0),
+    {
+      message: "count_down requires a minimum interval",
+      path: ["min_interval_value"],
     },
   )
   .refine(
     (v) =>
       v.timer_preference !== "multi_sub_dose" ||
-      (/^[0-9]+$/.test(v.window_duration_minutes) &&
-        Number(v.window_duration_minutes) > 0),
+      (/^[0-9]+$/.test(v.window_duration_value) &&
+        Number(v.window_duration_value) > 0),
     {
-      message: "multi_sub_dose requires a window duration in minutes",
-      path: ["window_duration_minutes"],
+      message: "multi_sub_dose requires a window duration",
+      path: ["window_duration_value"],
     },
   )
   .refine(
@@ -117,9 +157,45 @@ export const medicationFormSchema = z
       v.timer_preference !== "multi_sub_dose" ||
       (/^[0-9]+$/.test(v.times_per_day) && Number(v.times_per_day) >= 1),
     {
-      message: "multi_sub_dose requires at least 1 time per day",
+      message: "multi_sub_dose requires at least 1 time per window",
       path: ["times_per_day"],
+    },
+  )
+  .refine(
+    (v) =>
+      v.timer_preference !== "multi_sub_dose" ||
+      v.max_doses_per_day === "" ||
+      Number(v.max_doses_per_day) >= Number(v.times_per_day || "0"),
+    {
+      message: "Max doses per day must be ≥ times per window",
+      path: ["max_doses_per_day"],
     },
   );
 
 export type MedicationFormValues = z.infer<typeof medicationFormSchema>;
+
+/** Convert a (value, unit) pair to minutes. Returns null when value is "". */
+export function durationToMinutes(
+  value: string,
+  unit: DurationUnit,
+): number | null {
+  if (value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const mult = unit === "day" ? 1440 : unit === "hour" ? 60 : 1;
+  return n * mult;
+}
+
+/** Split a minutes value into (value, unit) using the largest exact divisor. */
+export function minutesToDuration(minutes: number | null | undefined): {
+  value: string;
+  unit: DurationUnit;
+} {
+  if (minutes === null || minutes === undefined) {
+    return { value: "", unit: "min" };
+  }
+  if (minutes % 1440 === 0)
+    return { value: String(minutes / 1440), unit: "day" };
+  if (minutes % 60 === 0) return { value: String(minutes / 60), unit: "hour" };
+  return { value: String(minutes), unit: "min" };
+}

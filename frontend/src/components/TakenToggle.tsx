@@ -11,10 +11,20 @@ import { formatRemaining } from "@/lib/timers";
 import type { TodayItem } from "@/hooks/useToday";
 
 export interface TakenToggleProps {
-  scheduleId: string;
+  /**
+   * Optional — absent for unscheduled (PRN) timer rows on /today,
+   * which have no schedule slot. Present for normal scheduled slots.
+   */
+  scheduleId?: string;
   medicationId: string;
   dose: TodayItem["dose"];
   timezone?: string;
+  /**
+   * Optional async gate that runs before the take mutation. Resolve
+   * to `true` to proceed, `false` to short-circuit silently. The
+   * /today view uses this for the out-of-schedule confirm modal.
+   */
+  onBeforeTake?: () => Promise<boolean>;
 }
 
 /**
@@ -33,6 +43,7 @@ export function TakenToggle({
   medicationId,
   dose,
   timezone,
+  onBeforeTake,
 }: TakenToggleProps) {
   const take = useTakeDose();
   const untake = useUntakeDose();
@@ -41,18 +52,21 @@ export function TakenToggle({
   const isPending = take.isPending || untake.isPending;
   const isTaken = dose !== null;
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isPending) return;
     if (isTaken) {
       setConfirmOpen(true);
       return;
     }
+    if (onBeforeTake && !(await onBeforeTake())) return;
     take.mutate({ scheduleId, medicationId, timezone });
   };
 
   const handleConfirm = () => {
     setConfirmOpen(false);
-    if (dose) {
+    // Untake is only reachable for a taken scheduled slot; PRN rows
+    // have `dose === null`, so `scheduleId` is always present here.
+    if (dose && scheduleId) {
       untake.mutate({
         doseId: dose.id,
         scheduleId,
@@ -86,7 +100,9 @@ export function TakenToggle({
       <button
         type="button"
         data-testid="dose-control"
-        onClick={handleClick}
+        onClick={() => {
+          void handleClick();
+        }}
         disabled={isPending}
         aria-pressed={isTaken}
         className={

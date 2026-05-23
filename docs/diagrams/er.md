@@ -1,10 +1,11 @@
 # MedMinder — Entity-Relationship Diagram
 
 The schema below is the v1 data model committed in Phase 1, plus the
-`dose_voids` table added in Phase 4. Every table, column, and
+`dose_voids` table added in Phase 4 and the pill-model / daily-cap
+columns added in the UX-enhancements batch. Every table, column, and
 relationship matches the committed Alembic migrations
-(`backend/alembic/versions/0001_phase_1_baseline.py` and
-`backend/alembic/versions/XXXX_add_dose_voids_table.py`) and the
+(`backend/alembic/versions/0001_phase_1_baseline.py` through
+`backend/alembic/versions/0005_pill_model_daily_cap.py`) and the
 SQLAlchemy models under `backend/src/medminder/db/models/`.
 
 For the rationale behind individual choices, see the **Decisions
@@ -30,6 +31,15 @@ that don't render cleanly in Mermaid:
 - **D8** — `users.email` uniqueness is enforced via a functional
   unique index on `LOWER(email)`.
 - **D10** — `push_subscriptions` has UNIQUE `(user_id, endpoint)`.
+- **UX-enhancements (migration 0005)** — `medications.pill_strength`
+  and `pills_per_dose` are paired by CHECK (both NULL or both set);
+  when set the med is "pill-based" and `quantity_per_dose` is derived
+  (`pill_strength * pills_per_dose`). `max_doses_per_day` adds a
+  per-day cap for `multi_sub_dose` meds alongside the max-at-a-time cap
+  (`times_per_day`; see ADR-0010). Schedules became shared user-level
+  resources (managed via
+  `GET/POST/DELETE /api/v1/schedules`); `schedule_medications` already
+  modelled the M:N link, so no new table was needed.
 
 ```mermaid
 erDiagram
@@ -90,8 +100,11 @@ erDiagram
         uuid user_id FK "ON DELETE RESTRICT"
         text name
         smallint times_per_day "CHECK >= 0"
-        numeric quantity_per_dose "10,3 CHECK > 0"
+        numeric quantity_per_dose "10,3 CHECK > 0; derived when pill-based"
         text unit
+        numeric pill_strength "10,3 CHECK > 0 OR NULL; paired w/ pills_per_dose"
+        smallint pills_per_dose "CHECK >= 1 OR NULL; paired w/ pill_strength"
+        smallint max_doses_per_day "CHECK >= 1 OR NULL; multi_sub_dose per-day cap"
         date start_date
         date end_date
         integer total_doses "CHECK > 0 OR NULL"
@@ -100,6 +113,8 @@ erDiagram
         integer window_duration_minutes "required for multi_sub_dose"
         integer total_doses_filled "DEFAULT 0"
         integer doses_remaining "DEFAULT 0"
+        integer refill_count "CHECK >= 0 OR NULL"
+        integer refill_threshold "CHECK >= 0 OR NULL"
         timestamptz deleted_at
         timestamptz created_at
         timestamptz updated_at

@@ -61,6 +61,9 @@ def _to_input(body: MedicationBody) -> MedicationInput:
         timer_preference=body.timer_preference,
         min_interval_minutes=body.min_interval_minutes,
         window_duration_minutes=body.window_duration_minutes,
+        pill_strength=body.pill_strength,
+        pills_per_dose=body.pills_per_dose,
+        max_doses_per_day=body.max_doses_per_day,
     )
 
 
@@ -83,12 +86,20 @@ def _to_out(
         refill_count=med.refill_count,
         refill_threshold=med.refill_threshold,
         schedules=[
-            ScheduleOut(id=s.id, time_of_day=s.time_of_day)
+            ScheduleOut(
+                id=s.id,
+                time_of_day=s.time_of_day,
+                label=s.label,
+                days_of_week=s.days_of_week,
+            )
             for s in sorted(schedules, key=lambda s: s.time_of_day)
         ],
         timer_preference=med.timer_preference,
         min_interval_minutes=med.min_interval_minutes,
         window_duration_minutes=med.window_duration_minutes,
+        pill_strength=med.pill_strength,
+        pills_per_dose=med.pills_per_dose,
+        max_doses_per_day=med.max_doses_per_day,
         timer_state=timer_state,
         interaction_state=interaction_state,
     )

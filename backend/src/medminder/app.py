@@ -15,15 +15,21 @@ from medminder.api import me as me_api
 from medminder.api import medication_interactions as medication_interactions_api
 from medminder.api import medications as medications_api
 from medminder.api import schedules as schedules_api
+from medminder.api import schedules_crud as schedules_crud_api
 from medminder.api.schemas.errors import (
     ConflictOut,
+    DailyCapViolation,
     InteractionCooldownViolation,
     MinIntervalViolation,
     WindowFullViolation,
 )
 from medminder.db import make_async_engine, make_async_session_factory
 from medminder.domain.interactions import MedicationInteractionConflictError
-from medminder.domain.timers import MinIntervalNotElapsedError, WindowFullError
+from medminder.domain.timers import (
+    DailyCapReachedError,
+    MinIntervalNotElapsedError,
+    WindowFullError,
+)
 from medminder.settings import Settings
 
 
@@ -84,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(medication_interactions_api.router)
     app.include_router(doses_api.router)
     app.include_router(schedules_api.router)
+    app.include_router(schedules_crud_api.router)
 
     @app.exception_handler(MinIntervalNotElapsedError)
     async def _min_interval_handler(
@@ -104,9 +111,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         body = WindowFullViolation(
             code="window_full",
             medication_id=exc.medication_id,
-            window_end=exc.window_end,
+            next_available_at=exc.next_available_at,
             slots_used=exc.slots_used,
             slots_total=exc.slots_total,
+        )
+        return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
+
+    @app.exception_handler(DailyCapReachedError)
+    async def _daily_cap_handler(
+        _request: Request, exc: DailyCapReachedError
+    ) -> JSONResponse:
+        body = DailyCapViolation(
+            code="daily_cap_reached",
+            medication_id=exc.medication_id,
+            max_per_day=exc.max_per_day,
+            count_today=exc.count_today,
         )
         return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
 

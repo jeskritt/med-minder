@@ -29,23 +29,22 @@ class CountDownPayload(BaseModel):
     remaining_seconds: int = Field(ge=0)
 
 
-class ActiveWindow(BaseModel):
+class ActiveSubDose(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    window_start: datetime
-    window_end: datetime
-    doses_in_window: list[datetime]
-    slots_used: int = Field(ge=0)
-    slots_remaining: int = Field(ge=0)
+    taken_at: datetime
+    expires_at: datetime
 
 
 class MultiSubDosePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     window_duration_seconds: int = Field(ge=1)
-    slots_total: int = Field(ge=1)
-    active_window: ActiveWindow | None
-    previous_window_unused_slots: int = Field(ge=0)
+    max_concurrent: int = Field(ge=1)
+    active_sub_doses: list[ActiveSubDose]
+    slots_used: int = Field(ge=0)
+    slots_remaining: int = Field(ge=0)
+    next_available_at: datetime | None
 
 
 class TimerStateOut(BaseModel):
@@ -90,25 +89,17 @@ def to_timer_state_out(
         multi_sub_dose=(
             MultiSubDosePayload(
                 window_duration_seconds=state.multi_sub_dose.window_duration_seconds,
-                slots_total=state.multi_sub_dose.slots_total,
-                active_window=(
-                    ActiveWindow(
-                        window_start=state.multi_sub_dose.active_window.window_start,
-                        window_end=state.multi_sub_dose.active_window.window_end,
-                        doses_in_window=list(
-                            state.multi_sub_dose.active_window.doses_in_window
-                        ),
-                        slots_used=state.multi_sub_dose.active_window.slots_used,
-                        slots_remaining=(
-                            state.multi_sub_dose.active_window.slots_remaining
-                        ),
+                max_concurrent=state.multi_sub_dose.max_concurrent,
+                active_sub_doses=[
+                    ActiveSubDose(
+                        taken_at=sd.taken_at,
+                        expires_at=sd.expires_at,
                     )
-                    if state.multi_sub_dose.active_window is not None
-                    else None
-                ),
-                previous_window_unused_slots=(
-                    state.multi_sub_dose.previous_window_unused_slots
-                ),
+                    for sd in state.multi_sub_dose.active_sub_doses
+                ],
+                slots_used=state.multi_sub_dose.slots_used,
+                slots_remaining=state.multi_sub_dose.slots_remaining,
+                next_available_at=state.multi_sub_dose.next_available_at,
             )
             if state.multi_sub_dose is not None
             else None
@@ -117,7 +108,7 @@ def to_timer_state_out(
 
 
 __all__ = [
-    "ActiveWindow",
+    "ActiveSubDose",
     "CountDownPayload",
     "CountUpPayload",
     "MultiSubDosePayload",
