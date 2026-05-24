@@ -100,11 +100,14 @@ def defer_for_quiet_hours(
         inside = quiet_start <= t < quiet_end
         end_date = local.date()
     else:
-        # Wraps midnight, e.g. 22:00 → 07:00.
+        # Wraps midnight, e.g. 22:00 -> 07:00.
         inside = t >= quiet_start or t < quiet_end
-        # The window's end is "tomorrow" only when we're in the late-evening
-        # part (t >= quiet_start); in the early-morning part it's today.
-        end_date = local.date() + timedelta(days=1) if t >= quiet_start else local.date()
+        # The window's end is "tomorrow" only in the late-evening part
+        # (t >= quiet_start); in the early-morning part it's today.
+        if t >= quiet_start:
+            end_date = local.date() + timedelta(days=1)
+        else:
+            end_date = local.date()
 
     if not inside:
         return None

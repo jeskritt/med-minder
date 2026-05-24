@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
+import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as MedicationsRouteImport } from './routes/medications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
@@ -21,6 +22,11 @@ import { Route as MedicationsIdEditRouteImport } from './routes/medications.$id.
 const TodayRoute = TodayRouteImport.update({
   id: '/today',
   path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MedicationsRoute = MedicationsRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/medications': typeof MedicationsRouteWithChildren
+  '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/medications': typeof MedicationsRouteWithChildren
+  '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/medications'
+    | '/reminders'
     | '/today'
     | '/medications/$medicationId'
     | '/medications/new'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/reminders'
     | '/today'
     | '/medications/$medicationId'
     | '/medications/new'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/medications'
+    | '/reminders'
     | '/today'
     | '/medications/$medicationId'
     | '/medications/new'
@@ -125,6 +137,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   MedicationsRoute: typeof MedicationsRouteWithChildren
+  RemindersRoute: typeof RemindersRoute
   TodayRoute: typeof TodayRoute
 }
 
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/today'
       fullPath: '/today'
       preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/medications': {
@@ -211,6 +231,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   MedicationsRoute: MedicationsRouteWithChildren,
+  RemindersRoute: RemindersRoute,
   TodayRoute: TodayRoute,
 }
 export const routeTree = rootRouteImport

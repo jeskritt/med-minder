@@ -49,6 +49,15 @@ export function NavBar() {
                   Medications
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/reminders"
+                  className="text-slate-600 hover:text-blue-600"
+                  activeProps={{ className: "text-blue-600 font-semibold" }}
+                >
+                  Reminders
+                </Link>
+              </li>
               {/* Future tabs (Timers, etc.) drop in here. */}
             </ul>
           )}

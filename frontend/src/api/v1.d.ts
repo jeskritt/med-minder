@@ -341,6 +341,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/push/vapid-public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Vapid Public Key
+         * @description Return the public VAPID key for browser subscription (FR-002).
+         *
+         *     Auth-gated (single-tenant): nothing is served pre-login. The private
+         *     key is never exposed.
+         */
+        get: operations["get_vapid_public_key_api_v1_push_vapid_public_key_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Subscription
+         * @description Idempotently register this device's subscription (FR-001).
+         *
+         *     New endpoint → 201; an existing ``(user, endpoint)`` → keys refreshed, 200.
+         */
+        post: operations["register_subscription_api_v1_push_subscriptions_post"];
+        /**
+         * Remove Subscription
+         * @description Remove this device's subscription (idempotent, user-scoped).
+         */
+        delete: operations["remove_subscription_api_v1_push_subscriptions_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reminders
+         * @description List the caller's open (non-dismissed) reminders, oldest first.
+         */
+        get: operations["list_reminders_api_v1_reminders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -797,6 +866,75 @@ export interface components {
             name: string;
         };
         /**
+         * PushKeys
+         * @description The client keys from a browser ``PushSubscription``.
+         */
+        PushKeys: {
+            /** P256Dh */
+            p256dh: string;
+            /** Auth */
+            auth: string;
+        };
+        /**
+         * PushSubscriptionIn
+         * @description Inbound body for ``POST /api/v1/push/subscriptions``.
+         */
+        PushSubscriptionIn: {
+            /** Endpoint */
+            endpoint: string;
+            keys: components["schemas"]["PushKeys"];
+        };
+        /**
+         * PushUnsubscribeIn
+         * @description Inbound body for ``DELETE /api/v1/push/subscriptions``.
+         */
+        PushUnsubscribeIn: {
+            /** Endpoint */
+            endpoint: string;
+        };
+        /**
+         * ReminderListOut
+         * @description Envelope for ``GET /api/v1/reminders``.
+         */
+        ReminderListOut: {
+            /** Items */
+            items: components["schemas"]["ReminderOut"][];
+        };
+        /**
+         * ReminderOut
+         * @description Public view of a reminder for the in-app list (FR-008).
+         */
+        ReminderOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "dose" | "refill";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "sent" | "snoozed" | "dismissed";
+            /**
+             * Scheduled For
+             * Format: date-time
+             */
+            scheduled_for: string;
+            /** Title */
+            title: string;
+            /** Schedule Id */
+            schedule_id: string | null;
+            /** Medication Id */
+            medication_id: string | null;
+            /** Overdue */
+            overdue: boolean;
+        };
+        /**
          * ScheduleCrudOut
          * @description Public view of a user-level schedule.
          */
@@ -980,6 +1118,14 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VapidKeyOut
+         * @description Public VAPID application-server key for the browser.
+         */
+        VapidKeyOut: {
+            /** Public Key */
+            public_key: string;
         };
         /**
          * WindowFullViolation
@@ -1634,6 +1780,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_vapid_public_key_api_v1_push_vapid_public_key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VapidKeyOut"];
+                };
+            };
+        };
+    };
+    register_subscription_api_v1_push_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_subscription_api_v1_push_subscriptions_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushUnsubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reminders_api_v1_reminders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderListOut"];
                 };
             };
         };

@@ -55,30 +55,30 @@ reminders survive a restart.
 
 ### Tests for User Story 1
 
-- [ ] T009 [P] [US1] `backend/tests/domain/test_reminders.py` — pure `next_dose_fire_times_utc` (days-of-week mask, user tz → UTC) and `is_within_grace`.
-- [ ] T010 [P] [US1] `backend/tests/domain/test_reminder_dispatch.py` — `generate_due_dose_reminders` (idempotent, per-slot, names attached meds) and `dispatch_due_reminders` (within-grace push + mark sent; overdue stays pending; coalesce) against real Postgres with a fake `send`.
-- [ ] T011 [P] [US1] `backend/tests/domain/test_push.py` — `domain/push.py` send success and 404/410-gone classification (pywebpush mocked; assert the VAPID private key / `auth` / `p256dh` never appear in any log capture, SC-009).
-- [ ] T012 [P] [US1] `backend/tests/api/test_push_api.py` — `GET vapid-public-key`, idempotent `POST subscriptions`, `DELETE subscriptions`, and a cross-user negative (FR-017).
-- [ ] T013 [P] [US1] `backend/tests/api/test_reminders_api.py` — `GET /api/v1/reminders` returns only the caller's open reminders (pending/overdue/snoozed/unresolved-sent), excludes dismissed, and is cross-user isolated.
+- [X] T009 [P] [US1] `backend/tests/domain/test_reminders.py` — pure `next_dose_fire_times_utc` (days-of-week mask, user tz → UTC) and `is_within_grace`.
+- [X] T010 [P] [US1] `backend/tests/domain/test_reminder_dispatch.py` — `generate_due_dose_reminders` (idempotent, per-slot, names attached meds) and `dispatch_due_reminders` (within-grace push + mark sent; overdue stays pending; coalesce) against real Postgres with a fake `send`.
+- [X] T011 [P] [US1] `backend/tests/domain/test_push.py` — `domain/push.py` send success and 404/410-gone classification (pywebpush mocked; assert the VAPID private key / `auth` / `p256dh` never appear in any log capture, SC-009).
+- [X] T012 [P] [US1] `backend/tests/api/test_push_api.py` — `GET vapid-public-key`, idempotent `POST subscriptions`, `DELETE subscriptions`, and a cross-user negative (FR-017).
+- [X] T013 [P] [US1] `backend/tests/api/test_reminders_api.py` — `GET /api/v1/reminders` returns only the caller's open reminders (pending/overdue/snoozed/unresolved-sent), excludes dismissed, and is cross-user isolated.
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement `generate_due_dose_reminders(session, *, now, horizon)` in `backend/src/medminder/domain/reminder_dispatch.py` — idempotent upsert of `pending` dose reminders for each (schedule, fire-instant) within the horizon for non-deleted schedules with ≥1 attached non-deleted med (uses T007 pure math).
-- [ ] T015 [US1] Implement `dispatch_due_reminders(session, *, now, grace, send)` in `backend/src/medminder/domain/reminder_dispatch.py` — select due `pending` rows, push within grace + mark `sent`, leave older-than-grace as overdue `pending`; best-effort per-subscription send (depends on T014, same file).
-- [ ] T016 [P] [US1] Implement `domain/push.py` in `backend/src/medminder/domain/push.py` — `send_web_push(subscription, payload, settings)` via `asyncio.to_thread(pywebpush...)`; raise/return a result that flags 404/410 as gone; single scoped `# type: ignore[import-untyped]` with rationale at the import.
-- [ ] T017 [US1] Implement `backend/src/medminder/scheduler.py` — `build_scheduler(settings, session_factory)` (`AsyncIOScheduler`, default in-memory job store, single recurring tick id with `replace_existing=True`) whose tick opens a session and calls generate + dispatch (injecting `domain/push.send_web_push`); `start`/`shutdown` helpers (depends on T014–T016).
-- [ ] T018 [US1] Wire the scheduler into `backend/src/medminder/app.py` lifespan — build/start on startup when `settings.reminders_enabled`, shutdown on exit; stash on `app.state` (depends on T017).
-- [ ] T019 [P] [US1] Create `backend/src/medminder/api/schemas/push.py` — `VapidKeyOut`, `PushSubscriptionIn` (endpoint + keys{p256dh, auth}), `PushUnsubscribeIn` (Pydantic strict, `extra="forbid"`).
-- [ ] T020 [P] [US1] Create `backend/src/medminder/api/schemas/reminders.py` — `ReminderOut` (id, type, status, scheduled_for, title, schedule_id?, medication_id?, overdue) and `ReminderListOut`.
-- [ ] T021 [US1] Create `backend/src/medminder/api/push.py` router — `GET /api/v1/push/vapid-public-key`, idempotent `POST /api/v1/push/subscriptions`, `DELETE /api/v1/push/subscriptions`, all `Depends(get_current_user)` and user-scoped (depends on T019).
-- [ ] T022 [US1] Create `backend/src/medminder/api/reminders.py` router — `GET /api/v1/reminders` listing the caller's open reminders with computed `title`/`overdue` (depends on T020).
-- [ ] T023 [US1] Mount the push + reminders routers in `backend/src/medminder/app.py` (depends on T021, T022).
-- [ ] T024 [US1] Regenerate `frontend/src/api/v1.d.ts` via `python scripts/generate_openapi_client.py` and confirm no unexpected drift (depends on T021–T023).
-- [ ] T025 [P] [US1] Create the minimal service worker `frontend/public/sw.js` — `push` event → `showNotification` with the payload; `notificationclick` → focus/open the app.
-- [ ] T026 [P] [US1] Create `frontend/src/lib/push.ts` + `frontend/src/hooks/usePushSubscription.ts` — enable flow: check `Notification.permission`, register `/sw.js`, fetch the VAPID public key, `PushManager.subscribe`, POST the subscription; expose enabled/disable state.
-- [ ] T027 [P] [US1] Create `frontend/src/hooks/useReminders.ts` — TanStack Query hook for `GET /api/v1/reminders`.
-- [ ] T028 [US1] Create `frontend/src/components/reminders/EnableNotifications.tsx`, `frontend/src/components/reminders/ReminderList.tsx`, and `frontend/src/routes/reminders.tsx`; add a "Reminders" link in `frontend/src/components/NavBar.tsx` (depends on T024, T026, T027).
-- [ ] T029 [P] [US1] Add `frontend/src/__tests__/EnableNotifications.test.tsx` and `frontend/src/__tests__/ReminderList.test.tsx` (vitest + Testing Library).
+- [X] T014 [US1] Implement `generate_due_dose_reminders(session, *, now, horizon)` in `backend/src/medminder/domain/reminder_dispatch.py` — idempotent upsert of `pending` dose reminders for each (schedule, fire-instant) within the horizon for non-deleted schedules with ≥1 attached non-deleted med (uses T007 pure math).
+- [X] T015 [US1] Implement `dispatch_due_reminders(session, *, now, grace, send)` in `backend/src/medminder/domain/reminder_dispatch.py` — select due `pending` rows, push within grace + mark `sent`, leave older-than-grace as overdue `pending`; best-effort per-subscription send (depends on T014, same file).
+- [X] T016 [P] [US1] Implement `domain/push.py` in `backend/src/medminder/domain/push.py` — `send_web_push(subscription, payload, settings)` via `asyncio.to_thread(pywebpush...)`; raise/return a result that flags 404/410 as gone; single scoped `# type: ignore[import-untyped]` with rationale at the import.
+- [X] T017 [US1] Implement `backend/src/medminder/scheduler.py` — `build_scheduler(settings, session_factory)` (`AsyncIOScheduler`, default in-memory job store, single recurring tick id with `replace_existing=True`) whose tick opens a session and calls generate + dispatch (injecting `domain/push.send_web_push`); `start`/`shutdown` helpers (depends on T014–T016).
+- [X] T018 [US1] Wire the scheduler into `backend/src/medminder/app.py` lifespan — build/start on startup when `settings.reminders_enabled`, shutdown on exit; stash on `app.state` (depends on T017).
+- [X] T019 [P] [US1] Create `backend/src/medminder/api/schemas/push.py` — `VapidKeyOut`, `PushSubscriptionIn` (endpoint + keys{p256dh, auth}), `PushUnsubscribeIn` (Pydantic strict, `extra="forbid"`).
+- [X] T020 [P] [US1] Create `backend/src/medminder/api/schemas/reminders.py` — `ReminderOut` (id, type, status, scheduled_for, title, schedule_id?, medication_id?, overdue) and `ReminderListOut`.
+- [X] T021 [US1] Create `backend/src/medminder/api/push.py` router — `GET /api/v1/push/vapid-public-key`, idempotent `POST /api/v1/push/subscriptions`, `DELETE /api/v1/push/subscriptions`, all `Depends(get_current_user)` and user-scoped (depends on T019).
+- [X] T022 [US1] Create `backend/src/medminder/api/reminders.py` router — `GET /api/v1/reminders` listing the caller's open reminders with computed `title`/`overdue` (depends on T020).
+- [X] T023 [US1] Mount the push + reminders routers in `backend/src/medminder/app.py` (depends on T021, T022).
+- [X] T024 [US1] Regenerate `frontend/src/api/v1.d.ts` via `python scripts/generate_openapi_client.py` and confirm no unexpected drift (depends on T021–T023).
+- [X] T025 [P] [US1] Create the minimal service worker `frontend/public/sw.js` — `push` event → `showNotification` with the payload; `notificationclick` → focus/open the app.
+- [X] T026 [P] [US1] Create `frontend/src/lib/push.ts` + `frontend/src/hooks/usePushSubscription.ts` — enable flow: check `Notification.permission`, register `/sw.js`, fetch the VAPID public key, `PushManager.subscribe`, POST the subscription; expose enabled/disable state.
+- [X] T027 [P] [US1] Create `frontend/src/hooks/useReminders.ts` — TanStack Query hook for `GET /api/v1/reminders`.
+- [X] T028 [US1] Create `frontend/src/components/reminders/EnableNotifications.tsx`, `frontend/src/components/reminders/ReminderList.tsx`, and `frontend/src/routes/reminders.tsx`; add a "Reminders" link in `frontend/src/components/NavBar.tsx` (depends on T024, T026, T027).
+- [X] T029 [P] [US1] Add `frontend/src/__tests__/EnableNotifications.test.tsx` and `frontend/src/__tests__/ReminderList.test.tsx` (vitest + Testing Library).
 
 **Checkpoint**: A scheduled dose reminder is generated, fired on the tick, delivered via push to an enabled device, and visible in-app — independently demoable.
 
