@@ -1,0 +1,252 @@
+openapi: 3.1.0
+info:
+  title: MedMinder Reminders + Snooze (Feature 008)
+  version: "0.8.0"
+  description: |
+    Contract fragment for the endpoint deltas this feature introduces. The
+    authoritative API document is the FastAPI-emitted OpenAPI spec at runtime;
+    this file documents the agreed shape pre-implementation so reviewers can
+    challenge it before code is written. The implementation MUST conform; CI
+    fails if the regenerated frontend client (`frontend/src/api/v1.d.ts`)
+    drifts from the runtime spec.
+
+    All endpoints require an authenticated session (the `mm_session` cookie) and
+    are scoped to the logged-in user — no path/param can address another user's
+    reminders or subscriptions (FR-017). New endpoints under `/api/v1`:
+
+      Push (enablement):
+        - GET    /api/v1/push/vapid-public-key   — public VAPID key for the browser
+        - POST   /api/v1/push/subscriptions      — register a device subscription (idempotent)
+        - DELETE /api/v1/push/subscriptions       — remove a device subscription by endpoint
+      Reminders (in-app surface):
+        - GET    /api/v1/reminders               — list this user's open reminders
+        - POST   /api/v1/reminders/{id}/snooze   — snooze one hour
+        - POST   /api/v1/reminders/{id}/dismiss  — resolve (dismiss)
+
+    Reminder *delivery* (Web Push) and *generation* are server-side (the
+    scheduler tick); they are not request/response endpoints. The dose
+    take/void and schedule/medication endpoints are unchanged in shape — their
+    reminder side effects (resolve-on-take, refill warnings, reschedule) are
+    internal. The VAPID **private** key is never exposed. No new persistent
+    entities; see data-model.md.
+
+servers:
+  - url: /
+    description: Backend served at root; the frontend reaches it via the dev proxy or production reverse proxy.
+
+paths:
+  /api/v1/push/vapid-public-key:
+    get:
+      operationId: push_get_vapid_public_key
+      summary: Public VAPID key for browser subscription
+      description: |
+        Returns the server's public VAPID application key so the browser's
+        PushManager can create a subscription. The private key is server/secret
+        only and is never returned (FR-002 / SC-009).
+      responses:
+        "200":
+          description: The public VAPID key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidKeyOut"
+        "401":
+          description: Not authenticated.
+
+  /api/v1/push/subscriptions:
+    post:
+      operationId: push_register_subscription
+      summary: Register a device push subscription (idempotent)
+      description: |
+        Upserts the subscription for `(current user, endpoint)`. Idempotent: a
+        repeat registration of the same endpoint refreshes the keys and returns
+        200 rather than creating a duplicate (FR-001).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscriptionIn"
+      responses:
+        "201":
+          description: Subscription registered (new endpoint).
+        "200":
+          description: Subscription already existed; keys refreshed.
+        "401":
+          description: Not authenticated.
+        "422":
+          description: Malformed subscription (missing endpoint/keys).
+    delete:
+      operationId: push_remove_subscription
+      summary: Remove a device push subscription
+      description: |
+        Removes the `(current user, endpoint)` subscription. Idempotent — a
+        no-op if it does not exist. Scoped to the caller (FR-017).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushUnsubscribeIn"
+      responses:
+        "204":
+          description: Subscription removed (or already absent).
+        "401":
+          description: Not authenticated.
+
+  /api/v1/reminders:
+    get:
+      operationId: reminders_list
+      summary: List the authenticated user's open reminders
+      description: |
+        Returns the user's `pending` (including overdue), `snoozed`, and
+        recently `sent`-but-unresolved reminders so a user without push still
+        sees what is due (FR-008). Dismissed reminders are excluded. Each item
+        names the medication(s) for the slot/med.
+      responses:
+        "200":
+          description: The user's open reminders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderListOut"
+        "401":
+          description: Not authenticated.
+
+  /api/v1/reminders/{reminder_id}/snooze:
+    post:
+      operationId: reminders_snooze
+      summary: Snooze a reminder for one hour
+      description: |
+        Marks the reminder `snoozed` and schedules a new `pending` reminder one
+        hour later (FR-009). Re-snoozing a fired snoozed reminder is allowed
+        (FR-010). Scoped to the caller — another user's reminder is 404.
+      parameters:
+        - in: path
+          name: reminder_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Snoozed; returns the newly created (next) reminder.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderOut"
+        "401":
+          description: Not authenticated.
+        "404":
+          description: No such reminder owned by the caller.
+
+  /api/v1/reminders/{reminder_id}/dismiss:
+    post:
+      operationId: reminders_dismiss
+      summary: Dismiss (resolve) a reminder
+      description: |
+        Marks the reminder `dismissed` (FR-022). Idempotent — dismissing an
+        already-resolved reminder is a no-op success. Scoped to the caller.
+      parameters:
+        - in: path
+          name: reminder_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Dismissed (or already dismissed).
+        "401":
+          description: Not authenticated.
+        "404":
+          description: No such reminder owned by the caller.
+
+components:
+  schemas:
+
+    VapidKeyOut:
+      type: object
+      additionalProperties: false
+      required: [public_key]
+      properties:
+        public_key:
+          type: string
+          description: URL-safe base64 VAPID application server public key.
+
+    PushSubscriptionIn:
+      type: object
+      additionalProperties: false
+      required: [endpoint, keys]
+      properties:
+        endpoint:
+          type: string
+          format: uri
+          description: The push service endpoint URL from the browser PushSubscription.
+        keys:
+          type: object
+          additionalProperties: false
+          required: [p256dh, auth]
+          properties:
+            p256dh:
+              type: string
+              description: Client public key (base64url) from the subscription.
+            auth:
+              type: string
+              description: Client auth secret (base64url) from the subscription.
+
+    PushUnsubscribeIn:
+      type: object
+      additionalProperties: false
+      required: [endpoint]
+      properties:
+        endpoint:
+          type: string
+          format: uri
+          description: The endpoint identifying the subscription to remove.
+
+    ReminderOut:
+      type: object
+      additionalProperties: false
+      required: [id, type, status, scheduled_for, title]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: ["dose", "refill"]
+        status:
+          type: string
+          enum: ["pending", "sent", "snoozed", "dismissed"]
+        scheduled_for:
+          type: string
+          format: date-time
+          description: UTC instant the reminder is due (may have been deferred by quiet hours).
+        title:
+          type: string
+          description: |
+            Human-readable summary, e.g. the schedule label / time and the
+            medication name(s) for a dose reminder, or the medication name and
+            remaining count for a refill reminder.
+        schedule_id:
+          type: ["string", "null"]
+          format: uuid
+          description: Set for dose reminders (the schedule slot); null for refill.
+        medication_id:
+          type: ["string", "null"]
+          format: uuid
+          description: Set for refill reminders; null for dose.
+        overdue:
+          type: boolean
+          description: True when due but older than the grace window (never pushed; shown in-app).
+
+    ReminderListOut:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReminderOut"
