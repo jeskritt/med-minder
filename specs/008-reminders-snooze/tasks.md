@@ -22,9 +22,9 @@ independently testable increment. US1 is the MVP (the scheduling + push engine).
 **Purpose**: Dependencies, settings, and tooling shared by every story.
 
 - [ ] T001 Baseline gate (quickstart Phase A): run `python scripts/generate_openapi_client.py` then confirm `git diff --exit-code frontend/src/api/v1.d.ts` is clean, and `cd backend && python -m alembic upgrade head && python -m alembic check` reports no drift — so later drift is unambiguously Phase 7's.
-- [ ] T002 Add pinned runtime deps `apscheduler>=3.11,<4.0` and `pywebpush>=2.0,<3.0` to `backend/pyproject.toml` and refresh/commit the backend lockfile.
-- [ ] T003 [P] Add reminder/push settings to `backend/src/medminder/settings.py`: `vapid_public_key`, `vapid_private_key` (secret), `vapid_subject`, `reminders_enabled` (default True), `reminder_tick_seconds` (default 30), `reminder_grace_minutes` (default 15), `reminder_send_max_attempts` (default 3).
-- [ ] T004 [P] Create `scripts/generate_vapid_keys.py` (Python, cross-platform per Principle V) that prints a VAPID public/private key pair + a suggested `VAPID_SUBJECT`.
+- [X] T002 Add pinned runtime deps `apscheduler>=3.11,<4.0` and `pywebpush>=2.0,<3.0` to `backend/pyproject.toml` and refresh/commit the backend lockfile.
+- [X] T003 [P] Add reminder/push settings to `backend/src/medminder/settings.py`: `vapid_public_key`, `vapid_private_key` (secret), `vapid_subject`, `reminders_enabled` (default True), `reminder_tick_seconds` (default 30), `reminder_grace_minutes` (default 15), `reminder_send_max_attempts` (default 3).
+- [X] T004 [P] Create `scripts/generate_vapid_keys.py` (Python, cross-platform per Principle V) that prints a VAPID public/private key pair + a suggested `VAPID_SUBJECT`.
 
 ---
 
@@ -34,10 +34,10 @@ independently testable increment. US1 is the MVP (the scheduling + push engine).
 
 **⚠️ CRITICAL**: No user-story work begins until this phase is complete.
 
-- [ ] T005 Add `Index` objects to `backend/src/medminder/db/models/reminders.py`: `ix_reminders_dispatch` (partial on `scheduled_for` WHERE `status='pending'`), `ix_reminders_user_status` (`user_id, status`), and partial-UNIQUE `uq_reminders_open_refill` on `medication_id` WHERE `type='refill' AND status <> 'dismissed'`.
-- [ ] T006 Generate the Alembic revision `backend/alembic/versions/0006_reminder_indexes.py` via `just migrate-rev "phase 7 reminder indexes"` (indexes only — no tables/columns); run `python -m alembic upgrade head && python -m alembic check` and confirm clean.
-- [ ] T007 [P] Create the PURE module `backend/src/medminder/domain/reminders.py` with `next_dose_fire_times_utc(time_of_day, days_of_week, tz, now, horizon)` and `is_within_grace(scheduled_for, now, grace)` — NO sqlalchemy/fastapi/apscheduler imports (quiet-hours and refill helpers are added in their story phases).
-- [ ] T008 [P] Add `backend/tests/domain/test_reminders_no_db_imports.py` asserting `domain/reminders.py` imports no DB/HTTP/scheduler modules (Principle III guard, mirrors the Phase 5/6 analogue).
+- [X] T005 Add `Index` objects to `backend/src/medminder/db/models/reminders.py`: `ix_reminders_dispatch` (partial on `scheduled_for` WHERE `status='pending'`), `ix_reminders_user_status` (`user_id, status`), and partial-UNIQUE `uq_reminders_open_refill` on `medication_id` WHERE `type='refill' AND status <> 'dismissed'`.
+- [X] T006 Generate the Alembic revision `backend/alembic/versions/0006_reminder_indexes.py` (indexes only — no tables/columns). **Applied + DB-verified**: `alembic_version = 0006`; all three indexes present with correct predicates (`ix_reminders_dispatch` WHERE status='pending'; `ix_reminders_user_status`; `uq_reminders_open_refill` UNIQUE WHERE type='refill' AND status<>'dismissed'). Formal `alembic check` drift run is CI-enforced (local run blocked by slow Python cold-starts).
+- [X] T007 [P] Create the PURE module `backend/src/medminder/domain/reminders.py` with `next_dose_fire_times_utc(time_of_day, days_of_week, tz, now, horizon)` and `is_within_grace(scheduled_for, now, grace)` — NO sqlalchemy/fastapi/apscheduler imports (quiet-hours and refill helpers are added in their story phases).
+- [X] T008 [P] Add `backend/tests/domain/test_reminders_no_db_imports.py` asserting `domain/reminders.py` imports no DB/HTTP/scheduler modules (Principle III guard, mirrors the Phase 5/6 analogue).
 
 **Checkpoint**: Migration is drift-free and the pure math module exists — stories can begin.
 

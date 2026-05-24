@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -67,5 +67,21 @@ class Reminder(Base):
             "OR (type = 'refill' AND medication_id IS NOT NULL "
             "AND schedule_id IS NULL)",
             name="ck_reminders_type_refs",
+        ),
+        # Hot dispatch scan: due `pending` rows ordered by fire time.
+        Index(
+            "ix_reminders_dispatch",
+            "scheduled_for",
+            postgresql_where=text("status = 'pending'"),
+        ),
+        # In-app reminder list (FR-008), scoped per user.
+        Index("ix_reminders_user_status", "user_id", "status"),
+        # At most one *open* refill warning per medication (FR-014): a
+        # refill row is "open" until resolved (status <> 'dismissed').
+        Index(
+            "uq_reminders_open_refill",
+            "medication_id",
+            unique=True,
+            postgresql_where=text("type = 'refill' AND status <> 'dismissed'"),
         ),
     )

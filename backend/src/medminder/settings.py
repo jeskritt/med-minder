@@ -52,6 +52,40 @@ class Settings(BaseSettings):
     set to 1 in production.  When 0, the raw peer address is used.
     """
 
+    # --- Reminders / Web Push (Phase 7) --------------------------------
+    vapid_public_key: str = ""
+    """Public VAPID application-server key (URL-safe base64, raw P-256 point).
+
+    Served to the browser so it can create a push subscription.  Generate a
+    pair with ``python scripts/generate_vapid_keys.py``.  Empty in dev/test →
+    push sends are skipped (reminders are still recorded and visible in-app)."""
+
+    vapid_private_key: str = ""
+    """Private VAPID key (URL-safe base64 raw key) — **secret**.
+
+    Never sent to the client, logged, or returned in any response.  Empty →
+    push delivery is disabled (the rest of the feature still works)."""
+
+    vapid_subject: str = "mailto:admin@example.com"
+    """VAPID ``sub`` claim — an operator contact (``mailto:`` or ``https:``)."""
+
+    reminders_enabled: bool = True
+    """Whether the in-process scheduler starts with the app.
+
+    Off in tests/CI/Alembic so no background tick races the rollback fixture;
+    the dispatch/generation domain functions are exercised directly instead."""
+
+    reminder_tick_seconds: int = 30
+    """Interval of the recurring dispatch tick (see ADR-0002 / plan D1)."""
+
+    reminder_grace_minutes: int = 15
+    """Misfire grace window: a due reminder older than this is not pushed
+    (it stays ``pending``/overdue and visible in-app).  See FR-006a."""
+
+    reminder_send_max_attempts: int = 3
+    """Max attempts for a transient push send before giving up (FR-016).
+    A subscription reported gone (HTTP 404/410) is deleted, not retried."""
+
     model_config = {"env_prefix": "", "case_sensitive": False}
 
     @property
