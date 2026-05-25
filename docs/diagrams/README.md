@@ -19,11 +19,11 @@ progresses. Each diagram is a Mermaid-rendered Markdown file.
 - **File-naming.**
   - ER: `er.md` (one ER diagram for the whole schema).
   - State diagrams: `state-<name>.md` — e.g.,
-    `state-timer-count-down.md`, `state-reminder.md`. One file per
-    state machine.
+    `state-timer-count-down.md`, `state-reminder-lifecycle.md`. One file
+    per state machine.
   - Sequence diagrams: `sequence-<name>.md` — e.g.,
-    `sequence-login.md`, `sequence-mark-as-taken.md`. One file per
-    flow.
+    `sequence-login.md`, `sequence-mark-as-taken.md`,
+    `sequence-reminder-dispatch.md`. One file per flow.
 - **Mermaid syntax** so diagrams render natively in GitHub previews
   and VS Code's Markdown preview.
 - **Update in-PR.** When a PR changes the behavior a diagram describes

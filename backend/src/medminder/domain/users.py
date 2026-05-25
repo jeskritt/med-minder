@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,8 +123,24 @@ async def update_user(
     new_name: str | None = None,
     new_role: UserRole | None = None,
     new_password: str | None = None,
+    new_quiet_hours_start: time | None = None,
+    new_quiet_hours_end: time | None = None,
+    clear_quiet_hours: bool = False,
 ) -> User:
-    if all(v is None for v in (new_email, new_name, new_role, new_password)):
+    # Quiet hours (Phase 7) are admin-managed like timezone. `None` means
+    # "no change"; pass `clear_quiet_hours=True` to set both columns NULL.
+    no_field_changes = all(
+        v is None
+        for v in (
+            new_email,
+            new_name,
+            new_role,
+            new_password,
+            new_quiet_hours_start,
+            new_quiet_hours_end,
+        )
+    )
+    if no_field_changes and not clear_quiet_hours:
         raise NoChangesSpecifiedError("No changes specified.")
     user = await get_user_by_email(session, email=email)
     if user is None:
@@ -146,6 +162,14 @@ async def update_user(
         user.name = new_name
     if new_role is not None:
         user.role = new_role
+    if clear_quiet_hours:
+        user.quiet_hours_start = None
+        user.quiet_hours_end = None
+    else:
+        if new_quiet_hours_start is not None:
+            user.quiet_hours_start = new_quiet_hours_start
+        if new_quiet_hours_end is not None:
+            user.quiet_hours_end = new_quiet_hours_end
     if new_password is not None:
         if password_too_short(new_password):
             raise PasswordTooShortError(

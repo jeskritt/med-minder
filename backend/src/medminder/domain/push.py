@@ -62,16 +62,25 @@ async def send_web_push(
             vapid_claims={"sub": settings.vapid_subject},
         )
 
-    try:
-        await asyncio.to_thread(_send)
-    except WebPushException as exc:
-        response = getattr(exc, "response", None)
-        status = getattr(response, "status_code", None)
-        return PushResult(delivered=False, gone=status in (404, 410))
-    except Exception:
-        # Best-effort: transient/network errors must not break the tick.
-        return PushResult(delivered=False, gone=False)
-    return PushResult(delivered=True, gone=False)
+    attempts = max(1, settings.reminder_send_max_attempts)
+    for attempt in range(1, attempts + 1):
+        try:
+            await asyncio.to_thread(_send)
+        except WebPushException as exc:
+            response = getattr(exc, "response", None)
+            status = getattr(response, "status_code", None)
+            if status in (404, 410):
+                # Permanently gone — don't retry; caller deletes it (FR-016).
+                return PushResult(delivered=False, gone=True)
+            if attempt >= attempts:
+                return PushResult(delivered=False, gone=False)
+        except Exception:
+            # Best-effort: transient/network errors must not break the tick.
+            if attempt >= attempts:
+                return PushResult(delivered=False, gone=False)
+        else:
+            return PushResult(delivered=True, gone=False)
+    return PushResult(delivered=False, gone=False)
 
 
 __all__ = ["PushResult", "send_web_push"]

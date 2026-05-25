@@ -41,7 +41,8 @@ required environment variables and migrations grows:
 | `medminder-admin db backup` (scheduled) | Phase 1b | One-shot or cron job — see §6. |
 | `SESSION_SECRET` | Phase 2 | 32+ random bytes, base64. Used to sign session cookies. |
 | `CORS_ORIGINS` | Phase 2 | Frontend production URL(s). |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Phase 7 | Web Push keys. Generate via `vapid` CLI. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Phase 7 | Web Push keys; generate with `python scripts/generate_vapid_keys.py`. **Private key is a secret** — env-only, never logged or returned. |
+| `REMINDERS_ENABLED` | Phase 7 | `true` in production (starts the in-process reminder scheduler). **Single instance only** — see §2.1. |
 | `ENV=production` | Always | Disables permissive dev CORS and dev-only diagnostics. |
 
 When you complete a phase, remove the "from phase X" comment for the
@@ -139,6 +140,11 @@ once per deploy before the new container starts serving traffic.
    - **Run command**: `cd backend && uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port 8000`
    - **Instance type**: Eco Micro (free tier, **does not sleep**)
    - **Port**: 8000
+   - **Scaling**: keep **a single instance / single worker**. The reminder
+     scheduler (`REMINDERS_ENABLED=true`) runs in-process; two instances would
+     each fire the dispatch tick and **double-deliver** reminders (ADR-0002).
+     Do not run `uvicorn --workers N>1` or scale horizontally without
+     revisiting ADR-0002.
 
 ### 2.2 Environment variables
 
@@ -150,7 +156,8 @@ variables**, per the phase table at the top of this guide.
 | `DATABASE_URL` | `postgresql+asyncpg://...` | From Supabase §1.2 |
 | `CORS_ORIGINS` | `https://your-frontend.vercel.app` | Phase 2+ |
 | `SESSION_SECRET` | 32+ random bytes, base64 | Phase 2+ |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | from `vapid` CLI | Phase 7+ |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | from `python scripts/generate_vapid_keys.py` | Phase 7+ (private key is secret) |
+| `REMINDERS_ENABLED` | `true` | Phase 7+. Starts the in-process scheduler — run a **single instance** (§2.1). |
 | `ENV` | `production` | |
 
 ### 2.3 First-admin bootstrap (Phase 1b+)

@@ -196,3 +196,40 @@ async def test_dispatch_deletes_gone_subscription(session: AsyncSession) -> None
         .all()
     )
     assert remaining == []
+
+
+async def test_dispatch_defers_reminder_during_quiet_hours(
+    session: AsyncSession,
+) -> None:
+    user = await make_user(session, timezone_name="UTC")
+    user.quiet_hours_start = time(22, 0)
+    user.quiet_hours_end = time(7, 0)
+    sched = await make_schedule(session, user=user)
+    await session.flush()
+    now = datetime(2026, 5, 24, 2, 0, tzinfo=UTC)  # inside 22:00-07:00
+    rem = Reminder(
+        user_id=user.id,
+        type="dose",
+        schedule_id=sched.id,
+        scheduled_for=now,
+        status="pending",
+    )
+    session.add(rem)
+    await session.flush()
+
+    sent: list[dict[str, Any]] = []
+
+    async def fake_send(
+        _sub: PushSubscription, payload: dict[str, Any]
+    ) -> PushResult:
+        sent.append(payload)
+        return PushResult(delivered=True, gone=False)
+
+    n = await dispatch_due_reminders(
+        session, now=now, grace=timedelta(minutes=15), send=fake_send
+    )
+    assert n == 0  # deferred, not delivered
+    assert sent == []
+    await session.refresh(rem)
+    assert rem.status == "pending"
+    assert rem.scheduled_for == datetime(2026, 5, 24, 7, 0, tzinfo=UTC)

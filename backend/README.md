@@ -58,6 +58,12 @@ medminder-admin user list --role admin --include-deleted
 echo 'new password value here' | medminder-admin user update \
     --email admin@example.com --password-stdin --name "Renamed"
 
+# Quiet hours are admin-managed (like timezone): set both bounds together,
+# or clear them. Reminders due inside the window defer to its end (UC-5.3).
+medminder-admin user update --email admin@example.com \
+    --quiet-hours-start 22:00 --quiet-hours-end 07:00
+medminder-admin user update --email admin@example.com --clear-quiet-hours
+
 medminder-admin user delete --email admin@example.com   # soft delete
 ```
 

@@ -32,6 +32,36 @@ from medminder.settings import Settings
 _TICK_JOB_ID = "reminder_dispatch_tick"
 
 
+async def run_dispatch_tick(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """One pass of the reminder engine: generate upcoming + dispatch due.
+
+    Opens its own short transaction. Module-level (not a closure) so it is
+    unit-testable without starting APScheduler (Principle III).
+    """
+    async with session_factory() as session, session.begin():
+        now = datetime.now(UTC)
+        await generate_due_dose_reminders(session, now=now)
+
+        async def _send(
+            subscription: PushSubscription, payload: dict[str, Any]
+        ) -> PushResult:
+            return await send_web_push(
+                subscription=subscription,
+                payload=payload,
+                settings=settings,
+            )
+
+        await dispatch_due_reminders(
+            session,
+            now=now,
+            grace=timedelta(minutes=settings.reminder_grace_minutes),
+            send=_send,
+        )
+
+
 def build_scheduler(
     settings: Settings,
     session_factory: async_sessionmaker[AsyncSession],
@@ -42,32 +72,11 @@ def build_scheduler(
     ``.shutdown(wait=False)`` on teardown.
     """
     scheduler = AsyncIOScheduler(timezone="UTC")
-
-    async def _tick() -> None:
-        async with session_factory() as session, session.begin():
-            now = datetime.now(UTC)
-            await generate_due_dose_reminders(session, now=now)
-
-            async def _send(
-                subscription: PushSubscription, payload: dict[str, Any]
-            ) -> PushResult:
-                return await send_web_push(
-                    subscription=subscription,
-                    payload=payload,
-                    settings=settings,
-                )
-
-            await dispatch_due_reminders(
-                session,
-                now=now,
-                grace=timedelta(minutes=settings.reminder_grace_minutes),
-                send=_send,
-            )
-
     scheduler.add_job(
-        _tick,
+        run_dispatch_tick,
         "interval",
         seconds=settings.reminder_tick_seconds,
+        args=[settings, session_factory],
         id=_TICK_JOB_ID,
         replace_existing=True,
         max_instances=1,
@@ -76,4 +85,4 @@ def build_scheduler(
     return scheduler
 
 
-__all__ = ["build_scheduler"]
+__all__ = ["build_scheduler", "run_dispatch_tick"]

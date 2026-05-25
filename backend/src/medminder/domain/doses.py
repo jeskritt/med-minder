@@ -40,6 +40,11 @@ from medminder.domain.interactions import (
     MedicationInteractionConflictError,
     detect_interaction_conflict,
 )
+from medminder.domain.reminder_dispatch import (
+    ensure_refill_reminder,
+    resolve_dose_reminders,
+)
+from medminder.domain.reminders import crosses_refill_threshold
 from medminder.domain.timers import (
     DailyCapReachedError,
     MinIntervalNotElapsedError,
@@ -303,6 +308,25 @@ async def create_dose(
                 )
             )
         await session.flush()
+
+    # Phase 7 (FR-021): a recorded dose resolves today's open dose reminder(s)
+    # for this schedule slot, so a taken med stops nagging / leaves the list.
+    await resolve_dose_reminders(
+        session, user=user, schedule_id=schedule_id, taken_at=taken_at
+    )
+
+    # Phase 7 (FR-013/014): supply is live — decrement on take, and warn once
+    # when the count crosses down to/below the refill threshold.
+    if med.refill_count is not None:
+        before = med.refill_count
+        med.refill_count = max(0, before - 1)
+        if crosses_refill_threshold(
+            before=before,
+            after=med.refill_count,
+            threshold=med.refill_threshold,
+        ):
+            await ensure_refill_reminder(session, user=user, medication=med)
+        await session.flush()
     return dose
 
 
@@ -332,6 +356,17 @@ async def void_dose(
     except IntegrityError as exc:
         raise DoseAlreadyVoidedError("Dose has already been voided.") from exc
     await session.refresh(void)
+
+    # Phase 7 (FR-013): voiding restores supply by one — only when the med
+    # tracks it (never restores into an untracked/NULL count).
+    med = (
+        await session.execute(
+            select(Medication).where(Medication.id == dose.medication_id)
+        )
+    ).scalar_one_or_none()
+    if med is not None and med.refill_count is not None:
+        med.refill_count = med.refill_count + 1
+        await session.flush()
     return void
 
 

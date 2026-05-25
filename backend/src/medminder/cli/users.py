@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import sys
+from datetime import time
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import typer
 from rich.console import Console
@@ -41,9 +42,19 @@ def _read_password_from_stdin() -> str:
     return line.rstrip("\n").rstrip("\r")
 
 
-def _abort(message: str, code: int = 1) -> None:
+def _abort(message: str, code: int = 1) -> NoReturn:
     typer.secho(message, fg=typer.colors.RED, err=True)
     raise typer.Exit(code=code)
+
+
+def _parse_hhmm(value: str) -> time:
+    """Parse a ``HH:MM`` 24-hour string into a ``time``; abort on bad input."""
+    parts = value.split(":")
+    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+        hour, minute = int(parts[0]), int(parts[1])
+        if 0 <= hour < 24 and 0 <= minute < 60:
+            return time(hour, minute)
+    _abort(f"Invalid time {value!r}; expected HH:MM (24-hour clock).", code=2)
 
 
 @app.command("add")
@@ -112,6 +123,21 @@ def update(
     new_email: Annotated[str | None, typer.Option("--new-email")] = None,
     name: Annotated[str | None, typer.Option("--name")] = None,
     role: Annotated[Role | None, typer.Option("--role")] = None,
+    quiet_hours_start: Annotated[
+        str | None,
+        typer.Option("--quiet-hours-start", help="Quiet-hours start, HH:MM."),
+    ] = None,
+    quiet_hours_end: Annotated[
+        str | None,
+        typer.Option("--quiet-hours-end", help="Quiet-hours end, HH:MM."),
+    ] = None,
+    clear_quiet_hours: Annotated[
+        bool,
+        typer.Option(
+            "--clear-quiet-hours/--no-clear-quiet-hours",
+            help="Clear the user's quiet hours.",
+        ),
+    ] = False,
     password_stdin: Annotated[
         bool,
         typer.Option(
@@ -123,6 +149,24 @@ def update(
     """Update a user's mutable fields.  At least one flag is required."""
     new_password = _read_password_from_stdin() if password_stdin else None
 
+    if clear_quiet_hours and (
+        quiet_hours_start is not None or quiet_hours_end is not None
+    ):
+        _abort(
+            "Use --clear-quiet-hours OR --quiet-hours-start/--quiet-hours-end, "
+            "not both.",
+            code=2,
+        )
+    if not clear_quiet_hours and (quiet_hours_start is None) != (
+        quiet_hours_end is None
+    ):
+        _abort(
+            "Provide both --quiet-hours-start and --quiet-hours-end together.",
+            code=2,
+        )
+    qh_start = _parse_hhmm(quiet_hours_start) if quiet_hours_start else None
+    qh_end = _parse_hhmm(quiet_hours_end) if quiet_hours_end else None
+
     async def op(session):  # type: ignore[no-untyped-def]
         return await users_domain.update_user(
             session,
@@ -131,6 +175,9 @@ def update(
             new_name=name,
             new_role=(role.value if role is not None else None),
             new_password=new_password,
+            new_quiet_hours_start=qh_start,
+            new_quiet_hours_end=qh_end,
+            clear_quiet_hours=clear_quiet_hours,
         )
 
     try:

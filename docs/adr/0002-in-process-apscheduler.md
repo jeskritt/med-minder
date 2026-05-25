@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed — moves to **Accepted** with the Phase 7 (Reminders) PR.
+**Accepted** (Phase 7 — Reminders + Snooze). Refined from the original
+proposal: durable per-reminder state lives in the project's own `reminders`
+table, not APScheduler's `SQLAlchemyJobStore` — see the Decision section.
 
 ## Context
 
@@ -26,14 +28,29 @@ The deployment context shapes the trade-off:
 ## Decision
 
 Run APScheduler **inside the FastAPI process** for v1. Use the
-`AsyncIOScheduler` so it shares the event loop with the web app. Job
-state is persisted to the project Postgres via APScheduler's
-`SQLAlchemyJobStore`, so a process restart doesn't lose pending
-reminders.
+`AsyncIOScheduler` so it shares the event loop with the web app.
+
+**Durable state lives in the project's own `reminders` table, not
+APScheduler's `SQLAlchemyJobStore`** (refined at acceptance). The scheduler
+runs a *single recurring "dispatch tick"* job (interval, re-registered at
+every startup with a fixed id) using the **default in-memory job store**; the
+tick scans the Alembic-managed `reminders` table for due rows, delivers them,
+and marks them. A process restart therefore doesn't lose pending reminders —
+they are rows in our table, which the next tick picks up.
+
+Why not `SQLAlchemyJobStore` (the original proposal): production runs the app
+under a **DML-only runtime DB role** (no DDL — see `docs/deployment.md`), and
+the jobstore issues `CREATE TABLE` for its `apscheduler_jobs` table on start,
+which that role cannot run; it would also fight the CI `alembic check` drift
+gate (the table isn't in `Base.metadata`). The reminders-table-as-truth model
+sidesteps both and is a cleaner fit, since reminders are created/cancelled by
+many triggers (schedule edits, doses, snoozes, refills) that simply write rows.
 
 The Koyeb Eco Micro instance is chosen specifically because it does
 not sleep, which is a hard requirement for in-process scheduling to
-work reliably (see `docs/deployment.md`).
+work reliably (see `docs/deployment.md`). v1 runs a **single instance**;
+two would each fire the tick and double-deliver (revisit this ADR before
+scaling out).
 
 ## Consequences
 
@@ -42,8 +59,9 @@ work reliably (see `docs/deployment.md`).
   configuration, no inter-process serialization concerns.
 - **Free-tier compatible.** Stays within the deployment budget
   documented in `docs/deployment.md`.
-- **Persistent jobs.** `SQLAlchemyJobStore` means restarts don't lose
-  pending reminders.
+- **Restart-safe.** Pending reminders are rows in the Alembic-managed
+  `reminders` table, so a restart can't lose them; the scheduler's single
+  tick is re-registered on startup. No second store to keep in sync.
 
 ### Negative
 - **No horizontal scaling.** Two app instances would each try to fire

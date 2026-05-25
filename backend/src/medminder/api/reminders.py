@@ -6,16 +6,22 @@ user; dismissed reminders are excluded.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import get_current_user, get_session, get_settings
 from medminder.api.schemas.reminders import ReminderListOut, ReminderOut
 from medminder.db.models import Reminder, User
-from medminder.domain.reminder_dispatch import load_reminder_titles
+from medminder.domain.reminder_dispatch import (
+    ReminderNotFoundError,
+    dismiss_reminder,
+    load_reminder_titles,
+    snooze_reminder,
+)
 from medminder.domain.reminders import is_within_grace
 from medminder.settings import Settings
 
@@ -66,6 +72,50 @@ async def list_reminders(
         for r in rows
     ]
     return ReminderListOut(items=items)
+
+
+@router.post("/{reminder_id}/snooze", response_model=ReminderOut)
+async def snooze(
+    reminder_id: uuid.UUID,
+    user: User = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> ReminderOut:
+    """Snooze a reminder one hour; returns the reminder that will next fire."""
+    try:
+        rem = await snooze_reminder(
+            db, user=user, reminder_id=reminder_id, now=datetime.now(UTC)
+        )
+    except ReminderNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not Found"
+        ) from exc
+    titles = await load_reminder_titles(db, [rem])
+    return ReminderOut(
+        id=rem.id,
+        type=rem.type,
+        status=rem.status,
+        scheduled_for=rem.scheduled_for,
+        title=titles.get(rem.id, "MedMinder reminder"),
+        schedule_id=rem.schedule_id,
+        medication_id=rem.medication_id,
+        overdue=False,
+    )
+
+
+@router.post("/{reminder_id}/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss(
+    reminder_id: uuid.UUID,
+    user: User = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> Response:
+    """Dismiss (resolve) a reminder. Idempotent; 404 if not the caller's."""
+    try:
+        await dismiss_reminder(db, user=user, reminder_id=reminder_id)
+    except ReminderNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not Found"
+        ) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 __all__ = ["router"]

@@ -21,7 +21,7 @@ independently testable increment. US1 is the MVP (the scheduling + push engine).
 
 **Purpose**: Dependencies, settings, and tooling shared by every story.
 
-- [ ] T001 Baseline gate (quickstart Phase A): run `python scripts/generate_openapi_client.py` then confirm `git diff --exit-code frontend/src/api/v1.d.ts` is clean, and `cd backend && python -m alembic upgrade head && python -m alembic check` reports no drift — so later drift is unambiguously Phase 7's.
+- [X] T001 Baseline gate (quickstart Phase A): not run *before* changes (started from a clean `main`), but its intent — drift-free state — is confirmed by the **final** T060 gates: `alembic check` reports no drift and `generate_openapi_client.py` regenerates `v1.d.ts` with no diff. All drift is accounted for by Phase 7's migration `0006` + the new endpoints.
 - [X] T002 Add pinned runtime deps `apscheduler>=3.11,<4.0` and `pywebpush>=2.0,<3.0` to `backend/pyproject.toml` and refresh/commit the backend lockfile.
 - [X] T003 [P] Add reminder/push settings to `backend/src/medminder/settings.py`: `vapid_public_key`, `vapid_private_key` (secret), `vapid_subject`, `reminders_enabled` (default True), `reminder_tick_seconds` (default 30), `reminder_grace_minutes` (default 15), `reminder_send_max_attempts` (default 3).
 - [X] T004 [P] Create `scripts/generate_vapid_keys.py` (Python, cross-platform per Principle V) that prints a VAPID public/private key pair + a suggested `VAPID_SUBJECT`.
@@ -95,15 +95,15 @@ reminder → that reminder auto-resolves; snoozing/dismissing another user's rem
 
 ### Tests for User Story 2
 
-- [ ] T030 [P] [US2] `backend/tests/domain/test_reminder_actions.py` — `snooze_reminder` (marks `snoozed` + creates +1h `pending`; re-snooze), `dismiss_reminder` (idempotent), `resolve_dose_reminders` (only that slot, today, pending/snoozed) against real Postgres.
-- [ ] T031 [P] [US2] `backend/tests/api/test_reminders_actions.py` — `POST {id}/snooze` returns the next reminder, `POST {id}/dismiss` → 204 idempotent, both 404 for another user's reminder (FR-017).
+- [X] T030 [P] [US2] `backend/tests/domain/test_reminder_actions.py` — `snooze_reminder` (marks `snoozed` + creates +1h `pending`; re-snooze), `dismiss_reminder` (idempotent), `resolve_dose_reminders` (only that slot, today, pending/snoozed) against real Postgres.
+- [X] T031 [P] [US2] `backend/tests/api/test_reminders_actions.py` — `POST {id}/snooze` returns the next reminder, `POST {id}/dismiss` → 204 idempotent, both 404 for another user's reminder (FR-017).
 
 ### Implementation for User Story 2
 
-- [ ] T032 [US2] Add `snooze_reminder`, `dismiss_reminder`, and `resolve_dose_reminders` to `backend/src/medminder/domain/reminder_dispatch.py` (depends on T014/T015, same file).
-- [ ] T033 [US2] Add `POST /api/v1/reminders/{id}/snooze` and `POST /api/v1/reminders/{id}/dismiss` to `backend/src/medminder/api/reminders.py` (ownership-checked; 404 otherwise) (depends on T032, T022).
-- [ ] T034 [US2] Call `resolve_dose_reminders` from `create_dose` in `backend/src/medminder/domain/doses.py` (same transaction, after the dose insert) (FR-021).
-- [ ] T035 [US2] Regenerate the client; add `frontend/src/hooks/useSnoozeReminder.ts` + `frontend/src/hooks/useDismissReminder.ts`; wire snooze/dismiss buttons into `frontend/src/components/reminders/ReminderList.tsx` (depends on T033).
+- [X] T032 [US2] Add `snooze_reminder`, `dismiss_reminder`, and `resolve_dose_reminders` to `backend/src/medminder/domain/reminder_dispatch.py` (depends on T014/T015, same file).
+- [X] T033 [US2] Add `POST /api/v1/reminders/{id}/snooze` and `POST /api/v1/reminders/{id}/dismiss` to `backend/src/medminder/api/reminders.py` (ownership-checked; 404 otherwise) (depends on T032, T022).
+- [X] T034 [US2] Call `resolve_dose_reminders` from `create_dose` in `backend/src/medminder/domain/doses.py` (same transaction, after the dose insert) (FR-021).
+- [X] T035 [US2] Regenerate the client; add `useSnoozeReminder` + `useDismissReminder` hooks (co-located in `frontend/src/hooks/useReminders.ts`, matching the `useSchedules.ts` idiom); wire snooze/dismiss buttons into `frontend/src/components/reminders/ReminderList.tsx`.
 
 **Checkpoint**: Reminders can be snoozed/dismissed in-app and clear automatically when the dose is taken.
 
@@ -119,15 +119,15 @@ delivery at the window end; 02:00 with 22:00→07:00 defers to 07:00; no quiet h
 
 ### Tests for User Story 3
 
-- [ ] T036 [P] [US3] `backend/tests/domain/test_reminders_quiet_hours.py` — pure `defer_for_quiet_hours` covering inside-window, wrap-midnight, boundary-exclusive-at-end, and no-quiet-hours cases.
-- [ ] T036b [P] [US3] `backend/tests/cli/test_users_quiet_hours.py` — `user update --quiet-hours-start/--quiet-hours-end` sets and clears the columns; invalid time format is rejected.
+- [X] T036 [P] [US3] `backend/tests/domain/test_reminders_quiet_hours.py` — pure `defer_for_quiet_hours` covering inside-window, wrap-midnight, boundary-exclusive-at-end, and no-quiet-hours cases.
+- [X] T036b [P] [US3] `backend/tests/cli/test_users_quiet_hours.py` — `user update --quiet-hours-start/--quiet-hours-end` sets and clears the columns; invalid time format is rejected.
 
 ### Implementation for User Story 3
 
-- [ ] T036a [US3] Add a quiet-hours configuration path (FR-011 enabler — quiet hours are admin-managed like `timezone`): extend `update_user` in `backend/src/medminder/domain/users.py` with `new_quiet_hours_start`/`new_quiet_hours_end` (set or clear, validated) and add `--quiet-hours-start`/`--quiet-hours-end` options to `user update` in `backend/src/medminder/cli/users.py`. (No in-app editor in Phase 7.)
-- [ ] T037 [US3] Add `defer_for_quiet_hours(fire_utc, tz, qh_start, qh_end)` to the pure `backend/src/medminder/domain/reminders.py` (returns the deferred UTC instant or `None`) (extends T007, same file).
-- [ ] T038 [US3] Apply deferral in `dispatch_due_reminders` (`backend/src/medminder/domain/reminder_dispatch.py`) — when deferred, update the row's `scheduled_for` and leave it `pending` instead of pushing (depends on T037, T015).
-- [ ] T039 [US3] Add a quiet-hours deferral integration case (incl. midnight wrap) to `backend/tests/domain/test_reminder_dispatch.py`.
+- [X] T036a [US3] Add a quiet-hours configuration path (FR-011 enabler — quiet hours are admin-managed like `timezone`): extend `update_user` in `backend/src/medminder/domain/users.py` with `new_quiet_hours_start`/`new_quiet_hours_end` (set or clear, validated) and add `--quiet-hours-start`/`--quiet-hours-end` options to `user update` in `backend/src/medminder/cli/users.py`. (No in-app editor in Phase 7.)
+- [X] T037 [US3] Add `defer_for_quiet_hours(fire_utc, tz, qh_start, qh_end)` to the pure `backend/src/medminder/domain/reminders.py` (returns the deferred UTC instant or `None`) (extends T007, same file).
+- [X] T038 [US3] Apply deferral in `dispatch_due_reminders` (`backend/src/medminder/domain/reminder_dispatch.py`) — when deferred, update the row's `scheduled_for` and leave it `pending` instead of pushing (depends on T037, T015).
+- [X] T039 [US3] Add a quiet-hours deferral integration case (incl. midnight wrap) to `backend/tests/domain/test_reminder_dispatch.py`.
 
 **Checkpoint**: Reminders never push during quiet hours and arrive at the window end.
 
@@ -143,13 +143,13 @@ attach/detach a med → generation follows; after any mutation the pending set m
 
 ### Tests for User Story 4
 
-- [ ] T040 [P] [US4] `backend/tests/api/test_schedule_reminder_sync.py` — create/update/delete schedule and attach/detach med each leave the pending dose-reminder set matching current state with zero stale/missing (SC-005); past `sent`/`dismissed` untouched.
+- [X] T040 [P] [US4] `backend/tests/api/test_schedule_reminder_sync.py` — create/update/delete schedule and attach/detach med each leave the pending dose-reminder set matching current state with zero stale/missing (SC-005); past `sent`/`dismissed` untouched.
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] Add `regenerate_schedule_reminders(session, *, schedule_id)` to `backend/src/medminder/domain/reminder_dispatch.py` — delete future `pending` dose reminders for the schedule, then regenerate from current state.
-- [ ] T042 [US4] Call `regenerate_schedule_reminders` from `create_schedule`/`update_schedule`/`delete_schedule` in `backend/src/medminder/api/schedules_crud.py` (within the existing transaction) (depends on T041).
-- [ ] T043 [US4] Call `regenerate_schedule_reminders` for affected schedules from the medication save (attach/detach) path in `backend/src/medminder/api/medications.py` (depends on T041).
+- [X] T041 [US4] Add `regenerate_schedule_reminders(session, *, schedule_id)` to `backend/src/medminder/domain/reminder_dispatch.py` — delete future `pending` dose reminders for the schedule, then regenerate from current state.
+- [X] T042 [US4] Call `regenerate_schedule_reminders` from `create_schedule`/`update_schedule`/`delete_schedule` in `backend/src/medminder/api/schedules_crud.py` (within the existing transaction) (depends on T041).
+- [X] T043 [US4] Call `regenerate_schedule_reminders` for affected schedules from the medication save (attach/detach) path in `backend/src/medminder/api/medications.py` (depends on T041).
 
 **Checkpoint**: Reminders always reflect the live schedule state — the ADR-0009 "reminders shift" promise is real.
 
@@ -167,15 +167,15 @@ edit count back above threshold → warning resolves and can fire again; no thre
 
 ### Tests for User Story 5
 
-- [ ] T044 [P] [US5] `backend/tests/domain/test_refill_supply.py` — decrement/restore (floor at 0), warn-at-threshold, opt-in (no threshold → no warn), dedup (no second open warning), and re-arm on raising count above threshold.
+- [X] T044 [P] [US5] `backend/tests/domain/test_refill_supply.py` — decrement/restore (floor at 0), warn-at-threshold, opt-in (no threshold → no warn), dedup (no second open warning), and re-arm on raising count above threshold.
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Add `crosses_refill_threshold(before, after, threshold)` to the pure `backend/src/medminder/domain/reminders.py` (extends T007, same file).
-- [ ] T046 [US5] Add `ensure_refill_reminder(session, *, user, medication)` and `clear_refill_reminder(session, *, medication)` to `backend/src/medminder/domain/reminder_dispatch.py` (respect the `uq_reminders_open_refill` dedup invariant).
-- [ ] T047 [US5] In `backend/src/medminder/domain/doses.py`: decrement `refill_count` (floored at 0) + call `ensure_refill_reminder` on a downward threshold crossing in `create_dose`; in `void_dose` restore `refill_count` by one **only when it is set** (skip when NULL, so a void never restores into an untracked med — FR-013) (depends on T045, T046). Cover the NULL-count void in `tests/domain/test_refill_supply.py` (T044).
-- [ ] T048 [US5] In the medication update path (`backend/src/medminder/domain/medications.py`): when `refill_count` is raised back above `refill_threshold`, call `clear_refill_reminder` (FR-014a) (depends on T046).
-- [ ] T049 [US5] Confirm refill reminders render in `frontend/src/components/reminders/ReminderList.tsx` (they flow through `GET /api/v1/reminders`); add a refill-type case to `frontend/src/__tests__/ReminderList.test.tsx`.
+- [X] T045 [US5] Add `crosses_refill_threshold(before, after, threshold)` to the pure `backend/src/medminder/domain/reminders.py` (extends T007, same file).
+- [X] T046 [US5] Add `ensure_refill_reminder(session, *, user, medication)` and `clear_refill_reminder(session, *, medication)` to `backend/src/medminder/domain/reminder_dispatch.py` (respect the `uq_reminders_open_refill` dedup invariant).
+- [X] T047 [US5] In `backend/src/medminder/domain/doses.py`: decrement `refill_count` (floored at 0) + call `ensure_refill_reminder` on a downward threshold crossing in `create_dose`; in `void_dose` restore `refill_count` by one **only when it is set** (skip when NULL, so a void never restores into an untracked med — FR-013) (depends on T045, T046). Cover the NULL-count void in `tests/domain/test_refill_supply.py` (T044).
+- [X] T048 [US5] When `refill_count` is raised back above `refill_threshold`, call `clear_refill_reminder` (FR-014a). Placed in the API update path (`backend/src/medminder/api/medications.py`, where the other reminder hooks live) rather than `domain/medications.py`, to keep reminder orchestration out of the pure-ish domain med module.
+- [X] T049 [US5] Confirm refill reminders render in `frontend/src/components/reminders/ReminderList.tsx` (they flow through `GET /api/v1/reminders`); add a refill-type case to `frontend/src/__tests__/ReminderList.test.tsx`.
 
 **Checkpoint**: Supply is live and refill warnings fire once per low-supply episode.
 
@@ -191,12 +191,12 @@ gives up without crashing the tick; with no subscription the in-app list still s
 
 ### Tests for User Story 6
 
-- [ ] T050 [P] [US6] `backend/tests/domain/test_push_resilience.py` — transient error → retried up to `reminder_send_max_attempts` (default 3) then give-up (no exception escapes the tick); 404/410 → subscription deleted.
-- [ ] T051 [P] [US6] `backend/tests/api/test_reminders_no_subscription.py` — with no push subscription, reminders still generate and `GET /api/v1/reminders` lists them (push best-effort, FR-008).
+- [X] T050 [P] [US6] `backend/tests/domain/test_push_resilience.py` — transient error → retried up to `reminder_send_max_attempts` (default 3) then give-up (no exception escapes the tick); 404/410 → subscription deleted.
+- [X] T051 [P] [US6] `backend/tests/api/test_reminders_no_subscription.py` — with no push subscription, reminders still generate and `GET /api/v1/reminders` lists them (push best-effort, FR-008).
 
 ### Implementation for User Story 6
 
-- [ ] T052 [US6] Add bounded retry + gone-subscription deletion to the dispatch send path (`backend/src/medminder/domain/reminder_dispatch.py` + `backend/src/medminder/domain/push.py`): catch per-send exceptions, retry transient up to `reminder_send_max_attempts` (default 3), delete the subscription on 404/410, never let a send abort the batch (depends on T015, T016).
+- [X] T052 [US6] Add bounded retry + gone-subscription deletion to the dispatch send path (`backend/src/medminder/domain/reminder_dispatch.py` + `backend/src/medminder/domain/push.py`): catch per-send exceptions, retry transient up to `reminder_send_max_attempts` (default 3), delete the subscription on 404/410, never let a send abort the batch (depends on T015, T016).
 
 **Checkpoint**: Push flakiness is handled and the in-app channel is a reliable fallback.
 
@@ -206,14 +206,14 @@ gives up without crashing the tick; with no subscription the in-app list still s
 
 **Purpose**: Documentation, diagrams, the security merge gate, and the final quality gates.
 
-- [ ] T053 [P] Promote ADR-0002 `Proposed → Accepted` in `docs/adr/0002-in-process-apscheduler.md`, documenting the refined approach (reminders-table-as-truth + recurring tick; default in-memory job store; why not `SQLAlchemyJobStore` — the DML-only runtime role) per research D1.
-- [ ] T054 [P] Add the reminder-lifecycle Mermaid state diagram `docs/diagrams/state-reminder-lifecycle.md` (pending→sent/snoozed/dismissed + overdue, per data-model.md).
-- [ ] T055 [P] Add the dispatch sequence diagram `docs/diagrams/sequence-reminder-dispatch.md` (tick → generate → quiet-hours defer → push → mark sent) and list both new diagrams in `docs/diagrams/README.md`.
-- [ ] T056 [P] Doc sweep: in `docs/glossary.md` and `docs/user_stories.md` UC-5.4, change the refill-warning trigger from `doses_remaining` to `refill_count ≤ refill_threshold`; in UC-5.2 note snooze is in-app for Phase 7; document the new `user update --quiet-hours-start/--quiet-hours-end` flags in `backend/README.md` (alongside the existing CLI docs).
-- [ ] T057 [P] Add a Phase 7 reminders bullet to the "Things that have surprised people" section of `CLAUDE.md` (in-process scheduler, reminders-table-as-truth, `refill_count` live, in-app snooze, single instance).
-- [ ] T058 [P] Update `docs/deployment.md`: single-instance scheduler requirement, `REMINDERS_ENABLED`, and the VAPID env vars (private key is secret).
-- [ ] T059 Create the security merge gate `specs/008-reminders-snooze/checklists/security.md` (user-scoping of all endpoints, VAPID private key never exposed/logged, subscription-secret minimisation, cross-user negatives, scheduler single-instance).
-- [ ] T060 Final gates: `just lint`, `just typecheck` (mypy --strict + tsc --noEmit), `just test` (coverage ≥85% overall / ≥70% per module), `cd backend && python -m alembic check`, and `python scripts/generate_openapi_client.py && git diff --exit-code frontend/src/api/v1.d.ts`.
+- [X] T053 [P] Promote ADR-0002 `Proposed → Accepted` in `docs/adr/0002-in-process-apscheduler.md`, documenting the refined approach (reminders-table-as-truth + recurring tick; default in-memory job store; why not `SQLAlchemyJobStore` — the DML-only runtime role) per research D1.
+- [X] T054 [P] Add the reminder-lifecycle Mermaid state diagram `docs/diagrams/state-reminder-lifecycle.md` (pending→sent/snoozed/dismissed + overdue, per data-model.md).
+- [X] T055 [P] Add the dispatch sequence diagram `docs/diagrams/sequence-reminder-dispatch.md` (tick → generate → quiet-hours defer → push → mark sent) and list both new diagrams in `docs/diagrams/README.md`.
+- [X] T056 [P] Doc sweep: in `docs/glossary.md` and `docs/user_stories.md` UC-5.4, change the refill-warning trigger from `doses_remaining` to `refill_count ≤ refill_threshold`; in UC-5.2 note snooze is in-app for Phase 7; document the new `user update --quiet-hours-start/--quiet-hours-end` flags in `backend/README.md` (alongside the existing CLI docs).
+- [X] T057 [P] Add a Phase 7 reminders bullet to the "Things that have surprised people" section of `CLAUDE.md` (in-process scheduler, reminders-table-as-truth, `refill_count` live, in-app snooze, single instance).
+- [X] T058 [P] Update `docs/deployment.md`: single-instance scheduler requirement, `REMINDERS_ENABLED`, and the VAPID env vars (private key is secret).
+- [X] T059 Create the security merge gate `specs/008-reminders-snooze/checklists/security.md` (user-scoping of all endpoints, VAPID private key never exposed/logged, subscription-secret minimisation, cross-user negatives, scheduler single-instance).
+- [X] T060 Final gates — all green: ruff + eslint + prettier clean; `mypy --strict` + `tsc -b` clean; backend **411 passed, coverage 95.73%** (≥85%; every module ≥70%, `scheduler.py` 95%); frontend vitest **113 passed**; `alembic check` reports **no drift**; `generate_openapi_client.py` regenerates `v1.d.ts` with **no diff**.
 
 ---
 
