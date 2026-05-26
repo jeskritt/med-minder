@@ -445,7 +445,7 @@ async def resolve_dose_reminders(
         )
         .values(status="dismissed")
     )
-    return result.rowcount or 0
+    return result.rowcount or 0  # type: ignore[attr-defined]
 
 
 async def ensure_refill_reminder(
@@ -502,7 +502,7 @@ async def clear_refill_reminder(
         )
         .values(status="dismissed")
     )
-    return result.rowcount or 0
+    return result.rowcount or 0  # type: ignore[attr-defined]
 
 
 __all__ = [
