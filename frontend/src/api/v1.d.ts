@@ -100,6 +100,31 @@ export interface paths {
         patch: operations["update_me_me_patch"];
         trace?: never;
     };
+    "/me/quiet-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Quiet Hours
+         * @description Set or clear the caller's own quiet-hours window (no session effects).
+         *
+         *     Both bounds set → store them; both ``null`` → clear the window. The
+         *     ``QuietHoursUpdate`` validator has already enforced both-or-neither, so
+         *     here it's a clean branch into the shared ``update_user`` helper, scoped to
+         *     the caller's own email.
+         */
+        put: operations["update_quiet_hours_me_quiet_hours_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -688,6 +713,12 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "user";
+            /** Timezone */
+            timezone: string;
+            /** Quiet Hours Start */
+            quiet_hours_start?: string | null;
+            /** Quiet Hours End */
+            quiet_hours_end?: string | null;
         };
         /**
          * MedicationBody
@@ -931,6 +962,23 @@ export interface components {
         PushUnsubscribeIn: {
             /** Endpoint */
             endpoint: string;
+        };
+        /**
+         * QuietHoursUpdate
+         * @description Inbound body for ``PUT /me/quiet-hours`` — self-service quiet window.
+         *
+         *     Quiet hours are an all-or-nothing pair: dose dispatch only defers when
+         *     *both* bounds are set (``domain.reminders.defer_for_quiet_hours``), and a
+         *     zero-length ``[start, start)`` window would never fire, so we reject both
+         *     the one-sided and the equal cases here. Sending both ``null`` clears the
+         *     window (quiet hours off). Pydantic coerces ``"22:00"`` → ``time``; a
+         *     malformed value surfaces as 422.
+         */
+        QuietHoursUpdate: {
+            /** Start */
+            start?: string | null;
+            /** End */
+            end?: string | null;
         };
         /**
          * ReminderListOut
@@ -1306,6 +1354,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_quiet_hours_me_quiet_hours_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuietHoursUpdate"];
             };
         };
         responses: {

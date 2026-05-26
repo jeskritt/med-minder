@@ -223,6 +223,9 @@ through the admin CLI (`medminder-admin`).
       `quiet_hours_end` are deferred to the end of the quiet
       window.
 - [ ] Quiet hours wrap around midnight correctly (e.g., 22:00 → 07:00).
+- [ ] A user can set or clear their own quiet hours from the `/reminders`
+      page (both bounds together, or both cleared); an admin can still set
+      them via the CLI (ADR-0012).
 
 #### UC-5.4 Refill warning
 - [ ] When taking a dose brings the live on-hand count `refill_count`

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import uuid
+from datetime import time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import (
@@ -37,6 +38,12 @@ class Me(BaseModel):
     id: uuid.UUID
     name: str
     role: Literal["admin", "user"]
+    # Read-only here. ``timezone`` stays admin/CLI-managed (the in-app editor
+    # only needs it to label the quiet-hours inputs); quiet hours are editable
+    # via ``PUT /me/quiet-hours``. Both quiet-hours columns are NULL when off.
+    timezone: str
+    quiet_hours_start: time | None = None
+    quiet_hours_end: time | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -53,6 +60,31 @@ class ProfileUpdate(BaseModel):
         if not trimmed:
             raise ValueError("Display name must not be blank.")
         return trimmed
+
+
+class QuietHoursUpdate(BaseModel):
+    """Inbound body for ``PUT /me/quiet-hours`` — self-service quiet window.
+
+    Quiet hours are an all-or-nothing pair: dose dispatch only defers when
+    *both* bounds are set (``domain.reminders.defer_for_quiet_hours``), and a
+    zero-length ``[start, start)`` window would never fire, so we reject both
+    the one-sided and the equal cases here. Sending both ``null`` clears the
+    window (quiet hours off). Pydantic coerces ``"22:00"`` → ``time``; a
+    malformed value surfaces as 422.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: time | None = None
+    end: time | None = None
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> QuietHoursUpdate:
+        if (self.start is None) != (self.end is None):
+            raise ValueError("Set both start and end, or neither.")
+        if self.start is not None and self.start == self.end:
+            raise ValueError("Start and end must differ.")
+        return self
 
 
 class PasswordChange(BaseModel):
@@ -91,6 +123,29 @@ async def update_me(
     own email — there is no path to rename another user (FR-006/FR-009).
     """
     return await update_user(db, email=user.email, new_name=body.name)
+
+
+@router.put("/me/quiet-hours", response_model=Me)
+async def update_quiet_hours(
+    body: QuietHoursUpdate,
+    user: User = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> User:
+    """Set or clear the caller's own quiet-hours window (no session effects).
+
+    Both bounds set → store them; both ``null`` → clear the window. The
+    ``QuietHoursUpdate`` validator has already enforced both-or-neither, so
+    here it's a clean branch into the shared ``update_user`` helper, scoped to
+    the caller's own email.
+    """
+    if body.start is None:
+        return await update_user(db, email=user.email, clear_quiet_hours=True)
+    return await update_user(
+        db,
+        email=user.email,
+        new_quiet_hours_start=body.start,
+        new_quiet_hours_end=body.end,
+    )
 
 
 @router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)

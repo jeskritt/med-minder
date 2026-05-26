@@ -22,6 +22,8 @@ info:
         - GET    /api/v1/reminders               — list this user's open reminders
         - POST   /api/v1/reminders/{id}/snooze   — snooze one hour
         - POST   /api/v1/reminders/{id}/dismiss  — resolve (dismiss)
+      Quiet hours (self-service; follow-on, see ADR-0012):
+        - PUT    /me/quiet-hours                 — set or clear the caller's own quiet window
 
     Reminder *delivery* (Web Push) and *generation* are server-side (the
     scheduler tick); they are not request/response endpoints. The dose
@@ -93,6 +95,35 @@ paths:
           description: Subscription removed (or already absent).
         "401":
           description: Not authenticated.
+
+  /me/quiet-hours:
+    put:
+      operationId: update_quiet_hours
+      summary: Set or clear the caller's own quiet-hours window
+      description: |
+        Self-service quiet hours (follow-on to Phase 7, ADR-0012). Quiet hours
+        are an all-or-nothing pair: send both `start` and `end` (`HH:MM`,
+        interpreted in the user's `timezone`) to set the window, or both `null`
+        to clear it. A one-sided window or equal bounds is **422** (a
+        zero-length window would never fire). Scoped to the caller — there is no
+        path to another user. `GET /me` echoes the stored values (plus the
+        read-only `timezone`) so the editor can pre-fill.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuietHoursUpdate"
+      responses:
+        "200":
+          description: |
+            The updated `Me` view (now including `timezone`,
+            `quiet_hours_start`, `quiet_hours_end`). See the runtime OpenAPI
+            `Me` schema.
+        "401":
+          description: Not authenticated.
+        "422":
+          description: One-sided window, equal bounds, or malformed time.
 
   /api/v1/reminders:
     get:
@@ -194,6 +225,19 @@ components:
             auth:
               type: string
               description: Client auth secret (base64url) from the subscription.
+
+    QuietHoursUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        start:
+          type: ["string", "null"]
+          format: time
+          description: Window start (`HH:MM`, user-local); null with `end` null clears.
+        end:
+          type: ["string", "null"]
+          format: time
+          description: Window end (`HH:MM`, user-local). Must differ from `start`.
 
     PushUnsubscribeIn:
       type: object

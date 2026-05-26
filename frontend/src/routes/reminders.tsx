@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { client } from "@/lib/api";
 import { EnableNotifications } from "@/components/reminders/EnableNotifications";
+import { QuietHoursSection } from "@/components/reminders/QuietHoursSection";
 import { ReminderList } from "@/components/reminders/ReminderList";
 
 export const Route = createFileRoute("/reminders")({
@@ -19,6 +20,9 @@ function RemindersPage() {
       <h1 className="mb-4 text-xl font-semibold text-gray-900">Reminders</h1>
       <div className="mb-6">
         <EnableNotifications />
+      </div>
+      <div className="mb-6">
+        <QuietHoursSection />
       </div>
       <ReminderList />
     </div>

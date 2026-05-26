@@ -421,7 +421,9 @@ subscription is marked/removed and the reminder is not stuck; deny permission in
 - **Quiet hours are admin-managed** (like `timezone`): set via the admin CLI
   (`medminder-admin user update --quiet-hours-start/--quiet-hours-end`), which this phase
   extends. There is **no in-app quiet-hours editor** in Phase 7; tests may also set the
-  columns directly via a fixture.
+  columns directly via a fixture. *(Superseded on this branch: a self-service editor —
+  `PUT /me/quiet-hours`, surfaced on `/reminders` — was added as a follow-on; see
+  ADR-0012.)*
 - Dose reminders are per-schedule (the data model enforces it); a single notification per
   slot names all medications attached to that schedule.
 - Snooze is a fixed one hour and may be repeated; there is no maximum-snooze cap in v1.
