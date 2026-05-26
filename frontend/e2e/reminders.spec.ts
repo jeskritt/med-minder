@@ -10,6 +10,9 @@
  *   3. Snoozing it marks the original `snoozed` and creates a new `+1h`
  *      pending reminder (US2) — so the med shows two rows.
  *   4. Dismissing resolves a reminder and drops it from the list.
+ *   5. A low-supply med, after a dose is taken, surfaces a refill warning in
+ *      the same in-app list (US5): the take decrements supply past its
+ *      threshold server-side, and the warning renders here.
  *
  * Out of scope here (covered by backend integration tests, not E2E): actual
  * Web Push *delivery*. Headless Chromium has no push service (and reports
@@ -36,6 +39,7 @@ import { login, setPlainDose, addSchedule } from "./helpers";
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
   process.env.E2E_USER_PASSWORD ?? "correct horse battery staple";
+const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
 
 /**
  * Create an `untracked`-mode med attached to a brand-new, uniquely-labelled
@@ -143,5 +147,57 @@ test.describe("Reminders + snooze", () => {
         .getByTestId("reminder-list")
         .or(page.getByText(/no reminders right now/i)),
     ).toBeVisible();
+  });
+
+  test("a low-supply med shows a refill warning after a dose is taken (US5)", async ({
+    page,
+  }) => {
+    await login(page, TEST_EMAIL, TEST_PASSWORD);
+    const stamp = Date.now();
+    const medName = `Refill Med ${stamp}`;
+
+    // Create a med whose on-hand count sits one above its warn-at threshold,
+    // so a single take crosses it. Driven via the API (the suite's setup
+    // pattern) — refill warnings are per-med and need no schedule. The
+    // "Mark taken" UI click is already covered by granny-smoke.spec.ts; this
+    // test targets the new US5 behavior: decrement → warn → in-app render.
+    const createResp = await page.request.post(
+      `${API_BASE}/api/v1/medications`,
+      {
+        data: {
+          name: medName,
+          times_per_day: 1,
+          quantity_per_dose: "1.000",
+          unit: "tab",
+          refill_count: 2,
+          refill_threshold: 1,
+        },
+      },
+    );
+    expect(createResp.ok()).toBeTruthy();
+    const { id: medId } = (await createResp.json()) as { id: string };
+
+    // Take one dose: create_dose decrements refill_count 2 → 1, crossing the
+    // threshold (before > threshold >= after) → a refill reminder is generated.
+    // (The doses router is mounted at /api/doses, not /api/v1/doses.)
+    const doseResp = await page.request.post(`${API_BASE}/api/doses`, {
+      data: { medication_id: medId },
+    });
+    expect(doseResp.ok()).toBeTruthy();
+
+    await page.goto("/reminders");
+
+    // The refill warning names the med and the remaining on-hand count (US5);
+    // title format is "Refill {name} — {N} left".
+    const refillRow = page
+      .getByTestId("reminder-list")
+      .locator("li")
+      .filter({ hasText: `Refill ${medName}` });
+    await expect(refillRow).toHaveCount(1);
+    await expect(refillRow).toContainText("1 left");
+
+    // Clean up so repeated local runs don't accumulate this med's warning.
+    await refillRow.getByRole("button", { name: /^dismiss$/i }).click();
+    await expect(refillRow).toHaveCount(0);
   });
 });
