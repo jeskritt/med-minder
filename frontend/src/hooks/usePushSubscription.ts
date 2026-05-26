@@ -6,16 +6,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   disablePushNotifications,
   enablePushNotifications,
-  getPushPermissionState,
-  type PushPermission,
+  getPushStatus,
+  type PushStatus,
 } from "@/lib/push";
 
-export const PUSH_PERMISSION_QUERY_KEY = ["push-permission"] as const;
+export const PUSH_STATUS_QUERY_KEY = ["push-status"] as const;
 
-export function usePushPermission() {
-  return useQuery<PushPermission>({
-    queryKey: PUSH_PERMISSION_QUERY_KEY,
-    queryFn: () => getPushPermissionState(),
+export function usePushStatus() {
+  return useQuery<PushStatus>({
+    queryKey: PUSH_STATUS_QUERY_KEY,
+    queryFn: () => getPushStatus(),
     staleTime: 5_000,
   });
 }
@@ -25,7 +25,7 @@ export function useEnablePush() {
   return useMutation({
     mutationFn: enablePushNotifications,
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: PUSH_PERMISSION_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: PUSH_STATUS_QUERY_KEY }),
   });
 }
 
@@ -34,6 +34,6 @@ export function useDisablePush() {
   return useMutation({
     mutationFn: disablePushNotifications,
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: PUSH_PERMISSION_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: PUSH_STATUS_QUERY_KEY }),
   });
 }

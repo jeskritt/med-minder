@@ -1,20 +1,24 @@
 import {
   useDisablePush,
   useEnablePush,
-  usePushPermission,
+  usePushStatus,
 } from "@/hooks/usePushSubscription";
 
 /**
  * Minimal "Enable notifications" control (Phase 7). The polished permission
  * onboarding flow is Phase 8; this is just enough to register a device and
  * test the loop. Reminders are visible in-app regardless of this state.
+ *
+ * The "on" state tracks an actual push subscription, not the browser
+ * permission — a `granted` device with no subscription can't receive anything,
+ * so it falls through to the enable button to re-subscribe.
  */
 export function EnableNotifications() {
-  const { data: permission } = usePushPermission();
+  const { data: status } = usePushStatus();
   const enable = useEnablePush();
   const disable = useDisablePush();
 
-  if (permission === "unsupported") {
+  if (status === "unsupported") {
     return (
       <p className="text-sm text-slate-500">
         This browser does not support notifications. Reminders still appear
@@ -23,7 +27,7 @@ export function EnableNotifications() {
     );
   }
 
-  if (permission === "denied") {
+  if (status === "denied") {
     return (
       <p className="text-sm text-amber-700">
         Notifications are blocked in your browser settings. Reminders still
@@ -32,7 +36,7 @@ export function EnableNotifications() {
     );
   }
 
-  if (permission === "granted") {
+  if (status === "subscribed") {
     return (
       <div className="flex items-center gap-3 text-sm">
         <span className="text-green-700">

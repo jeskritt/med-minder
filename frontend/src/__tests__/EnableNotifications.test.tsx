@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@/lib/push", () => ({
-  getPushPermissionState: vi.fn(),
+  getPushStatus: vi.fn(),
   enablePushNotifications: vi.fn(),
   disablePushNotifications: vi.fn(),
   isPushSupported: vi.fn(() => true),
 }));
 
-import { enablePushNotifications, getPushPermissionState } from "@/lib/push";
+import { enablePushNotifications, getPushStatus } from "@/lib/push";
 import { EnableNotifications } from "@/components/reminders/EnableNotifications";
 
-const mockPermission = vi.mocked(getPushPermissionState);
+const mockStatus = vi.mocked(getPushStatus);
 const mockEnable = vi.mocked(enablePushNotifications);
 
 function renderControl() {
@@ -34,7 +34,15 @@ describe("EnableNotifications", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("offers an enable button when permission is default", async () => {
-    mockPermission.mockReturnValue("default");
+    mockStatus.mockResolvedValue("default");
+    renderControl();
+    expect(
+      await screen.findByRole("button", { name: /enable notifications/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers an enable button when granted but not subscribed", async () => {
+    mockStatus.mockResolvedValue("unsubscribed");
     renderControl();
     expect(
       await screen.findByRole("button", { name: /enable notifications/i }),
@@ -42,7 +50,7 @@ describe("EnableNotifications", () => {
   });
 
   it("calls enable when the button is clicked", async () => {
-    mockPermission.mockReturnValue("default");
+    mockStatus.mockResolvedValue("default");
     mockEnable.mockResolvedValue(undefined);
     const { user } = renderControl();
     await user.click(
@@ -51,8 +59,8 @@ describe("EnableNotifications", () => {
     expect(mockEnable).toHaveBeenCalledOnce();
   });
 
-  it("shows the enabled state when permission is granted", async () => {
-    mockPermission.mockReturnValue("granted");
+  it("shows the enabled state when subscribed", async () => {
+    mockStatus.mockResolvedValue("subscribed");
     renderControl();
     expect(
       await screen.findByText(/notifications are on/i),
@@ -60,7 +68,7 @@ describe("EnableNotifications", () => {
   });
 
   it("explains when the browser does not support notifications", async () => {
-    mockPermission.mockReturnValue("unsupported");
+    mockStatus.mockResolvedValue("unsupported");
     renderControl();
     expect(
       await screen.findByText(/does not support notifications/i),

@@ -9,7 +9,18 @@
 
 import { client } from "@/lib/api";
 
-export type PushPermission = NotificationPermission | "unsupported";
+/**
+ * Notification control state. Distinct from the raw browser *permission*: a
+ * device can have permission `granted` yet hold no push subscription (a cleared
+ * or failed/partial subscribe), in which case nothing can be delivered. The UI
+ * keys off this, not permission alone.
+ */
+export type PushStatus =
+  | "unsupported"
+  | "denied"
+  | "default"
+  | "subscribed"
+  | "unsubscribed";
 
 export function isPushSupported(): boolean {
   return (
@@ -21,9 +32,13 @@ export function isPushSupported(): boolean {
   );
 }
 
-export function getPushPermissionState(): PushPermission {
+export async function getPushStatus(): Promise<PushStatus> {
   if (!isPushSupported()) return "unsupported";
-  return Notification.permission;
+  const permission = Notification.permission;
+  if (permission !== "granted") return permission; // "default" | "denied"
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  return subscription ? "subscribed" : "unsubscribed";
 }
 
 /** Convert a URL-safe-base64 VAPID key to the bytes PushManager expects.
