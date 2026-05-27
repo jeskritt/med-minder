@@ -19,6 +19,7 @@ from medminder.api.deps import (
 )
 from medminder.db.models import User
 from medminder.domain.sessions import create_session
+from medminder.domain.timezone import InvalidTimezoneError, normalize_timezone
 from medminder.domain.users import (
     IncorrectPasswordError,
     PasswordTooShortError,
@@ -38,9 +39,9 @@ class Me(BaseModel):
     id: uuid.UUID
     name: str
     role: Literal["admin", "user"]
-    # Read-only here. ``timezone`` stays admin/CLI-managed (the in-app editor
-    # only needs it to label the quiet-hours inputs); quiet hours are editable
-    # via ``PUT /me/quiet-hours``. Both quiet-hours columns are NULL when off.
+    # ``timezone`` is self-service via ``PUT /me/timezone`` (and still
+    # CLI-settable); quiet hours via ``PUT /me/quiet-hours`` (both columns
+    # NULL when off). The picker also reads ``timezone`` to label those inputs.
     timezone: str
     quiet_hours_start: time | None = None
     quiet_hours_end: time | None = None
@@ -85,6 +86,27 @@ class QuietHoursUpdate(BaseModel):
         if self.start is not None and self.start == self.end:
             raise ValueError("Start and end must differ.")
         return self
+
+
+class TimezoneUpdate(BaseModel):
+    """Inbound body for ``PUT /me/timezone`` — self-service IANA timezone.
+
+    The value must be a zone known to the system tz database; an unknown or
+    malformed name is rejected here (422) so the column never holds something
+    the deferral / today-bounds math can't resolve later.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    timezone: str = Field(min_length=1)
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_zone(cls, value: str) -> str:
+        try:
+            return normalize_timezone(value)
+        except InvalidTimezoneError as exc:
+            raise ValueError(f"Unknown timezone {value!r}.") from exc
 
 
 class PasswordChange(BaseModel):
@@ -146,6 +168,21 @@ async def update_quiet_hours(
         new_quiet_hours_start=body.start,
         new_quiet_hours_end=body.end,
     )
+
+
+@router.put("/me/timezone", response_model=Me)
+async def update_timezone(
+    body: TimezoneUpdate,
+    user: User = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> User:
+    """Set the caller's own IANA timezone (no session effects).
+
+    ``TimezoneUpdate`` has already validated the zone against the tz database,
+    so this is a clean call into the shared ``update_user`` helper scoped to
+    the caller's own email.
+    """
+    return await update_user(db, email=user.email, new_timezone=body.timezone)
 
 
 @router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)

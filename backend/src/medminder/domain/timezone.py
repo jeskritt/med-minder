@@ -37,6 +37,21 @@ def _resolve_zone(name: str) -> ZoneInfo:
         raise InvalidTimezoneError(name) from exc
 
 
+def normalize_timezone(name: str) -> str:
+    """Validate an IANA zone name against the system tz database.
+
+    Returns ``name`` unchanged when it is a recognized zone; raises
+    ``InvalidTimezoneError`` otherwise. ``ValueError`` is also caught so
+    malformed keys (e.g. path-traversal-looking strings ``ZoneInfo`` rejects
+    outright) surface as the same domain error rather than leaking out.
+    """
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise InvalidTimezoneError(name) from exc
+    return name
+
+
 def resolve_today_bounds(
     *,
     user_tz: str,
@@ -90,5 +105,6 @@ def resolve_today_bounds(
 __all__ = [
     "InvalidTimezoneError",
     "TodayBounds",
+    "normalize_timezone",
     "resolve_today_bounds",
 ]

@@ -66,7 +66,7 @@ and the shared `domain.users.update_user` helper already exist and are unchanged
 
 ### Neutral
 
-- `timezone` is now visible on `GET /me`; it remains read-only in-app. A future feature could
-  add self-service timezone editing (out of scope here).
+- `timezone` is now visible on `GET /me`; it was read-only in-app at the time of this ADR.
+  Self-service timezone editing (`PUT /me/timezone`) was the follow-up — see ADR-0013.
 - Supersedes the "no in-app editor" stance from ADR-0002 / the Phase 7 spec; that text now
   carries a pointer to this ADR.

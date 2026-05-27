@@ -123,6 +123,7 @@ async def update_user(
     new_name: str | None = None,
     new_role: UserRole | None = None,
     new_password: str | None = None,
+    new_timezone: str | None = None,
     new_quiet_hours_start: time | None = None,
     new_quiet_hours_end: time | None = None,
     clear_quiet_hours: bool = False,
@@ -136,6 +137,7 @@ async def update_user(
             new_name,
             new_role,
             new_password,
+            new_timezone,
             new_quiet_hours_start,
             new_quiet_hours_end,
         )
@@ -162,6 +164,8 @@ async def update_user(
         user.name = new_name
     if new_role is not None:
         user.role = new_role
+    if new_timezone is not None:
+        user.timezone = new_timezone
     if clear_quiet_hours:
         user.quiet_hours_start = None
         user.quiet_hours_end = None

@@ -125,6 +125,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/timezone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Timezone
+         * @description Set the caller's own IANA timezone (no session effects).
+         *
+         *     ``TimezoneUpdate`` has already validated the zone against the tz database,
+         *     so this is a clean call into the shared ``update_user`` helper scoped to
+         *     the caller's own email.
+         */
+        put: operations["update_timezone_me_timezone_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -1128,6 +1152,18 @@ export interface components {
             multi_sub_dose?: components["schemas"]["MultiSubDosePayload"] | null;
         };
         /**
+         * TimezoneUpdate
+         * @description Inbound body for ``PUT /me/timezone`` — self-service IANA timezone.
+         *
+         *     The value must be a zone known to the system tz database; an unknown or
+         *     malformed name is rejected here (422) so the column never holds something
+         *     the deferral / today-bounds math can't resolve later.
+         */
+        TimezoneUpdate: {
+            /** Timezone */
+            timezone: string;
+        };
+        /**
          * TodayDose
          * @description The minimal slice of a dose surfaced under a Today item.
          */
@@ -1387,6 +1423,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["QuietHoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_timezone_me_timezone_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimezoneUpdate"];
             };
         };
         responses: {
