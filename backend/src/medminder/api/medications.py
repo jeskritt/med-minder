@@ -41,6 +41,10 @@ from medminder.domain.medications import (
     soft_delete_medication,
     update_medication,
 )
+from medminder.domain.reminder_dispatch import (
+    clear_refill_reminder,
+    regenerate_schedule_reminders,
+)
 from medminder.domain.timers import compute_timer_state
 
 router = APIRouter(prefix="/api/v1/medications", tags=["medications"])
@@ -196,6 +200,9 @@ async def create_med(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
+    # FR-012: generate reminders for the schedules this med attached to.
+    for sched in schedules:
+        await regenerate_schedule_reminders(db, schedule_id=sched.id)
     return _to_out(med, list(schedules))
 
 
@@ -207,6 +214,14 @@ async def update_med(
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> MedicationOut:
     """Replace a medication's fields and schedules."""
+    # Capture the schedules attached *before* the edit so detached ones also
+    # get their reminders re-synced (FR-012).
+    old_schedule_ids = {
+        s.id
+        for s in await list_schedules_for_medication(
+            db, medication_id=medication_id
+        )
+    }
     try:
         result = await update_medication(
             db,
@@ -225,6 +240,18 @@ async def update_med(
             detail="Medication not found.",
         )
     med, schedules = result
+    # FR-014a: if the med is no longer low on supply (a refill was recorded),
+    # clear any open refill warning so a future crossing can warn again.
+    still_low = (
+        med.refill_count is not None
+        and med.refill_threshold is not None
+        and med.refill_count <= med.refill_threshold
+    )
+    if not still_low:
+        await clear_refill_reminder(db, medication=med)
+    # FR-012: re-sync reminders for both newly-attached and detached schedules.
+    for sid in old_schedule_ids | {s.id for s in schedules}:
+        await regenerate_schedule_reminders(db, schedule_id=sid)
     return _to_out(med, list(schedules))
 
 
@@ -237,6 +264,12 @@ async def delete_med(
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> Response:
     """Soft-delete a medication owned by the caller."""
+    affected_schedule_ids = [
+        s.id
+        for s in await list_schedules_for_medication(
+            db, medication_id=medication_id
+        )
+    ]
     deleted = await soft_delete_medication(
         db, user_id=user.id, medication_id=medication_id
     )
@@ -245,4 +278,7 @@ async def delete_med(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Medication not found.",
         )
+    # FR-012: the med is gone from these schedules — re-sync their reminders.
+    for sid in affected_schedule_ids:
+        await regenerate_schedule_reminders(db, schedule_id=sid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,7 +7,9 @@ import {
   useChangePassword,
   useCurrentUser,
   useUpdateProfile,
+  useUpdateTimezone,
 } from "@/lib/auth";
+import { TimezoneCombobox } from "@/components/profile/TimezoneCombobox";
 
 const INPUT_CLASS =
   "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
@@ -64,6 +67,8 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
         </div>
 
         <ProfileNameSection currentName={user?.name ?? ""} />
+        <hr className="border-slate-200" />
+        <TimezoneSection currentTimezone={user?.timezone ?? "UTC"} />
         <hr className="border-slate-200" />
         <ChangePasswordSection />
       </div>
@@ -123,6 +128,54 @@ function ProfileNameSection({ currentName }: { currentName: string }) {
         {updateProfile.isPending ? "Saving…" : "Save name"}
       </button>
     </form>
+  );
+}
+
+function TimezoneSection({ currentTimezone }: { currentTimezone: string }) {
+  const update = useUpdateTimezone();
+  const [selected, setSelected] = useState(currentTimezone);
+  // Re-sync when /me resolves (or a save round-trips) so the field reflects the
+  // stored value and "dirty" compares against the truth. Render-phase
+  // reconciliation, not an effect.
+  const [lastTz, setLastTz] = useState(currentTimezone);
+  if (currentTimezone !== lastTz) {
+    setLastTz(currentTimezone);
+    setSelected(currentTimezone);
+  }
+
+  const dirty = selected !== currentTimezone;
+
+  return (
+    <section aria-label="Timezone" className="space-y-2">
+      <label htmlFor="profile-timezone" className="block text-sm font-medium">
+        Timezone
+      </label>
+      <p className="text-sm text-slate-500">
+        Used for your reminder times and quiet hours. Type to search — e.g.
+        “Edmo” finds “America/Edmonton”.
+      </p>
+      <TimezoneCombobox
+        id="profile-timezone"
+        value={selected}
+        onChange={setSelected}
+      />
+      {update.isError && (
+        <p role="alert" className="text-sm text-red-600">
+          {(update.error as Error).message}
+        </p>
+      )}
+      {update.isSuccess && !dirty && (
+        <p className="text-sm text-green-700">Timezone saved.</p>
+      )}
+      <button
+        type="button"
+        onClick={() => update.mutate({ timezone: selected })}
+        disabled={update.isPending || !dirty}
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        {update.isPending ? "Saving…" : "Save timezone"}
+      </button>
+    </section>
   );
 }
 

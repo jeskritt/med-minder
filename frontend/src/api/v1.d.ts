@@ -100,6 +100,55 @@ export interface paths {
         patch: operations["update_me_me_patch"];
         trace?: never;
     };
+    "/me/quiet-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Quiet Hours
+         * @description Set or clear the caller's own quiet-hours window (no session effects).
+         *
+         *     Both bounds set → store them; both ``null`` → clear the window. The
+         *     ``QuietHoursUpdate`` validator has already enforced both-or-neither, so
+         *     here it's a clean branch into the shared ``update_user`` helper, scoped to
+         *     the caller's own email.
+         */
+        put: operations["update_quiet_hours_me_quiet_hours_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/timezone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Timezone
+         * @description Set the caller's own IANA timezone (no session effects).
+         *
+         *     ``TimezoneUpdate`` has already validated the zone against the tz database,
+         *     so this is a clean call into the shared ``update_user`` helper scoped to
+         *     the caller's own email.
+         */
+        put: operations["update_timezone_me_timezone_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -336,6 +385,115 @@ export interface paths {
          *     cascading into medication soft-deletes.
          */
         delete: operations["delete_schedule_api_v1_schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/vapid-public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Vapid Public Key
+         * @description Return the public VAPID key for browser subscription (FR-002).
+         *
+         *     Auth-gated (single-tenant): nothing is served pre-login. The private
+         *     key is never exposed.
+         */
+        get: operations["get_vapid_public_key_api_v1_push_vapid_public_key_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Subscription
+         * @description Idempotently register this device's subscription (FR-001).
+         *
+         *     New endpoint → 201; an existing ``(user, endpoint)`` → keys refreshed, 200.
+         */
+        post: operations["register_subscription_api_v1_push_subscriptions_post"];
+        /**
+         * Remove Subscription
+         * @description Remove this device's subscription (idempotent, user-scoped).
+         */
+        delete: operations["remove_subscription_api_v1_push_subscriptions_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reminders
+         * @description List the caller's open (non-dismissed) reminders, oldest first.
+         */
+        get: operations["list_reminders_api_v1_reminders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reminders/{reminder_id}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Snooze
+         * @description Snooze a reminder one hour; returns the reminder that will next fire.
+         */
+        post: operations["snooze_api_v1_reminders__reminder_id__snooze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reminders/{reminder_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss
+         * @description Dismiss (resolve) a reminder. Idempotent; 404 if not the caller's.
+         */
+        post: operations["dismiss_api_v1_reminders__reminder_id__dismiss_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -579,6 +737,12 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "user";
+            /** Timezone */
+            timezone: string;
+            /** Quiet Hours Start */
+            quiet_hours_start?: string | null;
+            /** Quiet Hours End */
+            quiet_hours_end?: string | null;
         };
         /**
          * MedicationBody
@@ -797,6 +961,92 @@ export interface components {
             name: string;
         };
         /**
+         * PushKeys
+         * @description The client keys from a browser ``PushSubscription``.
+         */
+        PushKeys: {
+            /** P256Dh */
+            p256dh: string;
+            /** Auth */
+            auth: string;
+        };
+        /**
+         * PushSubscriptionIn
+         * @description Inbound body for ``POST /api/v1/push/subscriptions``.
+         */
+        PushSubscriptionIn: {
+            /** Endpoint */
+            endpoint: string;
+            keys: components["schemas"]["PushKeys"];
+        };
+        /**
+         * PushUnsubscribeIn
+         * @description Inbound body for ``DELETE /api/v1/push/subscriptions``.
+         */
+        PushUnsubscribeIn: {
+            /** Endpoint */
+            endpoint: string;
+        };
+        /**
+         * QuietHoursUpdate
+         * @description Inbound body for ``PUT /me/quiet-hours`` — self-service quiet window.
+         *
+         *     Quiet hours are an all-or-nothing pair: dose dispatch only defers when
+         *     *both* bounds are set (``domain.reminders.defer_for_quiet_hours``), and a
+         *     zero-length ``[start, start)`` window would never fire, so we reject both
+         *     the one-sided and the equal cases here. Sending both ``null`` clears the
+         *     window (quiet hours off). Pydantic coerces ``"22:00"`` → ``time``; a
+         *     malformed value surfaces as 422.
+         */
+        QuietHoursUpdate: {
+            /** Start */
+            start?: string | null;
+            /** End */
+            end?: string | null;
+        };
+        /**
+         * ReminderListOut
+         * @description Envelope for ``GET /api/v1/reminders``.
+         */
+        ReminderListOut: {
+            /** Items */
+            items: components["schemas"]["ReminderOut"][];
+        };
+        /**
+         * ReminderOut
+         * @description Public view of a reminder for the in-app list (FR-008).
+         */
+        ReminderOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "dose" | "refill";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "sent" | "snoozed" | "dismissed";
+            /**
+             * Scheduled For
+             * Format: date-time
+             */
+            scheduled_for: string;
+            /** Title */
+            title: string;
+            /** Schedule Id */
+            schedule_id: string | null;
+            /** Medication Id */
+            medication_id: string | null;
+            /** Overdue */
+            overdue: boolean;
+        };
+        /**
          * ScheduleCrudOut
          * @description Public view of a user-level schedule.
          */
@@ -902,6 +1152,18 @@ export interface components {
             multi_sub_dose?: components["schemas"]["MultiSubDosePayload"] | null;
         };
         /**
+         * TimezoneUpdate
+         * @description Inbound body for ``PUT /me/timezone`` — self-service IANA timezone.
+         *
+         *     The value must be a zone known to the system tz database; an unknown or
+         *     malformed name is rejected here (422) so the column never holds something
+         *     the deferral / today-bounds math can't resolve later.
+         */
+        TimezoneUpdate: {
+            /** Timezone */
+            timezone: string;
+        };
+        /**
          * TodayDose
          * @description The minimal slice of a dose surfaced under a Today item.
          */
@@ -980,6 +1242,14 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VapidKeyOut
+         * @description Public VAPID application-server key for the browser.
+         */
+        VapidKeyOut: {
+            /** Public Key */
+            public_key: string;
         };
         /**
          * WindowFullViolation
@@ -1120,6 +1390,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_quiet_hours_me_quiet_hours_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuietHoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_timezone_me_timezone_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimezoneUpdate"];
             };
         };
         responses: {
@@ -1615,6 +1951,170 @@ export interface operations {
             header?: never;
             path: {
                 schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_vapid_public_key_api_v1_push_vapid_public_key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VapidKeyOut"];
+                };
+            };
+        };
+    };
+    register_subscription_api_v1_push_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_subscription_api_v1_push_subscriptions_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushUnsubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reminders_api_v1_reminders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderListOut"];
+                };
+            };
+        };
+    };
+    snooze_api_v1_reminders__reminder_id__snooze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reminder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_api_v1_reminders__reminder_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reminder_id: string;
             };
             cookie?: never;
         };

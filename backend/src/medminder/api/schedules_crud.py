@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import get_current_user, get_session
 from medminder.db.models import Medication, Schedule, ScheduleMedication, User
+from medminder.domain.reminder_dispatch import regenerate_schedule_reminders
 
 router = APIRouter(prefix="/api/v1/schedules", tags=["schedules"])
 
@@ -150,6 +151,8 @@ async def create_schedule(
     db.add(sched)
     await db.flush()
     await db.refresh(sched)
+    # FR-012: keep reminders in step (a fresh schedule has no meds yet → no-op).
+    await regenerate_schedule_reminders(db, schedule_id=sched.id)
     return _to_out(sched)
 
 
@@ -181,6 +184,9 @@ async def update_schedule(
     sched.days_of_week = body.days_of_week
     await db.flush()
     await db.refresh(sched)
+    # FR-012: regenerate this schedule's future dose reminders at the new
+    # time/days (stale ones for the old time are cancelled).
+    await regenerate_schedule_reminders(db, schedule_id=sched.id)
 
     med_refs = [
         ScheduleMedRef(id=med_id, name=med_name)
@@ -233,6 +239,9 @@ async def delete_schedule(
     )
     sched.deleted_at = datetime.now(UTC)
     await db.flush()
+    # FR-012: the schedule is now soft-deleted, so this cancels its future
+    # pending dose reminders.
+    await regenerate_schedule_reminders(db, schedule_id=schedule_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

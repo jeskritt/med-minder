@@ -78,6 +78,66 @@ export function useUpdateProfile() {
   });
 }
 
+/**
+ * Update the current user's IANA timezone (`PUT /me/timezone`).  The picker
+ * only ever submits a value from `Intl.supportedValuesOf("timeZone")`, so a
+ * 422 here is a backstop (the server re-validates against `zoneinfo`).
+ * Invalidates `["me"]` so the nav, profile, and quiet-hours label refresh.
+ */
+export function useUpdateTimezone() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { timezone: string }): Promise<Me> => {
+      const { data, error, response } = await client.PUT("/me/timezone", {
+        body: input,
+      });
+      if (error || !data) {
+        throw new Error(
+          response.status === 422
+            ? "That timezone isn't valid."
+            : "Could not save your timezone. Please try again.",
+        );
+      }
+      return data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [...meQueryKey] });
+    },
+  });
+}
+
+/**
+ * Set or clear the current user's quiet-hours window (`PUT /me/quiet-hours`).
+ * Pass both `start`/`end` as `HH:MM` to set the window, or both `null` to turn
+ * quiet hours off.  Invalidates `["me"]` so the editor reflects the saved
+ * state.  A 422 (one-sided / equal / malformed) maps to a single friendly
+ * message — the form blocks those client-side, so 422 is just a backstop.
+ */
+export function useUpdateQuietHours() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      start: string | null;
+      end: string | null;
+    }): Promise<Me> => {
+      const { data, error, response } = await client.PUT("/me/quiet-hours", {
+        body: input,
+      });
+      if (error || !data) {
+        throw new Error(
+          response.status === 422
+            ? "Enter a valid start and end time."
+            : "Could not save your quiet hours. Please try again.",
+        );
+      }
+      return data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [...meQueryKey] });
+    },
+  });
+}
+
 /** Which field a {@link ChangePasswordError} should attach to. */
 export type ChangePasswordField = "current_password" | "new_password" | "form";
 

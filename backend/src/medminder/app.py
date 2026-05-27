@@ -14,6 +14,8 @@ from medminder.api import doses as doses_api
 from medminder.api import me as me_api
 from medminder.api import medication_interactions as medication_interactions_api
 from medminder.api import medications as medications_api
+from medminder.api import push as push_api
+from medminder.api import reminders as reminders_api
 from medminder.api import schedules as schedules_api
 from medminder.api import schedules_crud as schedules_crud_api
 from medminder.api.schemas.errors import (
@@ -50,9 +52,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        scheduler = None
+        if settings.reminders_enabled:
+            # Lazy import so apscheduler isn't required when reminders are off
+            # (tests/CI/Alembic run with reminders_enabled=False).
+            from medminder.scheduler import build_scheduler
+
+            scheduler = build_scheduler(settings, session_factory)
+            scheduler.start()
+            _app.state.scheduler = scheduler
         try:
             yield
         finally:
+            if scheduler is not None:
+                scheduler.shutdown(wait=False)
             await engine.dispose()
 
     app = FastAPI(
@@ -91,6 +104,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(doses_api.router)
     app.include_router(schedules_api.router)
     app.include_router(schedules_crud_api.router)
+    app.include_router(push_api.router)
+    app.include_router(reminders_api.router)
 
     @app.exception_handler(MinIntervalNotElapsedError)
     async def _min_interval_handler(

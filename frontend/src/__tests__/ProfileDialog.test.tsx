@@ -8,6 +8,7 @@ vi.mock("@/lib/api", () => ({
     GET: vi.fn(),
     POST: vi.fn(),
     PATCH: vi.fn(),
+    PUT: vi.fn(),
   },
   setApiContext: vi.fn(),
   fetchHealthz: vi.fn(),
@@ -19,6 +20,7 @@ import { ProfileDialog } from "@/components/profile/ProfileDialog";
 const mockGet = vi.mocked(client.GET);
 const mockPost = vi.mocked(client.POST);
 const mockPatch = vi.mocked(client.PATCH);
+const mockPut = vi.mocked(client.PUT);
 
 function renderDialog() {
   const queryClient = new QueryClient({
@@ -39,7 +41,7 @@ describe("ProfileDialog", () => {
     vi.clearAllMocks();
     // useCurrentUser() probes GET /me.
     mockGet.mockResolvedValue({
-      data: { id: "u1", name: "Molly", role: "user" },
+      data: { id: "u1", name: "Molly", role: "user", timezone: "UTC" },
       response: new Response(null, { status: 200 }),
       error: undefined,
     } as never);
@@ -71,6 +73,36 @@ describe("ProfileDialog", () => {
     await waitFor(() => {
       expect(mockPatch).toHaveBeenCalledWith("/me", {
         body: { name: "Molly R." },
+      });
+    });
+  });
+
+  it("saves a searched timezone via PUT /me/timezone", async () => {
+    mockPut.mockResolvedValue({
+      data: {
+        id: "u1",
+        name: "Molly",
+        role: "user",
+        timezone: "America/Edmonton",
+      },
+      response: new Response(null, { status: 200 }),
+      error: undefined,
+    } as never);
+
+    const { user } = renderDialog();
+    await screen.findByDisplayValue("Molly");
+
+    const tz = screen.getByRole("combobox");
+    await user.clear(tz);
+    await user.type(tz, "Edmo");
+    await user.click(
+      await screen.findByRole("option", { name: "America/Edmonton" }),
+    );
+    await user.click(screen.getByRole("button", { name: /save timezone/i }));
+
+    await waitFor(() => {
+      expect(mockPut).toHaveBeenCalledWith("/me/timezone", {
+        body: { timezone: "America/Edmonton" },
       });
     });
   });

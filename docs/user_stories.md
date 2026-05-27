@@ -213,19 +213,27 @@ through the admin CLI (`medminder-admin`).
 - [ ] Tapping the notification opens the medication's "today" view.
 
 #### UC-5.2 Snooze a reminder
-- [ ] User taps "snooze" on the notification or in the app.
+- [ ] User taps "snooze" in the app's reminders list (Phase 7). Snooze
+      from the notification itself, while the app is closed, is Phase 8.
 - [ ] The reminder is rescheduled for one hour later.
-- [ ] Snoozed reminders appear in the UI as "snoozed until ...".
+- [ ] Snoozed reminders appear in the UI as "snoozed".
 
 #### UC-5.3 Quiet hours
 - [ ] Reminders that fall inside the user's `quiet_hours_start` /
       `quiet_hours_end` are deferred to the end of the quiet
       window.
 - [ ] Quiet hours wrap around midnight correctly (e.g., 22:00 → 07:00).
+- [ ] A user can set or clear their own quiet hours from the `/reminders`
+      page (both bounds together, or both cleared); an admin can still set
+      them via the CLI (ADR-0012).
 
 #### UC-5.4 Refill warning
-- [ ] When `doses_remaining` falls below a threshold (configurable
-      per medication, default 3), a `refill` reminder is scheduled.
+- [ ] When taking a dose brings the live on-hand count `refill_count`
+      down to/below the medication's `refill_threshold` (opt-in — set
+      per medication), a `refill` reminder is created.
+- [ ] At most one open refill warning per medication; it re-arms once
+      `refill_count` is raised back above the threshold (a refill recorded
+      via the medication editor).
 - [ ] The refill reminder text identifies the medication and the
       number remaining.
 
