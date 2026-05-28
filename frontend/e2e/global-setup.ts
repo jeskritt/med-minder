@@ -12,7 +12,8 @@ import path from "node:path";
  *
  * Provisions:
  *   - demo@example.com   (timer-modes specs)
- *   - granny@example.com (granny smoke)
+ *   - granny@example.com (granny smoke; the non-admin in the admin spec)
+ *   - admin@example.com  (role=admin; the admin-users spec)
  *   - a `none`-mode medication + 08:00 schedule owned by granny, so
  *     /today shows it with timer_state: null → the unchanged
  *     <TakenToggle> the granny smoke drives.
@@ -35,6 +36,7 @@ const PASSWORD =
   process.env.E2E_USER_PASSWORD ?? "correct horse battery staple";
 const DEMO_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const GRANNY_EMAIL = process.env.E2E_USER_EMAIL ?? "granny@example.com";
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@example.com";
 const GRANNY_MED_NAME = "E2E Granny Lisinopril";
 
 function dc(args: string[], stdin?: string): { ok: boolean; out: string } {
@@ -51,7 +53,11 @@ function dc(args: string[], stdin?: string): { ok: boolean; out: string } {
   }
 }
 
-function ensureUser(email: string, name: string): void {
+function ensureUser(
+  email: string,
+  name: string,
+  role: "admin" | "user" = "user",
+): void {
   const add = dc(
     [
       "medminder-admin",
@@ -62,7 +68,7 @@ function ensureUser(email: string, name: string): void {
       "--name",
       name,
       "--role",
-      "user",
+      role,
       "--timezone",
       "America/Toronto",
     ],
@@ -185,5 +191,6 @@ export default async function globalSetup(): Promise<void> {
   await waitForBackend();
   ensureUser(DEMO_EMAIL, "Demo User");
   ensureUser(GRANNY_EMAIL, "Granny");
+  ensureUser(ADMIN_EMAIL, "Admin", "admin");
   await ensureGrannyMedication();
 }
