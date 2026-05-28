@@ -499,6 +499,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Users
+         * @description List active (non-deactivated) users, oldest first (FR-002).
+         */
+        get: operations["admin_list_users_api_v1_users_get"];
+        put?: never;
+        /**
+         * Admin Create User
+         * @description Create a user with a typed or generated temp password (FR-003/FR-004).
+         *
+         *     A generated password is returned once in ``temporary_password`` and never
+         *     stored or logged in plaintext. No forced-rotation flag is set (FR-018).
+         */
+        post: operations["admin_create_user_api_v1_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -549,6 +576,12 @@ export interface components {
         CountUpPayload: {
             /** Elapsed Seconds */
             elapsed_seconds?: number | null;
+        };
+        /** CreatedUser */
+        CreatedUser: {
+            user: components["schemas"]["UserOut"];
+            /** Temporary Password */
+            temporary_password?: string | null;
         };
         /**
          * DoseCreate
@@ -1229,6 +1262,65 @@ export interface components {
             timezone: string;
             /** Items */
             items: components["schemas"]["TodayItem"][];
+        };
+        /**
+         * UserCreate
+         * @description Create body — provide exactly one of ``password`` / ``generate``.
+         *
+         *     The 12-char minimum on a typed password is enforced server-side in
+         *     ``domain.passwords`` (single source of truth) → 422; it is intentionally
+         *     not re-encoded here.
+         */
+        UserCreate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "user";
+            /** Password */
+            password?: string | null;
+            /**
+             * Generate
+             * @default false
+             */
+            generate: boolean;
+        };
+        /** UserListOut */
+        UserListOut: {
+            /** Items */
+            items: components["schemas"]["UserOut"][];
+        };
+        /**
+         * UserOut
+         * @description Public view of a user row (contract ``UserOut``).
+         */
+        UserOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "user";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2126,6 +2218,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_users_api_v1_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListOut"];
+                };
+            };
+        };
+    };
+    admin_create_user_api_v1_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedUser"];
+                };
             };
             /** @description Validation Error */
             422: {

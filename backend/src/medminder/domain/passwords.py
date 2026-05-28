@@ -10,6 +10,8 @@ Callers are expected to do the same.
 
 from __future__ import annotations
 
+import secrets
+
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -41,3 +43,18 @@ def verify_password(stored_hash: str, plain: str) -> bool:
 
 def password_too_short(plain: str) -> bool:
     return len(plain) < MIN_PASSWORD_LENGTH
+
+
+# token_urlsafe(n) yields ceil(n*8/6) chars; 16 bytes → ~22 chars, well over
+# the 12-char minimum and ≥ 128 bits of entropy from a CSPRNG.
+_TEMP_PASSWORD_NBYTES: int = 16
+
+
+def generate_temp_password() -> str:
+    """Mint a one-time temporary password.
+
+    Uses the stdlib CSPRNG (``secrets``); the result comfortably clears
+    ``MIN_PASSWORD_LENGTH`` and carries ≥ 128 bits of entropy. Callers show it
+    to the admin exactly once and never persist or log the plaintext (FR-004).
+    """
+    return secrets.token_urlsafe(_TEMP_PASSWORD_NBYTES)

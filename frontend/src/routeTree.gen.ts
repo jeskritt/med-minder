@@ -13,10 +13,12 @@ import { Route as TodayRouteImport } from './routes/today'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as MedicationsRouteImport } from './routes/medications'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MedicationsIndexRouteImport } from './routes/medications.index'
 import { Route as MedicationsNewRouteImport } from './routes/medications.new'
 import { Route as MedicationsMedicationIdRouteImport } from './routes/medications.$medicationId'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as MedicationsIdEditRouteImport } from './routes/medications.$id.edit'
 
 const TodayRoute = TodayRouteImport.update({
@@ -39,6 +41,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -59,6 +66,11 @@ const MedicationsMedicationIdRoute = MedicationsMedicationIdRouteImport.update({
   path: '/$medicationId',
   getParentRoute: () => MedicationsRoute,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
 const MedicationsIdEditRoute = MedicationsIdEditRouteImport.update({
   id: '/$id/edit',
   path: '/$id/edit',
@@ -67,10 +79,12 @@ const MedicationsIdEditRoute = MedicationsIdEditRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/medications': typeof MedicationsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
+  '/admin/users': typeof AdminUsersRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
   '/medications/': typeof MedicationsIndexRoute
@@ -78,9 +92,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
+  '/admin/users': typeof AdminUsersRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
   '/medications': typeof MedicationsIndexRoute
@@ -89,10 +105,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/medications': typeof MedicationsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
+  '/admin/users': typeof AdminUsersRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
   '/medications/': typeof MedicationsIndexRoute
@@ -102,10 +120,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/login'
     | '/medications'
     | '/reminders'
     | '/today'
+    | '/admin/users'
     | '/medications/$medicationId'
     | '/medications/new'
     | '/medications/'
@@ -113,9 +133,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/login'
     | '/reminders'
     | '/today'
+    | '/admin/users'
     | '/medications/$medicationId'
     | '/medications/new'
     | '/medications'
@@ -123,10 +145,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/login'
     | '/medications'
     | '/reminders'
     | '/today'
+    | '/admin/users'
     | '/medications/$medicationId'
     | '/medications/new'
     | '/medications/'
@@ -135,6 +159,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   MedicationsRoute: typeof MedicationsRouteWithChildren
   RemindersRoute: typeof RemindersRoute
@@ -171,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -199,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MedicationsMedicationIdRouteImport
       parentRoute: typeof MedicationsRoute
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/medications/$id/edit': {
       id: '/medications/$id/edit'
       path: '/$id/edit'
@@ -208,6 +247,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminRouteChildren {
+  AdminUsersRoute: typeof AdminUsersRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminUsersRoute: AdminUsersRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface MedicationsRouteChildren {
   MedicationsMedicationIdRoute: typeof MedicationsMedicationIdRoute
@@ -229,6 +278,7 @@ const MedicationsRouteWithChildren = MedicationsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   MedicationsRoute: MedicationsRouteWithChildren,
   RemindersRoute: RemindersRoute,
