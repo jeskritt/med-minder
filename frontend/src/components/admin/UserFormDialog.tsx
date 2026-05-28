@@ -5,6 +5,8 @@ import { z } from "zod";
 import {
   CreateUserError,
   useCreateUser,
+  useUpdateUser,
+  type AdminUser,
   type UserCreateBody,
 } from "@/lib/adminUsers";
 
@@ -26,16 +28,27 @@ type FormValues = z.infer<typeof schema>;
 export interface UserFormDialogProps {
   open: boolean;
   onClose: () => void;
+  /** When set, the dialog edits this user (name/email/role); password is
+   *  reset via the separate dialog. When omitted, it creates a new user. */
+  editUser?: AdminUser | null;
 }
 
 /**
- * Create-user modal (User Story 1).  Follows the app's plain-render modal
- * pattern (`role="dialog"` + fixed overlay, no native `<dialog>`).  After a
- * generated-password create, swaps to a one-time reveal panel — the plaintext
- * is shown once and never retrievable afterward (FR-004).
+ * Create/edit user modal (User Stories 1 & 2).  Follows the app's plain-render
+ * modal pattern (`role="dialog"` + fixed overlay, no native `<dialog>`).  In
+ * create mode with "generate", swaps to a one-time temp-password reveal — the
+ * plaintext is shown once and never retrievable afterward (FR-004).
  */
-export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
+export function UserFormDialog({
+  open,
+  onClose,
+  editUser,
+}: UserFormDialogProps) {
+  const isEdit = !!editUser;
   const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+  const mutation = isEdit ? updateUser : createUser;
+
   const [generate, setGenerate] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -48,7 +61,12 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", name: "", role: "user", password: "" },
+    defaultValues: {
+      email: editUser?.email ?? "",
+      name: editUser?.name ?? "",
+      role: editUser?.role ?? "user",
+      password: "",
+    },
   });
 
   if (!open) return null;
@@ -61,10 +79,25 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
     onClose();
   };
 
+  const onError = (err: unknown) => {
+    if (err instanceof CreateUserError && err.field !== "form") {
+      setError(err.field, { message: err.message });
+    }
+  };
+
   const onSubmit = handleSubmit((values) => {
-    // The 12-char minimum only applies to a typed password; a generated one is
-    // produced server-side. Validate the typed case here so the message lands
-    // on the password field (the server re-checks via `password_too_short`).
+    if (isEdit && editUser) {
+      updateUser.mutate(
+        {
+          userId: editUser.id,
+          body: { name: values.name, email: values.email, role: values.role },
+        },
+        { onSuccess: () => closeAll(), onError },
+      );
+      return;
+    }
+    // Create mode: the 12-char minimum only applies to a typed password; a
+    // generated one is produced server-side (server re-checks regardless).
     if (!generate && values.password.length < 12) {
       setError("password", {
         message: "Use at least 12 characters (or generate one)",
@@ -93,32 +126,31 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
           closeAll();
         }
       },
-      onError: (err) => {
-        if (err instanceof CreateUserError && err.field !== "form") {
-          setError(err.field, { message: err.message });
-        }
-      },
+      onError,
     });
   });
 
   const formError =
-    createUser.error instanceof CreateUserError &&
-    createUser.error.field === "form"
-      ? createUser.error.message
+    mutation.error instanceof CreateUserError && mutation.error.field === "form"
+      ? mutation.error.message
       : null;
+
+  const title = tempPassword
+    ? "User created"
+    : isEdit
+      ? "Edit user"
+      : "Add user";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Add user"
+      aria-label={isEdit ? "Edit user" : "Add user"}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     >
       <div className="max-h-[90vh] w-full max-w-md space-y-5 overflow-y-auto rounded-lg border bg-white p-6 shadow">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {tempPassword ? "User created" : "Add user"}
-          </h2>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <button
             type="button"
             onClick={closeAll}
@@ -164,14 +196,11 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
         ) : (
           <form onSubmit={onSubmit} noValidate className="space-y-3">
             <div>
-              <label
-                htmlFor="new-user-email"
-                className="block text-sm font-medium"
-              >
+              <label htmlFor="user-email" className="block text-sm font-medium">
                 Email
               </label>
               <input
-                id="new-user-email"
+                id="user-email"
                 type="email"
                 autoComplete="off"
                 className={INPUT_CLASS}
@@ -184,14 +213,11 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
               )}
             </div>
             <div>
-              <label
-                htmlFor="new-user-name"
-                className="block text-sm font-medium"
-              >
+              <label htmlFor="user-name" className="block text-sm font-medium">
                 Display name
               </label>
               <input
-                id="new-user-name"
+                id="user-name"
                 type="text"
                 className={INPUT_CLASS}
                 {...register("name")}
@@ -203,14 +229,11 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
               )}
             </div>
             <div>
-              <label
-                htmlFor="new-user-role"
-                className="block text-sm font-medium"
-              >
+              <label htmlFor="user-role" className="block text-sm font-medium">
                 Role
               </label>
               <select
-                id="new-user-role"
+                id="user-role"
                 className={INPUT_CLASS}
                 {...register("role")}
               >
@@ -218,35 +241,39 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
                 <option value="admin">Admin</option>
               </select>
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={generate}
-                onChange={(e) => setGenerate(e.target.checked)}
-              />
-              Generate a temporary password
-            </label>
-            {!generate && (
-              <div>
-                <label
-                  htmlFor="new-user-password"
-                  className="block text-sm font-medium"
-                >
-                  Password
+            {!isEdit && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={generate}
+                    onChange={(e) => setGenerate(e.target.checked)}
+                  />
+                  Generate a temporary password
                 </label>
-                <input
-                  id="new-user-password"
-                  type="password"
-                  autoComplete="new-password"
-                  className={INPUT_CLASS}
-                  {...register("password")}
-                />
-                {errors.password && (
-                  <p role="alert" className="mt-1 text-sm text-red-600">
-                    {errors.password.message}
-                  </p>
+                {!generate && (
+                  <div>
+                    <label
+                      htmlFor="user-password"
+                      className="block text-sm font-medium"
+                    >
+                      Password
+                    </label>
+                    <input
+                      id="user-password"
+                      type="password"
+                      autoComplete="new-password"
+                      className={INPUT_CLASS}
+                      {...register("password")}
+                    />
+                    {errors.password && (
+                      <p role="alert" className="mt-1 text-sm text-red-600">
+                        {errors.password.message}
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
             {formError && (
               <p role="alert" className="text-sm text-red-600">
@@ -255,10 +282,14 @@ export function UserFormDialog({ open, onClose }: UserFormDialogProps) {
             )}
             <button
               type="submit"
-              disabled={createUser.isPending}
+              disabled={mutation.isPending}
               className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {createUser.isPending ? "Creating…" : "Create user"}
+              {mutation.isPending
+                ? "Saving…"
+                : isEdit
+                  ? "Save changes"
+                  : "Create user"}
             </button>
           </form>
         )}

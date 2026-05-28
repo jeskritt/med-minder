@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.db.models import User
 from medminder.db.models.users import UserRole
+from medminder.domain.audit import record_admin_action
 from medminder.domain.passwords import (
     hash_password,
     password_too_short,
@@ -289,6 +290,134 @@ async def soft_delete_user(session: AsyncSession, *, email: str) -> uuid.UUID:
     return user.id
 
 
+async def admin_update_user(
+    session: AsyncSession,
+    *,
+    actor: User,
+    user_id: uuid.UUID,
+    new_email: str | None = None,
+    new_name: str | None = None,
+    new_role: UserRole | None = None,
+) -> User:
+    """Admin-edit another user's name/email/role, then audit it (FR-006).
+
+    Resolve-by-id → self-edit guard (FR-009/FR-019) → last-admin demote guard
+    (FR-010) → reuse ``update_user`` → record the action. The actor cannot edit
+    their own row here (that is the profile editor's job).
+
+    Raises ``UserNotFoundError`` (→404), ``SelfActionError`` (→403),
+    ``LastAdminError`` (→409), ``DuplicateEmailError`` (→409).
+    """
+    target = await get_user_by_id(session, user_id=user_id)
+    if target is None:
+        raise UserNotFoundError(f"No active user with id {user_id}.")
+    if target.id == actor.id:
+        raise SelfActionError("Manage your own account in the profile editor.")
+
+    old_role = target.role
+    demoting_admin = old_role == "admin" and new_role == "user"
+    if demoting_admin and await count_active_admins(session) <= 1:
+        raise LastAdminError("Cannot demote the last remaining admin.")
+
+    user = await update_user(
+        session,
+        email=target.email,
+        new_email=new_email,
+        new_name=new_name,
+        new_role=new_role,
+    )
+
+    role_changed = new_role is not None and new_role != old_role
+    fields = [
+        name
+        for name, value in (
+            ("email", new_email),
+            ("name", new_name),
+            ("role", new_role),
+        )
+        if value is not None
+    ]
+    details: dict[str, object] = {"fields": fields}
+    if role_changed:
+        details["role"] = f"{old_role}→{new_role}"
+    await record_admin_action(
+        session,
+        actor_id=actor.id,
+        action="role_change" if role_changed else "update",
+        target_user_id=user.id,
+        details=details,
+    )
+    return user
+
+
+async def admin_reset_password(
+    session: AsyncSession,
+    *,
+    actor: User,
+    user_id: uuid.UUID,
+    new_password: str,
+) -> User:
+    """Admin-reset another user's password, revoking their sessions (FR-007).
+
+    Resolve-by-id → self guard (use the profile editor for your own password) →
+    reuse ``update_user(new_password=…)`` (which revokes every session of the
+    target) → audit. The caller (API) decides typed vs generated and owns the
+    one-time reveal; this records only the field name, never the value (FR-020).
+
+    Raises ``UserNotFoundError`` (→404), ``SelfActionError`` (→403),
+    ``PasswordTooShortError`` (→422).
+    """
+    target = await get_user_by_id(session, user_id=user_id)
+    if target is None:
+        raise UserNotFoundError(f"No active user with id {user_id}.")
+    if target.id == actor.id:
+        raise SelfActionError("Change your own password in the profile editor.")
+    user = await update_user(
+        session, email=target.email, new_password=new_password
+    )
+    await record_admin_action(
+        session,
+        actor_id=actor.id,
+        action="password_reset",
+        target_user_id=user.id,
+        details={"fields": ["password"]},
+    )
+    return user
+
+
+async def admin_deactivate_user(
+    session: AsyncSession,
+    *,
+    actor: User,
+    user_id: uuid.UUID,
+) -> uuid.UUID:
+    """Admin-deactivate (soft-delete) another user, revoking sessions (FR-008).
+
+    Resolve-by-id → self guard (FR-009) → last-admin guard (FR-010) → reuse
+    ``soft_delete_user`` (which revokes every session) → audit. No in-app
+    restore exists (FR-016).
+
+    Raises ``UserNotFoundError`` (→404), ``SelfActionError`` (→403),
+    ``LastAdminError`` (→409).
+    """
+    target = await get_user_by_id(session, user_id=user_id)
+    if target is None:
+        raise UserNotFoundError(f"No active user with id {user_id}.")
+    if target.id == actor.id:
+        raise SelfActionError("You cannot deactivate your own account.")
+    if target.role == "admin" and await count_active_admins(session) <= 1:
+        raise LastAdminError("Cannot deactivate the last remaining admin.")
+    deleted_id = await soft_delete_user(session, email=target.email)
+    await record_admin_action(
+        session,
+        actor_id=actor.id,
+        action="deactivate",
+        target_user_id=deleted_id,
+        details={},
+    )
+    return deleted_id
+
+
 __all__ = [
     "DomainError",
     "DuplicateEmailError",
@@ -298,6 +427,9 @@ __all__ = [
     "PasswordTooShortError",
     "SelfActionError",
     "UserNotFoundError",
+    "admin_deactivate_user",
+    "admin_reset_password",
+    "admin_update_user",
     "change_own_password",
     "count_active_admins",
     "create_user",

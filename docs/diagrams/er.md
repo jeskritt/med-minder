@@ -40,6 +40,13 @@ that don't render cleanly in Mermaid:
   resources (managed via
   `GET/POST/DELETE /api/v1/schedules`); `schedule_medications` already
   modelled the M:N link, so no new table was needed.
+- **In-app admin user management (migration `…_add_admin_audit_log`; see
+  ADR-0014)** — `admin_audit_log` is an **append-only** record of one
+  successful privileged admin action. It has **two FKs to `users`**
+  (`actor_id`, `target_user_id`), **no `ON DELETE CASCADE`** (history
+  outlives a soft-deleted user), and **no `updated_at`/`deleted_at`**.
+  `details` is JSONB holding changed **field names** only — never
+  passwords, hashes, or secret values (FR-013/FR-020).
 
 ```mermaid
 erDiagram
@@ -63,6 +70,9 @@ erDiagram
 
     medications ||--o{ reminders : "refill_of"
     schedules  ||--o{ reminders : "dose_of"
+
+    users ||--o{ admin_audit_log : "acted"
+    users ||--o{ admin_audit_log : "targeted"
 
     users {
         uuid id PK
@@ -173,5 +183,14 @@ erDiagram
         timestamptz scheduled_for
         timestamptz created_at
         timestamptz updated_at
+    }
+
+    admin_audit_log {
+        uuid id PK
+        uuid actor_id FK "acting admin; no cascade"
+        uuid target_user_id FK "affected user; no cascade"
+        admin_audit_action action "create|update|role_change|password_reset|deactivate"
+        jsonb details "changed field names only; never secrets"
+        timestamptz created_at
     }
 ```

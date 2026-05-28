@@ -6,8 +6,9 @@ Terms used across the constitution (`specs/`), user stories
 | Term | Definition |
 |------|------------|
 | **Adherence** | Whether a user actually takes their medication as scheduled, measured over time. The calendar and stacked-bar views in UC-6 visualize adherence. |
-| **Admin** | A user with `role = 'admin'`, created via the `medminder-admin` CLI. Admins can manage other users via the same CLI; there is no admin web UI in v1. |
-| **Append-only** | Describes the `doses` table: rows are inserted but never updated or deleted. Corrections are made by inserting a compensating row, preserving history. |
+| **Admin** | A user with `role = 'admin'`. Admins manage other users either via the `medminder-admin` CLI **or in-app** at `/admin/users` — both go through the same shared `domain.users` logic (ADR-0014). The in-app surface (the `/api/v1/users` router) is gated by the `require_admin` dependency: an authenticated non-admin gets 403, an unauthenticated caller 401. |
+| **Admin audit log** | The append-only `admin_audit_log` table: one row per **successful** in-app admin action (`create` / `update` / `role_change` / `password_reset` / `deactivate`), capturing actor, target, a changed-**field-names** summary, and timestamp — never passwords or hashes. Read-only in-app at `/admin/audit` (`GET /api/v1/users/audit-log`); no edit/delete path. See ADR-0014. |
+| **Append-only** | Describes the `doses` and `admin_audit_log` tables: rows are inserted but never updated or deleted. For doses, corrections are made by inserting a compensating row, preserving history. |
 | **Argon2id** | Password-hashing algorithm used for `users.password_hash`. Slow by design to resist offline cracking. |
 | **Bootstrap admin** | The first admin user, created on a Koyeb one-shot job after the initial deploy via `medminder-admin user add`. See `docs/deployment.md` §2.3. |
 | **Cooldown** | The minimum time that must elapse before a dose is permitted, either because of a `count_down` timer's `min_interval_minutes` or because of a `medication_interactions` rule. |

@@ -19,6 +19,7 @@ import { Route as MedicationsIndexRouteImport } from './routes/medications.index
 import { Route as MedicationsNewRouteImport } from './routes/medications.new'
 import { Route as MedicationsMedicationIdRouteImport } from './routes/medications.$medicationId'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as MedicationsIdEditRouteImport } from './routes/medications.$id.edit'
 
 const TodayRoute = TodayRouteImport.update({
@@ -71,6 +72,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
 const MedicationsIdEditRoute = MedicationsIdEditRouteImport.update({
   id: '/$id/edit',
   path: '/$id/edit',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/medications': typeof MedicationsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/users': typeof AdminUsersRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/users': typeof AdminUsersRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/medications': typeof MedicationsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/today': typeof TodayRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/users': typeof AdminUsersRoute
   '/medications/$medicationId': typeof MedicationsMedicationIdRoute
   '/medications/new': typeof MedicationsNewRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/medications'
     | '/reminders'
     | '/today'
+    | '/admin/audit'
     | '/admin/users'
     | '/medications/$medicationId'
     | '/medications/new'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reminders'
     | '/today'
+    | '/admin/audit'
     | '/admin/users'
     | '/medications/$medicationId'
     | '/medications/new'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/medications'
     | '/reminders'
     | '/today'
+    | '/admin/audit'
     | '/admin/users'
     | '/medications/$medicationId'
     | '/medications/new'
@@ -238,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/medications/$id/edit': {
       id: '/medications/$id/edit'
       path: '/$id/edit'
@@ -249,10 +268,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
   AdminUsersRoute: typeof AdminUsersRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
   AdminUsersRoute: AdminUsersRoute,
 }
 
