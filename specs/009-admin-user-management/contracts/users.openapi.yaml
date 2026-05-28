@@ -1,0 +1,277 @@
+openapi: 3.1.0
+info:
+  title: MedMinder In-App Admin User Management (Feature 009)
+  version: "0.9.0"
+  description: |
+    Contract fragment for the endpoint deltas this feature introduces. The
+    authoritative API document is the FastAPI-emitted OpenAPI spec at runtime;
+    this file documents the agreed shape pre-implementation so reviewers can
+    challenge it before code is written. The implementation MUST conform; CI
+    fails if the regenerated frontend client (`frontend/src/api/v1.d.ts`)
+    drifts from the runtime spec.
+
+    All paths live on a NEW `/api/v1/users` router and require an authenticated
+    user whose `role == "admin"` (the `require_admin` dependency). A non-admin
+    authenticated caller gets 403; an unauthenticated caller gets 401.
+
+    Deltas:
+      - GET    /api/v1/users                       — list active users
+      - POST   /api/v1/users                       — create (type OR generate password)
+      - PATCH  /api/v1/users/{user_id}             — edit name/email/role
+      - POST   /api/v1/users/{user_id}/password    — reset password (revokes target sessions)
+      - DELETE /api/v1/users/{user_id}             — deactivate (soft-delete + revoke)
+      - GET    /api/v1/users/audit-log             — read-only audit trail (P3)
+
+    Out of scope: restoring deleted users; editing other users' timezone/quiet
+    hours; self-management via this surface (use the profile editor). See
+    spec.md and data-model.md.
+
+servers:
+  - url: /
+    description: Backend served at root; the frontend reaches it via the dev proxy or production reverse proxy.
+
+paths:
+  /api/v1/users:
+    get:
+      operationId: admin_list_users
+      summary: List active users
+      description: Returns active (non-deactivated) users ordered by creation time.
+      responses:
+        "200":
+          description: The active users.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListOut"
+        "401": { description: Not authenticated. }
+        "403": { description: Authenticated but not an admin. }
+    post:
+      operationId: admin_create_user
+      summary: Create a user
+      description: |
+        Creates a user with a typed OR system-generated temporary password
+        (exactly one of `password` / `generate`). The 12-char minimum applies to
+        typed passwords. When generated, the plaintext is returned ONCE in
+        `temporary_password` and is never retrievable afterward. No forced
+        rotation flag is set (FR-018).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: Created. `temporary_password` is present only when `generate` was true.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedUser"
+        "401": { description: Not authenticated. }
+        "403": { description: Authenticated but not an admin. }
+        "409": { description: Email already exists (case-insensitive, including soft-deleted users). }
+        "422": { description: Validation error (missing/short password, both-or-neither password/generate, bad email, name length, unknown role). }
+
+  /api/v1/users/{user_id}:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: admin_update_user
+      summary: Edit a user's name, email, and/or role
+      description: |
+        At least one of `name` / `email` / `role` must be present (`extra`
+        forbidden). Editing your OWN account here is refused (403) — use the
+        profile editor (FR-019). Demoting the last remaining admin is refused
+        (409, FR-010). Password is NOT changed here (use the password endpoint).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOut"
+        "401": { description: Not authenticated. }
+        "403": { description: Not an admin, or attempting to edit your own account here. }
+        "404": { description: No active user with that id. }
+        "409": { description: Email conflict, or demoting the last remaining admin. }
+        "422": { description: Empty body, unknown field, bad email, name length, or unknown role. }
+    delete:
+      operationId: admin_deactivate_user
+      summary: Deactivate (soft-delete) a user
+      description: |
+        Soft-deletes the user and revokes all of their active sessions
+        immediately (FR-008/SC-005). Refused for your own account (403,
+        FR-009) and for the last remaining admin (409, FR-010). There is no
+        in-app restore (FR-016).
+      responses:
+        "204": { description: Deactivated; the user's sessions are revoked. }
+        "401": { description: Not authenticated. }
+        "403": { description: Not an admin, or attempting to deactivate your own account. }
+        "404": { description: No active user with that id. }
+        "409": { description: Would remove the last remaining admin. }
+
+  /api/v1/users/{user_id}/password:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: admin_reset_password
+      summary: Reset a user's password
+      description: |
+        Sets a typed OR generated password for the target user and revokes all
+        of their active sessions (FR-007/SC-005). Exactly one of `password` /
+        `generate`. Refused for your own account (403) — use the profile editor.
+        When generated, the plaintext is returned ONCE in `temporary_password`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordSet"
+      responses:
+        "200":
+          description: Password reset; target's sessions revoked. `temporary_password` present only when generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetOut"
+        "401": { description: Not authenticated. }
+        "403": { description: Not an admin, or attempting to reset your own password here. }
+        "404": { description: No active user with that id. }
+        "422": { description: Missing/short password, or both-or-neither password/generate. }
+
+  /api/v1/users/audit-log:
+    get:
+      operationId: admin_list_audit_log
+      summary: Read the admin action audit trail (P3)
+      description: |
+        Returns audit entries newest-first. Records only SUCCESSFUL admin
+        actions; contains no passwords or hashes (FR-013).
+      responses:
+        "200":
+          description: Audit entries, reverse-chronological.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditListOut"
+        "401": { description: Not authenticated. }
+        "403": { description: Authenticated but not an admin. }
+
+components:
+  schemas:
+
+    Role:
+      type: string
+      enum: ["admin", "user"]
+
+    UserOut:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        created_at: { type: string, format: date-time }
+
+    UserListOut:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/UserOut" }
+
+    UserCreate:
+      type: object
+      additionalProperties: false
+      required: [email, name, role]
+      description: Provide exactly one of `password` or `generate`.
+      properties:
+        email: { type: string, format: email, minLength: 1, description: "Login email; validated as an email address (EmailStr); case-insensitive unique." }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        role: { $ref: "#/components/schemas/Role" }
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: |
+            Typed initial password. The 12-char minimum is enforced server-side
+            (domain `password_too_short`, single source of truth) → 422.
+        generate:
+          type: boolean
+          description: If true, the server generates a one-time temporary password instead.
+
+    UserUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: At least one field; password is changed via the password endpoint, not here.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        email: { type: string, format: email, minLength: 1, description: "Validated as an email address (EmailStr)." }
+        role: { $ref: "#/components/schemas/Role" }
+
+    PasswordSet:
+      type: object
+      additionalProperties: false
+      description: Provide exactly one of `password` or `generate`.
+      properties:
+        password: { type: string, minLength: 1, maxLength: 1024 }
+        generate: { type: boolean }
+
+    CreatedUser:
+      type: object
+      additionalProperties: false
+      required: [user]
+      properties:
+        user: { $ref: "#/components/schemas/UserOut" }
+        temporary_password:
+          type: ["string", "null"]
+          description: Present (shown once) only when `generate` was true; otherwise null/absent.
+
+    PasswordResetOut:
+      type: object
+      additionalProperties: false
+      properties:
+        temporary_password:
+          type: ["string", "null"]
+          description: Present (shown once) only when `generate` was true; otherwise null/absent.
+
+    AuditEntryOut:
+      type: object
+      additionalProperties: false
+      required: [id, actor_id, target_user_id, action, details, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        actor_id: { type: string, format: uuid }
+        target_user_id: { type: string, format: uuid }
+        action:
+          type: string
+          enum: ["create", "update", "role_change", "password_reset", "deactivate"]
+        details:
+          type: object
+          description: Changed field names (never secret values), e.g. {"fields":["name","email"]}.
+        created_at: { type: string, format: date-time }
+
+    AuditListOut:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEntryOut" }
