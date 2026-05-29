@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MedMinder">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <!-- Capsule pill, rotated, centered with margin for maskable safe-zone -->
+  <g transform="rotate(-45 256 256)">
+    <rect x="176" y="120" width="160" height="272" rx="80" fill="#f8fafc"/>
+    <path d="M176 256 a80 80 0 0 1 80 -80 h0 v160 h0 a80 80 0 0 1 -80 -80 Z" fill="#38bdf8"/>
+    <rect x="176" y="248" width="160" height="16" fill="#0f172a"/>
+  </g>
+  <!-- Plus mark for "medicine / care" -->
+  <g fill="#38bdf8">
+    <rect x="344" y="116" width="24" height="80" rx="8"/>
+    <rect x="316" y="144" width="80" height="24" rx="8"/>
+  </g>
+</svg>

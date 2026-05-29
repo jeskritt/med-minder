@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from medminder.api.deps import get_current_user, get_session, get_settings
 from medminder.api.schemas.reminders import ReminderListOut, ReminderOut
 from medminder.db.models import Reminder, User
+from medminder.domain.doses import ReminderNotTakeableError, take_reminder
 from medminder.domain.reminder_dispatch import (
     ReminderNotFoundError,
     dismiss_reminder,
@@ -114,6 +115,35 @@ async def dismiss(
     except ReminderNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Not Found"
+        ) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{reminder_id}/take", status_code=status.HTTP_204_NO_CONTENT)
+async def take(
+    reminder_id: uuid.UUID,
+    user: User = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+) -> Response:
+    """Mark a dose reminder's slot as taken: record a dose per attached med.
+
+    Powers the notification "Mark taken" action (Phase 8). Atomic — any
+    overdose/interaction guard raised by ``create_dose`` propagates to the
+    app-wide handlers as a 409 with nothing committed (FR-015). 404 if the
+    reminder isn't the caller's; 422 for a non-dose reminder. Idempotent (204)
+    when the slot has no meds or is already resolved.
+    """
+    try:
+        await take_reminder(
+            db, user=user, reminder_id=reminder_id, now=datetime.now(UTC)
+        )
+    except ReminderNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not Found"
+        ) from exc
+    except ReminderNotTakeableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

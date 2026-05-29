@@ -499,6 +499,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reminders/{reminder_id}/take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take
+         * @description Mark a dose reminder's slot as taken: record a dose per attached med.
+         *
+         *     Powers the notification "Mark taken" action (Phase 8). Atomic — any
+         *     overdose/interaction guard raised by ``create_dose`` propagates to the
+         *     app-wide handlers as a 409 with nothing committed (FR-015). 404 if the
+         *     reminder isn't the caller's; 422 for a non-dose reminder. Idempotent (204)
+         *     when the slot has no meds or is already resolved.
+         */
+        post: operations["take_api_v1_reminders__reminder_id__take_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -2351,6 +2377,35 @@ export interface operations {
         };
     };
     dismiss_api_v1_reminders__reminder_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reminder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    take_api_v1_reminders__reminder_id__take_post: {
         parameters: {
             query?: never;
             header?: never;
