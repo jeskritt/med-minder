@@ -537,8 +537,10 @@ export interface paths {
          * Admin List Audit Log
          * @description Read the admin-action audit trail, newest first (FR-014).
          *
-         *     Records only successful actions and never any secret values (FR-013). The
-         *     table is append-only (FR-022); there is intentionally no edit/delete route.
+         *     Bounded by ``limit``/``offset`` (newest-first) so the response can't grow
+         *     unbounded as the trail accumulates. Records only successful actions and
+         *     never any secret values (FR-013); the table is append-only (FR-022) — there
+         *     is intentionally no edit/delete route.
          */
         get: operations["admin_list_audit_log_api_v1_users_audit_log_get"];
         put?: never;
@@ -2432,7 +2434,10 @@ export interface operations {
     };
     admin_list_audit_log_api_v1_users_audit_log_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2446,6 +2451,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

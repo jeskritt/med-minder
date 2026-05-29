@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -173,7 +173,11 @@ async def admin_create_user(
     """
     temp: str | None = generate_temp_password() if body.generate else None
     password = temp if temp is not None else body.password
-    assert password is not None  # guaranteed by UserCreate validator
+    if password is None:  # unreachable: UserCreate validator guarantees one of the two
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="password resolution failed",
+        )
     try:
         user = await create_user(
             db,
@@ -209,17 +213,28 @@ async def admin_create_user(
 async def admin_list_audit_log(
     _admin: User = Depends(require_admin),  # noqa: B008
     db: AsyncSession = Depends(get_session),  # noqa: B008
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ) -> AuditListOut:
     """Read the admin-action audit trail, newest first (FR-014).
 
-    Records only successful actions and never any secret values (FR-013). The
-    table is append-only (FR-022); there is intentionally no edit/delete route.
+    Bounded by ``limit``/``offset`` (newest-first) so the response can't grow
+    unbounded as the trail accumulates. Records only successful actions and
+    never any secret values (FR-013); the table is append-only (FR-022) — there
+    is intentionally no edit/delete route.
     """
     rows = (
-        await db.execute(
-            select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc())
+        (
+            await db.execute(
+                select(AdminAuditLog)
+                .order_by(AdminAuditLog.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return AuditListOut(items=[AuditEntryOut.model_validate(r) for r in rows])
 
 
@@ -301,7 +316,11 @@ async def admin_reset_user_password(
     """
     temp: str | None = generate_temp_password() if body.generate else None
     password = temp if temp is not None else body.password
-    assert password is not None  # guaranteed by PasswordSet validator
+    if password is None:  # unreachable: PasswordSet validator guarantees one of the two
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="password resolution failed",
+        )
     try:
         await admin_reset_password(
             db, actor=admin, user_id=user_id, new_password=password

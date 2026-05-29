@@ -1,6 +1,6 @@
 """add admin_audit_log
 
-Revision ID: 51aa0c32d96b
+Revision ID: 0007_admin_audit_log
 Revises: 0006_reminder_indexes
 Create Date: 2026-05-28 13:23:39.813340
 
@@ -22,7 +22,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "51aa0c32d96b"
+revision: str = "0007_admin_audit_log"
 down_revision: str | None = "0006_reminder_indexes"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

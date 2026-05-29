@@ -109,3 +109,41 @@ async def test_audit_log_has_no_mutating_route(
     await login_as(client, admin_user.email)
     resp = await client.delete("/api/v1/users/audit-log")
     assert resp.status_code == 422
+
+
+async def test_audit_log_respects_limit(
+    client: AsyncClient, session: AsyncSession, admin_user: User
+) -> None:
+    """The trail is bounded by ``limit`` and stays newest-first."""
+    target = await _make_target(session)
+    base = datetime.now(UTC)
+    # Seed 5 rows with strictly increasing timestamps for this target.
+    for i in range(5):
+        session.add(
+            AdminAuditLog(
+                actor_id=admin_user.id,
+                target_user_id=target.id,
+                action="update",
+                details={"fields": ["name"], "i": i},
+                created_at=base + timedelta(minutes=i),
+            )
+        )
+    await session.flush()
+    await login_as(client, admin_user.email)
+
+    resp = await client.get("/api/v1/users/audit-log?limit=3")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) == 3
+    # Newest-first: created_at is non-increasing across the page.
+    times = [e["created_at"] for e in items]
+    assert times == sorted(times, reverse=True)
+
+    # offset pages past the newest rows.
+    page2 = await client.get("/api/v1/users/audit-log?limit=3&offset=3")
+    assert page2.status_code == 200
+    assert len(page2.json()["items"]) >= 1
+
+    # Out-of-range limit is rejected (422).
+    bad = await client.get("/api/v1/users/audit-log?limit=0")
+    assert bad.status_code == 422
