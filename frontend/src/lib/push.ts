@@ -73,8 +73,9 @@ export async function enablePushNotifications(): Promise<void> {
   if (permission !== "granted") {
     throw new Error("Notification permission was not granted.");
   }
-  const registration = await navigator.serviceWorker.register("/sw.js");
-  await navigator.serviceWorker.ready;
+  // The service worker is registered at app startup by the PWA plugin
+  // (lib/pwa.ts); wait for it to be active rather than registering a second.
+  const registration = await navigator.serviceWorker.ready;
   const publicKey = await fetchVapidPublicKey();
   if (!publicKey) {
     throw new Error("Notifications are not configured on the server yet.");

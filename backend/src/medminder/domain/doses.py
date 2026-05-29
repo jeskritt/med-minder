@@ -41,6 +41,7 @@ from medminder.domain.interactions import (
     detect_interaction_conflict,
 )
 from medminder.domain.reminder_dispatch import (
+    _load_owned_reminder,
     ensure_refill_reminder,
     resolve_dose_reminders,
 )
@@ -71,6 +72,10 @@ class DoseNotFoundError(DoseError):
 
 class DoseAlreadyVoidedError(DoseError):
     """A void already exists for this dose (HTTP 409)."""
+
+
+class ReminderNotTakeableError(DoseError):
+    """The reminder is not a dose-slot reminder, so it can't be taken (HTTP 422)."""
 
 
 async def create_dose(
@@ -368,6 +373,87 @@ async def void_dose(
         med.refill_count = med.refill_count + 1
         await session.flush()
     return void
+
+
+async def take_reminder(
+    session: AsyncSession,
+    *,
+    user: User,
+    reminder_id: uuid.UUID,
+    now: datetime,
+) -> int:
+    """Mark a dose reminder's whole slot as taken (Phase 8, FR-014/015).
+
+    Records a dose for **every** non-deleted medication attached to the
+    reminder's schedule slot — the same guards as the in-app take — then
+    resolves the slot's open reminder(s). Used by the notification "Mark taken"
+    action and is **atomic**: any guard error (``MinIntervalNotElapsedError`` /
+    ``WindowFullError`` / ``DailyCapReachedError`` /
+    ``MedicationInteractionConflictError``) **propagates**, so the request
+    transaction rolls back and no dose is committed. ``interaction_acknowledged``
+    is always ``False`` here — an interaction cooldown is never silently
+    acknowledged from a notification (the informed override is in-app only).
+
+    Idempotent: a slot with no attached meds, or an already-resolved reminder,
+    simply resolves (no-op) and returns 0. Returns the number of doses recorded.
+
+    Lives here (not in ``reminder_dispatch``) to avoid a circular import:
+    ``doses`` already depends on ``reminder_dispatch`` for resolution/refill.
+    """
+    reminder = await _load_owned_reminder(
+        session, user=user, reminder_id=reminder_id
+    )
+    if reminder.type != "dose" or reminder.schedule_id is None:
+        raise ReminderNotTakeableError(
+            "Only dose reminders can be marked taken."
+        )
+    schedule_id = reminder.schedule_id
+
+    medication_ids = list(
+        (
+            await session.execute(
+                select(ScheduleMedication.medication_id)
+                .join(Schedule, Schedule.id == ScheduleMedication.schedule_id)
+                .join(
+                    Medication,
+                    Medication.id == ScheduleMedication.medication_id,
+                )
+                .where(
+                    ScheduleMedication.schedule_id == schedule_id,
+                    Schedule.deleted_at.is_(None),
+                    Medication.deleted_at.is_(None),
+                    Medication.user_id == user.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    recorded = 0
+    for medication_id in medication_ids:
+        # `create_dose` validates every overdose/interaction guard *before*
+        # inserting, and raises on the first violation. The guard error
+        # propagates unchanged so the caller's request transaction rolls back
+        # the whole slot — nothing is committed (FR-015). `interaction_acknowledged`
+        # is always False here: a notification never silently acknowledges an
+        # interaction cooldown (the informed override is in-app only).
+        await create_dose(
+            session,
+            user=user,
+            medication_id=medication_id,
+            schedule_id=schedule_id,
+            taken_at=now,
+            interaction_acknowledged=False,
+        )
+        recorded += 1
+
+    # Resolve the slot's open reminder(s) — also covers the no-meds case, where
+    # the per-med resolution inside create_dose never ran.
+    await resolve_dose_reminders(
+        session, user=user, schedule_id=schedule_id, taken_at=now
+    )
+    return recorded
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,110 @@
+openapi: 3.1.0
+info:
+  title: MedMinder PWA Polish (Feature 010)
+  version: "0.10.0"
+  description: |
+    Contract fragment for the **single** new endpoint this feature introduces.
+    The authoritative API document is the FastAPI-emitted OpenAPI spec at
+    runtime; this file documents the agreed shape pre-implementation so
+    reviewers can challenge it before code is written. The implementation MUST
+    conform; CI fails if the regenerated frontend client
+    (`frontend/src/api/v1.d.ts`) drifts from the runtime spec.
+
+    Everything else in Phase 8 is frontend/build (manifest, icons, service
+    worker, offline shell, push-permission UX) and adds no HTTP surface. The
+    existing push + reminders endpoints (feature 008) are unchanged; the push
+    payload is NOT expanded with medical ids.
+
+    The new endpoint requires an authenticated session (the `mm_session`
+    cookie) and is scoped to the logged-in user — a reminder that is not the
+    caller's is indistinguishable from "not found" (404), matching
+    `snooze`/`dismiss` (FR-016). It is invoked both in-app and from the service
+    worker (same-origin `fetch(credentials:'include')`).
+
+servers:
+  - url: /
+    description: Backend served at root; the frontend reaches it via the dev proxy or production reverse proxy.
+
+paths:
+  /api/v1/reminders/{reminder_id}/take:
+    post:
+      operationId: reminders_take
+      summary: Mark a dose reminder's slot as taken (records a dose per attached medication)
+      description: |
+        Records a dose for **every** non-deleted medication attached to the
+        reminder's schedule slot, then resolves (dismisses) the slot's open
+        reminder(s) (FR-014/FR-015). Reminder-id-keyed and symmetric with
+        `snooze`/`dismiss`; the service worker needs only the `reminder_id`
+        already present in the push payload, so no medical ids are placed on the
+        device.
+
+        **Atomic / fail-safe.** The whole operation runs in one transaction. If
+        recording any medication's dose is blocked by a guard — a
+        non-overridable overdose guard (min-interval, window-full, or
+        daily-cap) or a drug-interaction cooldown — **no dose is recorded**, the
+        reminder is left unchanged, and the endpoint returns **409** with the
+        existing violation body. `interaction_acknowledged` is always treated as
+        **false** here; an interaction cooldown is never silently acknowledged
+        from a notification (the informed override remains in-app only).
+
+        Idempotent: a reminder with no attached medications, or one already
+        resolved, returns **204** with no effect. `take` applies only to `dose`
+        reminders; a `refill` reminder (no schedule slot) is rejected.
+      parameters:
+        - in: path
+          name: reminder_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: |
+            Doses recorded for the slot's medications (if any) and the
+            reminder resolved; or an idempotent no-op (no meds / already
+            resolved).
+        "401":
+          description: Not authenticated.
+        "404":
+          description: No such reminder owned by the caller.
+        "409":
+          description: |
+            Recording was blocked by a dose guard; nothing was committed. The
+            body is one of the existing Phase 5/6 violation schemas (the first
+            conflict encountered), unchanged in shape:
+            `MinIntervalViolation` (`min_interval_not_elapsed`),
+            `WindowFullViolation` (`window_full`),
+            `DailyCapViolation` (`daily_cap_reached`), or
+            `InteractionCooldownViolation` (`interaction_cooldown_active`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoseGuardViolation"
+        "422":
+          description: |
+            The reminder is not a dose reminder (e.g. a refill warning has no
+            schedule slot to take).
+
+components:
+  schemas:
+    # Documented for reference only — these are the EXISTING Phase 5/6 violation
+    # bodies, reused unchanged. The runtime OpenAPI spec is authoritative for
+    # their exact fields; `code` is the discriminator.
+    DoseGuardViolation:
+      type: object
+      description: |
+        One of the existing dose-guard violation bodies, discriminated by
+        `code`. No new error schema is introduced by this feature.
+      required: [code, medication_id]
+      properties:
+        code:
+          type: string
+          enum:
+            - min_interval_not_elapsed
+            - window_full
+            - daily_cap_reached
+            - interaction_cooldown_active
+        medication_id:
+          type: string
+          format: uuid
+          description: The medication whose guard blocked the take.
