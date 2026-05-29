@@ -18,6 +18,7 @@ from medminder.api import push as push_api
 from medminder.api import reminders as reminders_api
 from medminder.api import schedules as schedules_api
 from medminder.api import schedules_crud as schedules_crud_api
+from medminder.api import users as users_api
 from medminder.api.schemas.errors import (
     ConflictOut,
     DailyCapViolation,
@@ -106,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(schedules_crud_api.router)
     app.include_router(push_api.router)
     app.include_router(reminders_api.router)
+    app.include_router(users_api.router)
 
     @app.exception_handler(MinIntervalNotElapsedError)
     async def _min_interval_handler(

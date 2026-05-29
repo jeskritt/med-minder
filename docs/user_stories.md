@@ -68,8 +68,12 @@ the daily-use loop, reminders, and reporting.
 
 ### UC-1 — Account management (no self-service)
 
-There is no user-facing registration. All account management happens
-through the admin CLI (`medminder-admin`).
+There is no user-facing registration. Account management is performed by
+**admins**, either through the admin CLI (`medminder-admin`) or **in-app** at
+`/admin/users` (feature 009 / ADR-0014). Both paths share the same
+`domain.users` logic, so the rules below (12-char minimum, case-insensitive
+email uniqueness incl. soft-deleted, forced logout on reset/delete) hold
+identically in either surface.
 
 #### UC-1.1 Admin adds a user
 - [ ] CLI accepts email, name, role (`admin` | `user`), and password
@@ -92,6 +96,23 @@ through the admin CLI (`medminder-admin`).
 - [ ] CLI prints a table: id, email, name, role, created_at, deleted_at.
 - [ ] `--role` filters by role.
 - [ ] `--include-deleted` shows soft-deleted rows.
+
+#### UC-1.5 Admin manages users in-app (feature 009 / ADR-0014)
+- [ ] Only `role = 'admin'` reaches `/admin/users` and the `/api/v1/users`
+      endpoints (authenticated non-admin → 403, anonymous → 401); the Admin nav
+      entry shows for admins only.
+- [ ] Admin lists active users and creates one with email/name/role and either a
+      typed password or a **generated temporary password shown exactly once**.
+- [ ] Admin edits a user's name/email/role and resets a password (typed or
+      generated); a reset signs the target out of every device.
+- [ ] Admin deactivates a user via an **in-app confirm** (not native
+      `confirm()`); the user is signed out everywhere and leaves the list. No
+      in-app restore.
+- [ ] An admin cannot edit/reset/deactivate **their own** account here (use the
+      profile editor); the last remaining admin cannot be demoted or deactivated.
+- [ ] Every successful create/edit/role-change/reset/deactivate writes one
+      append-only `admin_audit_log` row (no secret values); admins can read the
+      trail at `/admin/audit`.
 
 ### UC-2 — Login / logout
 

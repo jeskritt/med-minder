@@ -97,3 +97,21 @@ async def get_current_user(
         raise _unauthorized()
     set_session_cookie(response, signed_value=cookie_value, settings=settings)
     return user
+
+
+async def require_admin(
+    user: User = Depends(get_current_user),  # noqa: B008
+) -> User:
+    """Authorize the caller as an admin, or raise 403.
+
+    Server-side gate for the entire ``/api/v1/users`` surface (FR-001) — the
+    control does not depend on the UI hiding the nav entry. An unauthenticated
+    caller already gets 401 from ``get_current_user``; an authenticated
+    non-admin gets a generic 403 here.
+    """
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required.",
+        )
+    return user

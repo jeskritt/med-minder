@@ -58,6 +58,17 @@ export function NavBar() {
                   Reminders
                 </Link>
               </li>
+              {user.role === "admin" && (
+                <li>
+                  <Link
+                    to="/admin/users"
+                    className="text-slate-600 hover:text-blue-600"
+                    activeProps={{ className: "text-blue-600 font-semibold" }}
+                  >
+                    Admin
+                  </Link>
+                </li>
+              )}
               {/* Future tabs (Timers, etc.) drop in here. */}
             </ul>
           )}

@@ -499,6 +499,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Users
+         * @description List active (non-deactivated) users, oldest first (FR-002).
+         */
+        get: operations["admin_list_users_api_v1_users_get"];
+        put?: never;
+        /**
+         * Admin Create User
+         * @description Create a user with a typed or generated temp password (FR-003/FR-004).
+         *
+         *     A generated password is returned once in ``temporary_password`` and never
+         *     stored or logged in plaintext. No forced-rotation flag is set (FR-018).
+         */
+        post: operations["admin_create_user_api_v1_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Audit Log
+         * @description Read the admin-action audit trail, newest first (FR-014).
+         *
+         *     Bounded by ``limit``/``offset`` (newest-first) so the response can't grow
+         *     unbounded as the trail accumulates. Records only successful actions and
+         *     never any secret values (FR-013); the table is append-only (FR-022) — there
+         *     is intentionally no edit/delete route.
+         */
+        get: operations["admin_list_audit_log_api_v1_users_audit_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Admin Delete User
+         * @description Deactivate (soft-delete) a user and revoke their sessions (FR-008).
+         *
+         *     Refused for your own account (403) and for the last remaining admin (409).
+         *     There is no in-app restore (FR-016).
+         */
+        delete: operations["admin_delete_user_api_v1_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Admin Edit User
+         * @description Edit a user's name/email/role (FR-006).
+         *
+         *     Editing your own row here is refused (use the profile editor); demoting the
+         *     last admin is refused. Password is changed via the password endpoint.
+         */
+        patch: operations["admin_edit_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Reset User Password
+         * @description Reset a user's password and revoke their sessions (FR-007).
+         *
+         *     Typed or generated (exactly one). A generated password is returned once.
+         *     Resetting your own password here is refused (use the profile editor).
+         */
+        post: operations["admin_reset_user_password_api_v1_users__user_id__password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -515,6 +620,46 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /**
+         * AuditEntryOut
+         * @description One audit-trail row (contract ``AuditEntryOut``).
+         */
+        AuditEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Actor Id
+             * Format: uuid
+             */
+            actor_id: string;
+            /**
+             * Target User Id
+             * Format: uuid
+             */
+            target_user_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "create" | "update" | "role_change" | "password_reset" | "deactivate";
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AuditListOut */
+        AuditListOut: {
+            /** Items */
+            items: components["schemas"]["AuditEntryOut"][];
         };
         /**
          * ConflictOut
@@ -549,6 +694,12 @@ export interface components {
         CountUpPayload: {
             /** Elapsed Seconds */
             elapsed_seconds?: number | null;
+        };
+        /** CreatedUser */
+        CreatedUser: {
+            user: components["schemas"]["UserOut"];
+            /** Temporary Password */
+            temporary_password?: string | null;
         };
         /**
          * DoseCreate
@@ -952,6 +1103,24 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** PasswordResetOut */
+        PasswordResetOut: {
+            /** Temporary Password */
+            temporary_password?: string | null;
+        };
+        /**
+         * PasswordSet
+         * @description Reset body — provide exactly one of ``password`` / ``generate``.
+         */
+        PasswordSet: {
+            /** Password */
+            password?: string | null;
+            /**
+             * Generate
+             * @default false
+             */
+            generate: boolean;
+        };
         /**
          * ProfileUpdate
          * @description Inbound body for ``PATCH /me`` — display name only (FR-007/FR-010).
@@ -1229,6 +1398,78 @@ export interface components {
             timezone: string;
             /** Items */
             items: components["schemas"]["TodayItem"][];
+        };
+        /**
+         * UserCreate
+         * @description Create body — provide exactly one of ``password`` / ``generate``.
+         *
+         *     The 12-char minimum on a typed password is enforced server-side in
+         *     ``domain.passwords`` (single source of truth) → 422; it is intentionally
+         *     not re-encoded here.
+         */
+        UserCreate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "user";
+            /** Password */
+            password?: string | null;
+            /**
+             * Generate
+             * @default false
+             */
+            generate: boolean;
+        };
+        /** UserListOut */
+        UserListOut: {
+            /** Items */
+            items: components["schemas"]["UserOut"][];
+        };
+        /**
+         * UserOut
+         * @description Public view of a user row (contract ``UserOut``).
+         */
+        UserOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "user";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * UserUpdate
+         * @description Edit body — at least one of name/email/role (password is reset
+         *     separately).  ``extra`` forbidden so an unknown field is a 422 (FR-023).
+         */
+        UserUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Role */
+            role?: ("admin" | "user") | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2126,6 +2367,190 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_users_api_v1_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserListOut"];
+                };
+            };
+        };
+    };
+    admin_create_user_api_v1_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedUser"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_audit_log_api_v1_users_audit_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_edit_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_reset_user_password_api_v1_users__user_id__password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordSet"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetOut"];
+                };
             };
             /** @description Validation Error */
             422: {
