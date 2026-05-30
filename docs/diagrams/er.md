@@ -2,7 +2,11 @@
 
 The schema below is the v1 data model committed in Phase 1, plus the
 `dose_voids` table added in Phase 4 and the pill-model / daily-cap
-columns added in the UX-enhancements batch. Every table, column, and
+columns added in the UX-enhancements batch. **Phase 9 (long-term
+adherence views) adds no tables or columns** — the calendar, trend,
+percentage, course progress, and CSV export are all *derived* on read
+from `doses` / `dose_voids` / `medications` / `schedules` (see
+ADR-0016). Every table, column, and
 relationship matches the committed Alembic migrations
 (`backend/alembic/versions/0001_phase_1_baseline.py` through
 `backend/alembic/versions/0005_pill_model_daily_cap.py`) and the

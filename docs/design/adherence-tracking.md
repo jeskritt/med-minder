@@ -73,13 +73,17 @@ medication_name, taken_at, quantity, unit, schedule_label, soft_deleted
 Soft-deleted medications are still included so that a six-month-old
 export remains coherent if the user later cleans up their list.
 
-## Open questions
+## Resolved in Phase 9 (ADR-0016)
 
-- Should adherence counts include un-taken (compensated) doses? The
-  honest answer is "no, they were corrected" — but corrections are
-  rare and worth noting in the export.
-- Time zone for the calendar: user's TZ at the time of the dose, or
-  user's *current* TZ? Working assumption: user's *current* TZ
-  (consistent with the rest of the app).
-
-These get resolved in the Phase 9 PRs.
+- **Un-taken (voided) doses are excluded** from all adherence counts and from
+  the CSV's taken rows — they were explicit corrections. (Reporting voids
+  separately is deferred; corrections are rare.)
+- **Time zone is the user's *current* TZ** for day bucketing, consistent with
+  the rest of the app — not the zone in effect when each dose was recorded.
+- **No "skipped" state.** A scheduled-and-untaken day, once past a fixed 4-hour
+  tolerance, is "missed"; before that it is "future/not-yet-due". Day status is
+  taken / partial / missed / future / inactive, and adherence **honours each
+  schedule's days-of-week** (a Mon–Fri med is inactive, not missed, on weekends).
+- **Adherence percentage** = (taken ÷ expected) × 100 over scored days
+  (inactive/future excluded); null for PRN meds.
+- **Course completion is display-only** — no side effects on reminders/schedule.

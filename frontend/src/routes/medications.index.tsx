@@ -1,9 +1,10 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Printer } from "lucide-react";
+import { Download, Plus, Printer } from "lucide-react";
 import { client } from "@/lib/api";
 import { MedicationList } from "@/components/medications/MedicationList";
+import { downloadDoseHistoryCsv } from "@/lib/adherence";
 
 const medicationsQueryKey = ["medications"] as const;
 
@@ -66,6 +67,10 @@ function MedicationsPage() {
     }
   };
 
+  const exportMutation = useMutation({
+    mutationFn: downloadDoseHistoryCsv,
+  });
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <div className="flex items-center justify-between print:hidden">
@@ -85,8 +90,22 @@ function MedicationsPage() {
             <Printer className="size-4" />
             Print
           </button>
+          <button
+            type="button"
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+            className="mm-btn mm-btn-secondary"
+          >
+            <Download className="size-4" />
+            {exportMutation.isPending ? "Exporting…" : "Export"}
+          </button>
         </div>
       </div>
+      {exportMutation.isError && (
+        <p role="alert" className="mt-2 text-sm text-destructive print:hidden">
+          Could not export your dose history. Please try again.
+        </p>
+      )}
 
       <h1 className="hidden text-2xl font-bold print:block">Medications</h1>
 
