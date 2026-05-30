@@ -72,5 +72,5 @@ CI gate worth knowing about: `alembic upgrade head` then `alembic check` runs ag
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/010-pwa-polish/plan.md` (Phase 8 — PWA polish).
+`specs/011-adherence-views/plan.md` (Phase 9 — Long-term adherence views).
 <!-- SPECKIT END -->
