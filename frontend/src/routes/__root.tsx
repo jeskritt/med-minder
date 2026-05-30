@@ -15,12 +15,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootComponent() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen text-foreground">
       <UpdatePrompt />
       <OfflineIndicator />
       <InstallHint />
       <NavBar />
-      <Outlet />
+      {/* Bottom padding clears the mobile tab bar; removed on md+ and print. */}
+      <div className="pb-24 md:pb-0 print:pb-0">
+        <Outlet />
+      </div>
     </div>
   );
 }

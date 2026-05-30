@@ -27,7 +27,7 @@ export function OfflineIndicator() {
   return (
     <div
       role="status"
-      className="bg-amber-500 px-4 py-1.5 text-center text-sm font-medium text-amber-950"
+      className="bg-warning px-4 py-2 text-center text-sm font-medium text-warning-foreground"
     >
       You're offline. Live data will load again once you reconnect.
     </div>

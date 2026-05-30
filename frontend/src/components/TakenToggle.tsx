@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Check } from "lucide-react";
 import {
   InteractionConflictError,
   MinIntervalError,
@@ -107,14 +108,21 @@ export function TakenToggle({
         aria-pressed={isTaken}
         className={
           isTaken
-            ? "rounded border border-gray-300 bg-gray-100 px-3 py-1.5 text-sm text-gray-500 disabled:opacity-50"
-            : "rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            ? "mm-btn mm-btn-touch border border-success/30 bg-success/10 text-success hover:bg-success/15"
+            : "mm-btn mm-btn-primary mm-btn-touch"
         }
       >
-        {isTaken ? "Taken" : "Mark taken"}
+        {isTaken ? (
+          <>
+            <Check className="size-4" />
+            Taken
+          </>
+        ) : (
+          "Mark taken"
+        )}
       </button>
       {minIntervalError && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-destructive">
           Next dose in {formatRemaining(minIntervalError.remaining_seconds)}
         </p>
       )}

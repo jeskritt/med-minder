@@ -17,13 +17,18 @@ export const Route = createFileRoute("/reminders")({
 function RemindersPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-4 text-xl font-semibold text-gray-900">Reminders</h1>
-      <div className="mb-6">
+      <h1 className="mb-5 text-3xl font-bold tracking-tight text-foreground">
+        Reminders
+      </h1>
+      <div className="mm-card mb-4 p-4">
         <EnableNotifications />
       </div>
-      <div className="mb-6">
+      <div className="mm-card mb-6 p-4">
         <QuietHoursSection />
       </div>
+      <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+        Upcoming
+      </h2>
       <ReminderList />
     </div>
   );

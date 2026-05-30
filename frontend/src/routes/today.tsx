@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/lib/api";
 import { useToday, type TodayItem } from "@/hooks/useToday";
@@ -232,28 +233,40 @@ function TodayPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <h1 className="text-3xl font-bold tracking-tight text-foreground">
         Today
       </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {new Date().toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}
+      </p>
 
       {today.isLoading && (
-        <p className="mt-4 text-slate-500">Loading today's schedule…</p>
+        <p className="mt-6 text-muted-foreground">Loading today's schedule…</p>
       )}
 
       {today.isError && (
-        <p className="mt-4 text-red-600">Could not load today.</p>
+        <p className="mt-6 text-destructive">Could not load today.</p>
       )}
 
       {today.isSuccess && groups.length === 0 && (
-        <p className="mt-4 text-slate-500">Nothing scheduled for today.</p>
+        <div className="mm-card mt-6 px-6 py-10 text-center">
+          <p className="font-medium text-foreground">All clear</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Nothing scheduled for today.
+          </p>
+        </div>
       )}
 
       {takeAllReport && (
         <div
           role="status"
-          className="mt-4 rounded border border-blue-200 bg-blue-50 p-3 text-sm"
+          className="mt-4 rounded-xl border border-accent bg-accent/50 p-3 text-sm text-foreground"
         >
-          <p>
+          <p className="font-medium">
             Marked {takeAllReport.taken} taken
             {takeAllReport.skipped.length > 0
               ? ` · skipped ${takeAllReport.skipped.length}`
@@ -261,10 +274,13 @@ function TodayPage() {
             .
           </p>
           {takeAllReport.skipped.length > 0 && (
-            <ul className="ml-4 mt-1 list-disc text-xs text-gray-700">
+            <ul className="mt-1 ml-4 list-disc text-xs text-muted-foreground">
               {takeAllReport.skipped.map((s, i) => (
                 <li key={i}>
-                  <strong>{s.name}</strong>: {s.reason}
+                  <strong className="font-medium text-foreground">
+                    {s.name}
+                  </strong>
+                  : {s.reason}
                 </li>
               ))}
             </ul>
@@ -272,7 +288,7 @@ function TodayPage() {
           <button
             type="button"
             onClick={() => setTakeAllReport(null)}
-            className="mt-2 text-xs text-blue-700 underline"
+            className="mt-2 text-xs font-medium text-primary hover:underline"
           >
             Dismiss
           </button>
@@ -297,13 +313,13 @@ function TodayPage() {
             <section
               key={groupKey}
               data-testid={`today-group-${groupKey}`}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              className="mm-card overflow-hidden"
             >
-              <header className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+              <header className="flex items-center justify-between gap-3 border-b border-border/70 bg-muted/40 px-4 py-3">
                 <div>
-                  <p className="font-semibold text-slate-900">{headerTitle}</p>
+                  <p className="font-semibold text-foreground">{headerTitle}</p>
                   {headerTime && (
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {headerTime}
                     </p>
                   )}
@@ -316,14 +332,15 @@ function TodayPage() {
                       void handleTakeAll(group);
                     }}
                     disabled={take.isPending}
-                    className="rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                    className="mm-btn mm-btn-secondary"
                   >
+                    <Check className="size-4" />
                     Take all
                   </button>
                 )}
               </header>
 
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-border/70">
                 {group.items.map((item) => {
                   // PRN rows have no day-of-week concept — never mute them.
                   const muted =
@@ -334,37 +351,38 @@ function TodayPage() {
                       key={`${item.schedule_id}-${item.medication_id}`}
                       data-testid={`today-row-${item.medication_id}`}
                       className={
-                        "px-4 py-3 " +
+                        "px-4 py-3.5 transition-colors " +
                         (muted ? "italic opacity-70 " : "") +
-                        (item.dose !== null ? "bg-slate-50/60" : "")
+                        (item.dose !== null ? "bg-success/[0.06]" : "")
                       }
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900">
+                          <p className="truncate font-semibold text-foreground">
                             {item.timer_state?.mode === "multi_sub_dose" ? (
                               <Link
                                 to="/medications/$medicationId"
                                 params={{ medicationId: item.medication_id }}
-                                className="text-blue-600 underline"
+                                className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
                               >
                                 {item.name}
                               </Link>
                             ) : (
                               item.name
                             )}{" "}
-                            <span className="text-sm font-normal text-slate-500">
+                            <span className="text-sm font-normal text-muted-foreground">
                               {formatQuantity(item.quantity_per_dose)}{" "}
                               {item.unit}
                             </span>
                           </p>
                           {muted && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted-foreground">
                               not normally scheduled today
                             </p>
                           )}
                           {item.dose !== null && (
-                            <p className="text-xs font-medium text-green-600">
+                            <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-success">
+                              <Check className="size-3.5" />
                               {formatTakenAt(item.dose.taken_at)}
                             </p>
                           )}
@@ -402,7 +420,7 @@ function TodayPage() {
                       <div className="mt-2 flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1 space-y-1">
                           {item.timer_state?.mode === "count_up" && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted-foreground">
                               <CountUpDisplay state={item.timer_state} />
                             </p>
                           )}
@@ -412,13 +430,14 @@ function TodayPage() {
                             />
                           )}
                         </div>
-                        <div className="flex shrink-0 items-center gap-3 text-xs">
+                        <div className="flex shrink-0 items-center gap-1">
                           <Link
                             to="/medications/$id/edit"
                             params={{ id: item.medication_id }}
-                            className="font-medium text-slate-400 hover:text-slate-700"
+                            aria-label={`Edit ${item.name}`}
+                            className="mm-btn mm-btn-ghost size-8 p-0"
                           >
-                            Edit
+                            <Pencil className="size-4" />
                           </Link>
                           <button
                             type="button"
@@ -426,11 +445,10 @@ function TodayPage() {
                               handleDelete(item.medication_id, item.name)
                             }
                             disabled={deletingId === item.medication_id}
-                            className="font-medium text-slate-400 hover:text-red-600 disabled:opacity-50"
+                            aria-label={`Delete ${item.name}`}
+                            className="mm-btn mm-btn-ghost size-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                           >
-                            {deletingId === item.medication_id
-                              ? "Deleting…"
-                              : "Delete"}
+                            <Trash2 className="size-4" />
                           </button>
                         </div>
                       </div>

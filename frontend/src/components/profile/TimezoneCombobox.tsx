@@ -1,8 +1,7 @@
 import { useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
-const INPUT_CLASS =
-  "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
+const INPUT_CLASS = "mm-input mt-1";
 
 /** Cap the rendered option list — the full IANA set is ~400 entries. */
 const MAX_RESULTS = 50;
@@ -137,7 +136,7 @@ export function TimezoneCombobox({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow"
+          className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-border bg-popover shadow-lg"
         >
           {matches.map((z, i) => (
             <li
@@ -149,8 +148,10 @@ export function TimezoneCombobox({
               onMouseDown={(e) => e.preventDefault()}
               onMouseEnter={() => setHighlight(i)}
               onClick={() => commit(z)}
-              className={`cursor-pointer px-3 py-1.5 text-sm ${
-                i === highlight ? "bg-blue-600 text-white" : "text-slate-700"
+              className={`cursor-pointer px-3 py-2 text-sm ${
+                i === highlight
+                  ? "bg-primary text-primary-foreground"
+                  : "text-popover-foreground"
               }`}
             >
               {z}

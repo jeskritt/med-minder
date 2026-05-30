@@ -6,8 +6,7 @@ import {
   type PasswordSetBody,
 } from "@/lib/adminUsers";
 
-const INPUT_CLASS =
-  "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
+const INPUT_CLASS = "mm-input mt-1";
 
 export interface ResetPasswordDialogProps {
   user: AdminUser;
@@ -68,35 +67,35 @@ export function ResetPasswordDialog({
       role="dialog"
       aria-modal="true"
       aria-label="Reset password"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
     >
-      <div className="w-full max-w-md space-y-4 rounded-lg border bg-white p-6 shadow">
+      <div className="mm-card w-full max-w-md space-y-4 p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Reset password
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded p-1 text-slate-500 hover:bg-slate-100"
+            className="rounded-full p-1.5 text-muted-foreground transition hover:bg-muted"
           >
             ✕
           </button>
         </div>
-        <p className="text-sm text-slate-600">
-          For <span className="font-medium">{user.email}</span>. This signs them
-          out everywhere.
+        <p className="text-sm text-muted-foreground">
+          For <span className="font-medium text-foreground">{user.email}</span>.
+          This signs them out everywhere.
         </p>
 
         {tempPassword ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               Share this temporary password now — it won’t be shown again.
             </p>
             <code
               data-testid="temp-password"
-              className="block break-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-sm text-slate-900"
+              className="block break-all rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground"
             >
               {tempPassword}
             </code>
@@ -107,14 +106,14 @@ export function ResetPasswordDialog({
                   void navigator.clipboard?.writeText(tempPassword);
                   setCopied(true);
                 }}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="mm-btn mm-btn-secondary"
               >
                 {copied ? "Copied" : "Copy"}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                className="mm-btn mm-btn-primary"
               >
                 Done
               </button>
@@ -122,9 +121,10 @@ export function ResetPasswordDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
+                className="size-4 rounded"
                 checked={generate}
                 onChange={(e) => setGenerate(e.target.checked)}
               />
@@ -134,7 +134,7 @@ export function ResetPasswordDialog({
               <div>
                 <label
                   htmlFor="reset-password"
-                  className="block text-sm font-medium"
+                  className="block text-sm font-medium text-foreground"
                 >
                   New password
                 </label>
@@ -149,12 +149,12 @@ export function ResetPasswordDialog({
               </div>
             )}
             {fieldError && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-destructive">
                 {fieldError}
               </p>
             )}
             {formError && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-destructive">
                 {formError}
               </p>
             )}
@@ -162,7 +162,7 @@ export function ResetPasswordDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="mm-btn mm-btn-secondary"
               >
                 Cancel
               </button>
@@ -170,7 +170,7 @@ export function ResetPasswordDialog({
                 type="button"
                 onClick={submit}
                 disabled={reset.isPending}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="mm-btn mm-btn-primary"
               >
                 {reset.isPending ? "Resetting…" : "Reset password"}
               </button>

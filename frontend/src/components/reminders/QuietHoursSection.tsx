@@ -3,8 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useCurrentUser, useUpdateQuietHours } from "@/lib/auth";
 
-const INPUT_CLASS =
-  "mt-1 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
+const INPUT_CLASS = "mm-input mt-1 w-auto";
 
 const schema = z
   .object({
@@ -72,10 +71,10 @@ export function QuietHoursSection() {
       aria-label="Quiet hours"
       className="space-y-2"
     >
-      <h2 className="text-sm font-semibold text-slate-900">
+      <h2 className="text-sm font-semibold text-foreground">
         Quiet hours{user?.timezone ? ` (${user.timezone})` : ""}
       </h2>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Reminders that fall in this window are held until it ends, instead of
         notifying you.
       </p>
@@ -86,7 +85,10 @@ export function QuietHoursSection() {
       {enabled && (
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col">
-            <label htmlFor="quiet-start" className="text-sm font-medium">
+            <label
+              htmlFor="quiet-start"
+              className="text-sm font-medium text-foreground"
+            >
               Start
             </label>
             <input
@@ -97,7 +99,10 @@ export function QuietHoursSection() {
             />
           </div>
           <div className="flex flex-col">
-            <label htmlFor="quiet-end" className="text-sm font-medium">
+            <label
+              htmlFor="quiet-end"
+              className="text-sm font-medium text-foreground"
+            >
               End
             </label>
             <input
@@ -110,22 +115,22 @@ export function QuietHoursSection() {
         </div>
       )}
       {errors.end && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {errors.end.message}
         </p>
       )}
       {update.isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {(update.error as Error).message}
         </p>
       )}
       {update.isSuccess && (
-        <p className="text-sm text-green-700">Quiet hours saved.</p>
+        <p className="text-sm font-medium text-success">Quiet hours saved.</p>
       )}
       <button
         type="submit"
         disabled={update.isPending}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        className="mm-btn mm-btn-primary"
       >
         {update.isPending ? "Saving…" : "Save quiet hours"}
       </button>

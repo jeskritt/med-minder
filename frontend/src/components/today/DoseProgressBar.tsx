@@ -5,11 +5,11 @@ type TodayItem = components["schemas"]["TodayItem"];
 
 export type DoseProgressColor = "green" | "amber" | "red" | "neutral";
 
-const COLOR_CLASS: Record<DoseProgressColor, { bg: string; bar: string }> = {
-  green: { bg: "bg-green-50", bar: "bg-green-500" },
-  amber: { bg: "bg-amber-50", bar: "bg-amber-400" },
-  red: { bg: "bg-red-50", bar: "bg-red-500" },
-  neutral: { bg: "bg-slate-50", bar: "bg-slate-300" },
+const COLOR_CLASS: Record<DoseProgressColor, string> = {
+  green: "bg-success",
+  amber: "bg-warning",
+  red: "bg-destructive",
+  neutral: "bg-muted-foreground/30",
 };
 
 const LATE_AFTER_MS = 60 * 60 * 1000; // 1 hour (Lenient threshold)
@@ -47,7 +47,6 @@ export function DoseProgressBar({ item, now }: DoseProgressBarProps) {
   const resolved = now ?? defaultNow;
   const color = pickColor(item, resolved);
   const value = pickValue(item, resolved);
-  const cls = COLOR_CLASS[color];
   return (
     <div
       role="progressbar"
@@ -55,10 +54,10 @@ export function DoseProgressBar({ item, now }: DoseProgressBarProps) {
       aria-valuemax={1}
       aria-valuenow={value}
       data-color={color}
-      className={`relative h-2 w-full overflow-hidden rounded ${cls.bg}`}
+      className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted"
     >
       <div
-        className={`h-full ${cls.bar}`}
+        className={`h-full rounded-full transition-[width] duration-500 ${COLOR_CLASS[color]}`}
         style={{ width: `${Math.round(value * 100)}%` }}
       />
     </div>

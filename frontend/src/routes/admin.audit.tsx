@@ -42,46 +42,45 @@ function AdminAuditPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Audit log</h1>
-        <Link
-          to="/admin/users"
-          className="text-sm text-slate-600 hover:text-blue-600"
-        >
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          Audit log
+        </h1>
+        <Link to="/admin/users" className="mm-btn mm-btn-ghost -mr-2">
           ← Users
         </Link>
       </div>
 
-      {isLoading && <p className="text-sm text-slate-500">Loading…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           Could not load the audit log.
         </p>
       )}
       {entries && entries.length === 0 && (
-        <p className="text-sm text-slate-500">No audit entries yet.</p>
+        <p className="text-sm text-muted-foreground">No audit entries yet.</p>
       )}
       {entries && entries.length > 0 && (
-        <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+        <ul className="mm-card divide-y divide-border/70 overflow-hidden">
           {entries.map((e) => {
             const summary = summarize(e.details);
             return (
               <li key={e.id} className="px-4 py-3 text-sm">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="font-medium text-slate-900">
+                  <span className="font-semibold text-foreground">
                     {actionLabel(e.action)}
                     {summary && (
-                      <span className="font-normal text-slate-500">
+                      <span className="font-normal text-muted-foreground">
                         {" "}
                         — {summary}
                       </span>
                     )}
                   </span>
-                  <span className="shrink-0 text-slate-400">
+                  <span className="shrink-0 text-muted-foreground">
                     {formatWhen(e.created_at)}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 font-mono text-xs text-muted-foreground/70">
                   actor {e.actor_id} → target {e.target_user_id}
                 </p>
               </li>

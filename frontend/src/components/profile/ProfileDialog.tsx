@@ -11,8 +11,7 @@ import {
 } from "@/lib/auth";
 import { TimezoneCombobox } from "@/components/profile/TimezoneCombobox";
 
-const INPUT_CLASS =
-  "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
+const INPUT_CLASS = "mm-input mt-1";
 
 const nameSchema = z.object({
   name: z
@@ -51,25 +50,25 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
       role="dialog"
       aria-modal="true"
       aria-label="Profile"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
     >
-      <div className="max-h-[90vh] w-full max-w-md space-y-6 overflow-y-auto rounded-lg border bg-white p-6 shadow">
+      <div className="mm-card max-h-[90vh] w-full max-w-md space-y-6 overflow-y-auto p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Profile</h2>
+          <h2 className="text-lg font-semibold text-foreground">Profile</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded p-1 text-slate-500 hover:bg-slate-100"
+            className="rounded-full p-1.5 text-muted-foreground transition hover:bg-muted"
           >
             ✕
           </button>
         </div>
 
         <ProfileNameSection currentName={user?.name ?? ""} />
-        <hr className="border-slate-200" />
+        <hr className="border-border" />
         <TimezoneSection currentTimezone={user?.timezone ?? "UTC"} />
-        <hr className="border-slate-200" />
+        <hr className="border-border" />
         <ChangePasswordSection />
       </div>
     </div>
@@ -107,23 +106,23 @@ function ProfileNameSection({ currentName }: { currentName: string }) {
           {...register("name")}
         />
         {errors.name && (
-          <p role="alert" className="mt-1 text-sm text-red-600">
+          <p role="alert" className="mt-1 text-sm text-destructive">
             {errors.name.message}
           </p>
         )}
       </div>
       {updateProfile.isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {(updateProfile.error as Error).message}
         </p>
       )}
       {updateProfile.isSuccess && (
-        <p className="text-sm text-green-700">Name saved.</p>
+        <p className="text-sm font-medium text-success">Name saved.</p>
       )}
       <button
         type="submit"
         disabled={updateProfile.isPending}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        className="mm-btn mm-btn-primary"
       >
         {updateProfile.isPending ? "Saving…" : "Save name"}
       </button>
@@ -150,7 +149,7 @@ function TimezoneSection({ currentTimezone }: { currentTimezone: string }) {
       <label htmlFor="profile-timezone" className="block text-sm font-medium">
         Timezone
       </label>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Used for your reminder times and quiet hours. Type to search — e.g.
         “Edmo” finds “America/Edmonton”.
       </p>
@@ -160,18 +159,18 @@ function TimezoneSection({ currentTimezone }: { currentTimezone: string }) {
         onChange={setSelected}
       />
       {update.isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {(update.error as Error).message}
         </p>
       )}
       {update.isSuccess && !dirty && (
-        <p className="text-sm text-green-700">Timezone saved.</p>
+        <p className="text-sm font-medium text-success">Timezone saved.</p>
       )}
       <button
         type="button"
         onClick={() => update.mutate({ timezone: selected })}
         disabled={update.isPending || !dirty}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        className="mm-btn mm-btn-primary"
       >
         {update.isPending ? "Saving…" : "Save timezone"}
       </button>
@@ -213,7 +212,7 @@ function ChangePasswordSection() {
       aria-label="Change password"
       className="space-y-2"
     >
-      <h3 className="text-sm font-semibold text-slate-900">Change password</h3>
+      <h3 className="text-sm font-semibold text-foreground">Change password</h3>
       <div>
         <label htmlFor="current-password" className="block text-sm font-medium">
           Current password
@@ -226,7 +225,7 @@ function ChangePasswordSection() {
           {...register("current_password")}
         />
         {errors.current_password && (
-          <p role="alert" className="mt-1 text-sm text-red-600">
+          <p role="alert" className="mt-1 text-sm text-destructive">
             {errors.current_password.message}
           </p>
         )}
@@ -243,25 +242,25 @@ function ChangePasswordSection() {
           {...register("new_password")}
         />
         {errors.new_password && (
-          <p role="alert" className="mt-1 text-sm text-red-600">
+          <p role="alert" className="mt-1 text-sm text-destructive">
             {errors.new_password.message}
           </p>
         )}
       </div>
       {formError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {formError}
         </p>
       )}
       {changePassword.isSuccess && (
-        <p className="text-sm text-green-700">
+        <p className="text-sm font-medium text-success">
           Password changed. Other devices have been signed out.
         </p>
       )}
       <button
         type="submit"
         disabled={changePassword.isPending}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        className="mm-btn mm-btn-primary"
       >
         {changePassword.isPending ? "Changing…" : "Change password"}
       </button>

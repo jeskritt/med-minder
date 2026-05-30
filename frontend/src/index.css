@@ -24,6 +24,11 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -48,83 +53,180 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * "Soft Apothecary" — a warm, calm, trustworthy palette for a daily
+ * health companion. Warm paper canvas, a deep botanical-teal brand,
+ * and a clear semantic set: green = taken, amber = overdue/heads-up,
+ * clay red = destructive. Tuned for mobile legibility first.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(0.985 0.008 95);
+  --foreground: oklch(0.26 0.014 75);
+  --card: oklch(1 0.002 95);
+  --card-foreground: oklch(0.26 0.014 75);
+  --popover: oklch(1 0.002 95);
+  --popover-foreground: oklch(0.26 0.014 75);
+  --primary: oklch(0.52 0.082 192);
+  --primary-foreground: oklch(0.99 0.01 192);
+  --secondary: oklch(0.955 0.012 95);
+  --secondary-foreground: oklch(0.32 0.016 75);
+  --muted: oklch(0.955 0.01 95);
+  --muted-foreground: oklch(0.53 0.018 75);
+  --accent: oklch(0.95 0.028 192);
+  --accent-foreground: oklch(0.4 0.07 200);
+  --destructive: oklch(0.55 0.16 25);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.53 0.12 158);
+  --success-foreground: oklch(0.99 0.01 158);
+  --warning: oklch(0.72 0.13 70);
+  --warning-foreground: oklch(0.34 0.05 60);
+  --border: oklch(0.9 0.01 90);
+  --input: oklch(0.88 0.012 90);
+  --ring: oklch(0.55 0.082 192);
+  --chart-1: var(--primary);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: oklch(0.6 0.09 230);
+  --chart-5: oklch(0.55 0.1 320);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.985 0.008 95);
+  --sidebar-foreground: oklch(0.26 0.014 75);
+  --sidebar-primary: oklch(0.52 0.082 192);
+  --sidebar-primary-foreground: oklch(0.99 0.01 192);
+  --sidebar-accent: oklch(0.95 0.028 192);
+  --sidebar-accent-foreground: oklch(0.4 0.07 200);
+  --sidebar-border: oklch(0.9 0.01 90);
+  --sidebar-ring: oklch(0.55 0.082 192);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.21 0.012 220);
+  --foreground: oklch(0.94 0.006 95);
+  --card: oklch(0.25 0.013 220);
+  --card-foreground: oklch(0.94 0.006 95);
+  --popover: oklch(0.25 0.013 220);
+  --popover-foreground: oklch(0.94 0.006 95);
+  --primary: oklch(0.74 0.1 188);
+  --primary-foreground: oklch(0.2 0.03 200);
+  --secondary: oklch(0.3 0.015 220);
+  --secondary-foreground: oklch(0.94 0.006 95);
+  --muted: oklch(0.3 0.015 220);
+  --muted-foreground: oklch(0.7 0.02 200);
+  --accent: oklch(0.34 0.04 200);
+  --accent-foreground: oklch(0.92 0.03 190);
+  --destructive: oklch(0.68 0.17 25);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.72 0.13 158);
+  --success-foreground: oklch(0.2 0.03 158);
+  --warning: oklch(0.8 0.13 75);
+  --warning-foreground: oklch(0.28 0.05 60);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.74 0.1 188);
+  --chart-1: var(--primary);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: oklch(0.7 0.1 230);
+  --chart-5: oklch(0.68 0.11 320);
+  --sidebar: oklch(0.25 0.013 220);
+  --sidebar-foreground: oklch(0.94 0.006 95);
+  --sidebar-primary: oklch(0.74 0.1 188);
+  --sidebar-primary-foreground: oklch(0.2 0.03 200);
+  --sidebar-accent: oklch(0.34 0.04 200);
+  --sidebar-accent-foreground: oklch(0.92 0.03 190);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.74 0.1 188);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* A faint teal halo at the top gives depth without hurting legibility. */
+    background-image: radial-gradient(
+      125% 70% at 50% -15%,
+      color-mix(in oklch, var(--primary) 9%, var(--background)),
+      var(--background) 58%
+    );
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading tracking-tight;
+    font-feature-settings: "ss01";
+  }
+  /* Native form controls inherit the brand accent for checkboxes,
+     radios, date/time pickers, and focus outlines. */
+  :root {
+    accent-color: var(--primary);
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  @media print {
+    body {
+      background: white;
+    }
+  }
+}
+
+@layer components {
+  /* Text inputs / selects / textareas. */
+  .mm-input {
+    @apply w-full rounded-lg border border-input bg-card px-3 py-2.5 text-base text-foreground shadow-xs outline-none transition;
+    @apply placeholder:text-muted-foreground/55;
+    @apply focus:border-ring focus:ring-[3px] focus:ring-ring/20;
+    @apply disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70;
+    @apply aria-invalid:border-destructive aria-invalid:ring-destructive/20;
+  }
+
+  /* Elevated surface card. */
+  .mm-card {
+    @apply rounded-2xl border border-border bg-card shadow-sm;
+  }
+
+  /* Pill button base — compose with a variant: `mm-btn mm-btn-primary`. */
+  .mm-btn {
+    @apply inline-flex shrink-0 select-none items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition;
+    @apply outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35;
+    @apply active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+    @apply [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0;
+  }
+  .mm-btn-primary {
+    @apply bg-primary text-primary-foreground shadow-sm hover:bg-primary/90;
+  }
+  .mm-btn-secondary {
+    @apply border border-border bg-card text-foreground shadow-xs hover:bg-muted;
+  }
+  .mm-btn-ghost {
+    @apply text-muted-foreground hover:bg-muted hover:text-foreground;
+  }
+  .mm-btn-danger {
+    @apply bg-destructive/10 text-destructive hover:bg-destructive/16 focus-visible:ring-destructive/25;
+  }
+  .mm-btn-block {
+    @apply w-full;
+  }
+  .mm-btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  /* Comfortable 44px touch target for primary daily actions. */
+  .mm-btn-touch {
+    @apply min-h-11 px-5;
+  }
+
+  /* Small status pill. */
+  .mm-chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 }

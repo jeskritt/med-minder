@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Pencil, PackageOpen, Trash2 } from "lucide-react";
 import type { components } from "@/api/v1";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
@@ -26,102 +27,122 @@ export function MedicationList({
 }: MedicationListProps) {
   if (items.length === 0) {
     return (
-      <p className="mt-4 text-slate-500">
-        No medications yet.{" "}
-        <Link to="/medications/new" className="text-blue-600 underline">
-          Add your first one
-        </Link>
-        .
-      </p>
+      <div className="mm-card mt-6 px-6 py-10 text-center print:hidden">
+        <p className="font-medium text-foreground">No medications yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <Link
+            to="/medications/new"
+            className="font-medium text-primary hover:underline"
+          >
+            Add your first one
+          </Link>{" "}
+          to start tracking doses.
+        </p>
+      </div>
     );
   }
 
   return (
-    <ul className="mt-4 space-y-3 print:space-y-1">
-      {items.map((med) => (
-        <li
-          key={med.id}
-          className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-1 print:shadow-none"
-        >
-          <div className="min-w-0">
-            <div className="font-semibold text-slate-900">
-              {med.timer_state?.mode === "multi_sub_dose" ? (
-                <Link
-                  to="/medications/$medicationId"
-                  params={{ medicationId: med.id }}
-                  className="text-blue-600 underline"
+    <ul className="mt-5 space-y-3 print:space-y-1">
+      {items.map((med) => {
+        const lowRefill =
+          med.refill_count !== null &&
+          med.refill_threshold !== null &&
+          med.refill_count <= med.refill_threshold;
+        return (
+          <li
+            key={med.id}
+            className="mm-card flex items-start justify-between gap-4 p-4 print:rounded-none print:border-0 print:p-1 print:shadow-none"
+          >
+            <div className="min-w-0">
+              <div className="font-semibold text-foreground">
+                {med.timer_state?.mode === "multi_sub_dose" ? (
+                  <Link
+                    to="/medications/$medicationId"
+                    params={{ medicationId: med.id }}
+                    className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
+                  >
+                    {med.name}
+                  </Link>
+                ) : (
+                  med.name
+                )}{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  {formatQuantity(med.quantity_per_dose)} {med.unit}
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {med.timer_state?.mode === "multi_sub_dose"
+                  ? `max ${med.times_per_day} at a time`
+                  : `${med.times_per_day}× daily`}{" "}
+                — {formatTimes(med)}
+              </div>
+              {med.timer_state?.mode === "count_up" && (
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  <CountUpDisplay state={med.timer_state} />
+                </div>
+              )}
+              {med.timer_state?.mode === "count_down" && (
+                <div className="mt-2">
+                  <CountDownButton
+                    state={med.timer_state}
+                    medicationId={med.id}
+                  />
+                </div>
+              )}
+              {med.timer_state?.mode === "multi_sub_dose" && (
+                <div className="mt-2">
+                  <MultiSubDoseCard
+                    state={med.timer_state}
+                    medicationId={med.id}
+                  />
+                </div>
+              )}
+              {med.interaction_state && (
+                <div className="mt-2">
+                  <InteractionIndicator state={med.interaction_state} />
+                </div>
+              )}
+              {(med.refill_count !== null || med.refill_threshold !== null) && (
+                <div
+                  className={
+                    lowRefill
+                      ? "mm-chip mt-2 bg-warning/15 text-warning-foreground"
+                      : "mt-2 text-xs text-muted-foreground"
+                  }
                 >
-                  {med.name}
-                </Link>
-              ) : (
-                med.name
-              )}{" "}
-              <span className="text-sm font-normal text-slate-500">
-                {formatQuantity(med.quantity_per_dose)} {med.unit}
-              </span>
+                  {lowRefill && <PackageOpen className="size-3.5" />}
+                  Refill: {med.refill_count ?? "—"} on hand
+                  {med.refill_threshold !== null
+                    ? `, warn at ${med.refill_threshold}`
+                    : ""}
+                </div>
+              )}
             </div>
-            <div className="text-sm text-slate-500">
-              {med.timer_state?.mode === "multi_sub_dose"
-                ? `max ${med.times_per_day} at a time`
-                : `${med.times_per_day}× daily`}{" "}
-              — {formatTimes(med)}
-            </div>
-            {med.timer_state?.mode === "count_up" && (
-              <div className="text-sm text-gray-700">
-                <CountUpDisplay state={med.timer_state} />
-              </div>
-            )}
-            {med.timer_state?.mode === "count_down" && (
-              <div className="mt-1">
-                <CountDownButton
-                  state={med.timer_state}
-                  medicationId={med.id}
-                />
-              </div>
-            )}
-            {med.timer_state?.mode === "multi_sub_dose" && (
-              <div className="mt-1">
-                <MultiSubDoseCard
-                  state={med.timer_state}
-                  medicationId={med.id}
-                />
-              </div>
-            )}
-            {med.interaction_state && (
-              <div className="mt-1">
-                <InteractionIndicator state={med.interaction_state} />
-              </div>
-            )}
-            {(med.refill_count !== null || med.refill_threshold !== null) && (
-              <div className="text-xs text-gray-600">
-                Refill: {med.refill_count ?? "—"} on hand
-                {med.refill_threshold !== null
-                  ? `, warn at ${med.refill_threshold}`
-                  : ""}
-              </div>
-            )}
-          </div>
-          <div className="flex shrink-0 gap-2 print:hidden">
-            <Link
-              to="/medications/$id/edit"
-              params={{ id: med.id }}
-              className="rounded-lg border border-slate-200 px-2.5 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Edit
-            </Link>
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(med.id)}
-                disabled={deletingId === med.id}
-                className="rounded-lg bg-red-600 px-2.5 py-1 text-sm font-medium text-white transition hover:bg-red-700 active:scale-95 disabled:opacity-50"
+            <div className="flex shrink-0 items-center gap-1.5 print:hidden">
+              <Link
+                to="/medications/$id/edit"
+                params={{ id: med.id }}
+                aria-label={`Edit ${med.name}`}
+                className="mm-btn mm-btn-secondary size-9 p-0"
               >
-                {deletingId === med.id ? "Deleting…" : "Delete"}
-              </button>
-            )}
-          </div>
-        </li>
-      ))}
+                <Pencil className="size-4" />
+              </Link>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(med.id)}
+                  disabled={deletingId === med.id}
+                  aria-label={`Delete ${med.name}`}
+                  className="mm-btn mm-btn-danger size-9 p-0"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              )}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
