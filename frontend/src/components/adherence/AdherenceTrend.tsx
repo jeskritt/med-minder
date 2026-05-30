@@ -26,7 +26,7 @@ export function AdherenceTrend({ days }: AdherenceTrendProps) {
 
   return (
     <div
-      className="flex items-end gap-1 overflow-x-auto pb-1"
+      className="flex items-stretch gap-1 overflow-x-auto pb-1"
       style={{ height: "9rem" }}
       role="img"
       aria-label="Daily adherence trend"
@@ -45,7 +45,7 @@ export function AdherenceTrend({ days }: AdherenceTrendProps) {
         return (
           <div
             key={day.date}
-            className="flex min-w-[0.5rem] flex-1 flex-col justify-end"
+            className="flex h-full min-w-[0.5rem] flex-1 flex-col justify-end"
             title={label}
             aria-label={label}
             data-status={day.status}
