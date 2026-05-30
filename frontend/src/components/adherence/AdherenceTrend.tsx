@@ -30,6 +30,7 @@ export function AdherenceTrend({ days }: AdherenceTrendProps) {
       style={{ height: "9rem" }}
       role="img"
       aria-label="Daily adherence trend"
+      data-testid="adherence-trend"
     >
       {days.map((day, i) => {
         const taken = day.taken;

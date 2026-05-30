@@ -111,13 +111,29 @@ def _csv_lines(rows: list[ExportRow]) -> Iterator[str]:
 
 @router.get("/export.csv")
 async def export_dose_history_csv(
+    from_: date | None = Query(default=None, alias="from"),  # noqa: B008
+    to: date | None = Query(default=None),  # noqa: B008
     timezone: str | None = Query(default=None),
     user: User = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> StreamingResponse:
-    """Stream the caller's full non-voided dose history as a CSV attachment."""
+    """Stream the caller's non-voided dose history as a CSV attachment.
+
+    Optional ``from``/``to`` (inclusive local days) bound the export; both
+    omitted exports the full history.
+    """
     try:
-        rows = await iter_export_rows(db, user=user, timezone_override=timezone)
+        rows = await iter_export_rows(
+            db,
+            user=user,
+            timezone_override=timezone,
+            from_date=from_,
+            to_date=to,
+        )
+    except AdherenceRangeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
     except InvalidTimezoneError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -58,12 +58,23 @@ export function mondayFirstColumn(d: Date): number {
 /**
  * Fetch the CSV export and trigger a browser download. Uses a raw `fetch`
  * (not the typed client) because the body is a CSV blob, not JSON.
+ *
+ * `from`/`to` (inclusive local YYYY-MM-DD) optionally bound the export;
+ * omit both for the full history.
  */
-export async function downloadDoseHistoryCsv(): Promise<void> {
+export async function downloadDoseHistoryCsv(opts?: {
+  from?: string;
+  to?: string;
+}): Promise<void> {
   const base = import.meta.env.VITE_API_BASE_URL ?? "";
-  const resp = await fetch(`${base}/api/v1/adherence/export.csv`, {
-    credentials: "include",
-  });
+  const params = new URLSearchParams();
+  if (opts?.from) params.set("from", opts.from);
+  if (opts?.to) params.set("to", opts.to);
+  const query = params.toString();
+  const resp = await fetch(
+    `${base}/api/v1/adherence/export.csv${query ? `?${query}` : ""}`,
+    { credentials: "include" },
+  );
   if (!resp.ok) {
     throw new Error("Could not export dose history.");
   }

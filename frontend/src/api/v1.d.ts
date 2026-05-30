@@ -659,7 +659,10 @@ export interface paths {
         };
         /**
          * Export Dose History Csv
-         * @description Stream the caller's full non-voided dose history as a CSV attachment.
+         * @description Stream the caller's non-voided dose history as a CSV attachment.
+         *
+         *     Optional ``from``/``to`` (inclusive local days) bound the export; both
+         *     omitted exports the full history.
          */
         get: operations["export_dose_history_csv_api_v1_adherence_export_csv_get"];
         put?: never;
@@ -2749,6 +2752,8 @@ export interface operations {
     export_dose_history_csv_api_v1_adherence_export_csv_get: {
         parameters: {
             query?: {
+                from?: string | null;
+                to?: string | null;
                 timezone?: string | null;
             };
             header?: never;

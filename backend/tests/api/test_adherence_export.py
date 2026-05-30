@@ -167,3 +167,95 @@ async def test_only_own_doses_exported(
     assert resp.status_code == 200, resp.text
     names = {r["medication_name"] for r in _parse(resp.text)}
     assert names == {"Mine"}
+
+
+async def _seed_three_days(session: AsyncSession, user: User) -> None:
+    med = await make_medication(session, user=user, name="Daily")
+    for day in (8, 15, 22):
+        await make_dose(
+            session,
+            user=user,
+            medication=med,
+            taken_at=datetime(2026, 5, day, 12, 0, tzinfo=UTC),
+        )
+    await session.flush()
+
+
+async def test_from_to_filters_to_window(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await _user(session, "win@example.com")
+    await _seed_three_days(session, user)
+    await login_as(client, "win@example.com")
+    resp = await client.get(_URL, params={"from": "2026-05-10", "to": "2026-05-20"})
+    assert resp.status_code == 200, resp.text
+    rows = _parse(resp.text)
+    assert len(rows) == 1
+    assert rows[0]["taken_at"].startswith("2026-05-15")
+
+
+async def test_from_only_is_inclusive(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await _user(session, "fromonly@example.com")
+    await _seed_three_days(session, user)
+    await login_as(client, "fromonly@example.com")
+    resp = await client.get(_URL, params={"from": "2026-05-15"})
+    assert resp.status_code == 200, resp.text
+    days = [r["taken_at"][:10] for r in _parse(resp.text)]
+    assert days == ["2026-05-15", "2026-05-22"]
+
+
+async def test_to_only_is_inclusive(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    user = await _user(session, "toonly@example.com")
+    await _seed_three_days(session, user)
+    await login_as(client, "toonly@example.com")
+    resp = await client.get(_URL, params={"to": "2026-05-15"})
+    assert resp.status_code == 200, resp.text
+    days = [r["taken_at"][:10] for r in _parse(resp.text)]
+    assert days == ["2026-05-08", "2026-05-15"]
+
+
+async def test_inverted_range_422(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await _user(session, "inv-exp@example.com")
+    await session.flush()
+    await login_as(client, "inv-exp@example.com")
+    resp = await client.get(_URL, params={"from": "2026-05-20", "to": "2026-05-01"})
+    assert resp.status_code == 422
+
+
+async def test_range_respects_user_timezone(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """A 03:00Z dose is 2026-05-08 in UTC but 2026-05-07 in Los Angeles."""
+    user = await create_user(
+        session,
+        email="tzwin@example.com",
+        name="U",
+        role="user",
+        password=FIXTURE_PASSWORD,
+        timezone_name="America/Los_Angeles",
+    )
+    med = await make_medication(session, user=user, name="TZ")
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        taken_at=datetime(2026, 5, 8, 3, 0, tzinfo=UTC),
+    )
+    await session.flush()
+    await login_as(client, "tzwin@example.com")
+
+    # In the user's zone the dose belongs to 05-07, so a 05-08 window misses it.
+    resp = await client.get(_URL, params={"from": "2026-05-08", "to": "2026-05-08"})
+    assert resp.status_code == 200, resp.text
+    assert len(_parse(resp.text)) == 0
+
+    # A 05-07 window includes it.
+    resp = await client.get(_URL, params={"from": "2026-05-07", "to": "2026-05-07"})
+    assert resp.status_code == 200, resp.text
+    assert len(_parse(resp.text)) == 1

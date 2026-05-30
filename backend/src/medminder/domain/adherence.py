@@ -341,17 +341,42 @@ async def iter_export_rows(
     *,
     user: User,
     timezone_override: str | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
 ) -> list[ExportRow]:
-    """All the user's non-voided doses, flattened and oldest-first.
+    """The user's non-voided doses, flattened and oldest-first.
 
     Soft-deleted medications are included with their name suffixed
     " (removed)" so an old export stays coherent (FR-012). ``taken_at`` is
     rendered in the user's current zone (FR-013).
+
+    ``from_date`` / ``to_date`` (inclusive, local days in the chosen zone)
+    optionally bound the export to a window; both omitted exports the full
+    history. An inverted range (``to_date < from_date``) raises
+    :class:`AdherenceRangeError`. The zone is resolved even with no bounds so
+    an unknown timezone surfaces consistently as :class:`InvalidTimezoneError`.
     """
+    if from_date is not None and to_date is not None and to_date < from_date:
+        raise AdherenceRangeError("Range end is before its start.")
+
     zone = ZoneInfo(normalize_timezone(timezone_override or user.timezone))
     voided_exists = (
         select(DoseVoid.id).where(DoseVoid.dose_id == Dose.id).exists()
     )
+
+    conditions = [Dose.user_id == user.id, not_(voided_exists)]
+    if from_date is not None:
+        conditions.append(
+            Dose.taken_at
+            >= datetime.combine(from_date, time(0, 0), tzinfo=zone).astimezone(UTC)
+        )
+    if to_date is not None:
+        conditions.append(
+            Dose.taken_at
+            < datetime.combine(
+                to_date + timedelta(days=1), time(0, 0), tzinfo=zone
+            ).astimezone(UTC)
+        )
 
     rows = (
         await session.execute(
@@ -366,10 +391,7 @@ async def iter_export_rows(
             .select_from(Dose)
             .join(Medication, Medication.id == Dose.medication_id)
             .outerjoin(Schedule, Schedule.id == Dose.schedule_id)
-            .where(
-                Dose.user_id == user.id,
-                not_(voided_exists),
-            )
+            .where(*conditions)
             .order_by(Dose.taken_at.asc())
         )
     ).all()
