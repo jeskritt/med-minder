@@ -50,6 +50,10 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html
       - ./frontend/vite.config.ts:/app/vite.config.ts
+      # timers.test.ts reads the backend's shared timer fixture via a
+      # repo-relative path (../../../backend/...). Mount just that fixture
+      # dir read-only so the frontend container can run the full vitest suite.
+      - ./backend/tests/domain/fixtures:/backend/tests/domain/fixtures:ro
     depends_on:
       - backend
 

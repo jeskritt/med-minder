@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Pencil, PackageOpen, Trash2 } from "lucide-react";
+import { BarChart2, Pencil, PackageOpen, Trash2 } from "lucide-react";
 import type { components } from "@/api/v1";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
@@ -56,17 +56,13 @@ export function MedicationList({
           >
             <div className="min-w-0">
               <div className="font-semibold text-foreground">
-                {med.timer_state?.mode === "multi_sub_dose" ? (
-                  <Link
-                    to="/medications/$medicationId"
-                    params={{ medicationId: med.id }}
-                    className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
-                  >
-                    {med.name}
-                  </Link>
-                ) : (
-                  med.name
-                )}{" "}
+                <Link
+                  to="/medications/$medicationId"
+                  params={{ medicationId: med.id }}
+                  className="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
+                >
+                  {med.name}
+                </Link>{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   {formatQuantity(med.quantity_per_dose)} {med.unit}
                 </span>
@@ -120,6 +116,15 @@ export function MedicationList({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5 print:hidden">
+              <Link
+                to="/medications/$medicationId"
+                params={{ medicationId: med.id }}
+                aria-label={`View adherence for ${med.name}`}
+                title="Adherence"
+                className="mm-btn mm-btn-secondary size-9 p-0"
+              >
+                <BarChart2 className="size-4" />
+              </Link>
               <Link
                 to="/medications/$id/edit"
                 params={{ id: med.id }}

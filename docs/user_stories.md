@@ -271,21 +271,38 @@ identically in either surface.
 
 ### UC-6 — Adherence reporting
 
+> **Shipped in Phase 9 (ADR-0016).** Adherence is *derived* on read — no
+> stored aggregate. Day status is **taken / partial / missed / future /
+> inactive**; a scheduled slot is "missed" only once its time + a fixed **4h
+> tolerance** has passed, the view **honours each schedule's days-of-week**
+> (off-days are *inactive*, not missed), voided doses are excluded, and days
+> are bucketed in the user's **current** time zone. There is **no "skipped"**
+> action.
+
 #### UC-6.1 Calendar view
-- [ ] User selects a medication.
-- [ ] A calendar grid shows each day color-coded:
-      taken / partial / missed / scheduled-future.
+- [ ] User selects a medication (the adherence section on its detail page).
+- [ ] A calendar grid shows each day colour-coded **and** carrying a non-color
+      icon (check / dash / cross / clock): taken / partial / missed / future;
+      inactive days are neutral and excluded from scoring.
 - [ ] User can navigate by month.
+- [ ] A numeric **adherence percentage** for the window is shown for scheduled
+      meds (hidden for PRN — no "missed").
 
 #### UC-6.2 Stacked-bar view
 - [ ] Per-medication adherence over a configurable window
-      (week / month) shown as stacked bars.
+      (week / month) shown as stacked bars, from the same payload as 6.1.
 
 #### UC-6.3 CSV export
-- [ ] User exports their dose history as CSV (one row per dose:
-      medication, taken_at, quantity, schedule_label).
-- [ ] Soft-deleted medications still appear (suffixed "(removed)")
+- [ ] User exports their dose history as CSV (one row per non-voided dose:
+      medication_name, taken_at, quantity, unit, schedule_label, soft_deleted).
+- [ ] Soft-deleted medications still appear (name suffixed "(removed)")
       so historical exports remain coherent.
+
+#### UC-6.4 Course progress
+- [ ] For a fixed-course med (`total_doses` set), the view shows "N of M"
+      doses and a clear "complete" state once the total is reached.
+- [ ] Voiding a dose decreases the count; a med with no course size shows no
+      progress indicator. Display-only — completion has no side effects.
 
 ### UC-7 — PWA / offline behavior
 

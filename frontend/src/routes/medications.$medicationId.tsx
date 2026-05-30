@@ -4,6 +4,7 @@ import { useMedicationDetail } from "@/hooks/useMedicationDetail";
 import { CountUpDisplay } from "@/components/timers/CountUpDisplay";
 import { CountDownButton } from "@/components/timers/CountDownButton";
 import { MultiSubDoseCard } from "@/components/timers/MultiSubDoseCard";
+import { AdherenceView } from "@/components/adherence/AdherenceView";
 import { formatQuantity } from "@/lib/format";
 
 export const Route = createFileRoute("/medications/$medicationId")({
@@ -66,6 +67,12 @@ function MedicationDetailPage() {
             />
           )}
         </article>
+      )}
+
+      {detail.isSuccess && (
+        <div className="mt-4">
+          <AdherenceView medicationId={medicationId} />
+        </div>
       )}
     </main>
   );

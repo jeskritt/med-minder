@@ -158,8 +158,9 @@ same surface, or scheduled standalone when they grow risky to defer.
 
 - **Run the e2e smoke suite in CI.** `granny-smoke.spec.ts`,
   `timer-modes.spec.ts`, `drug-interaction.spec.ts`,
-  `schedules.spec.ts`, `profile-editor.spec.ts`, and
-  `reminders.spec.ts` are reliably runnable locally and **green +
+  `schedules.spec.ts`, `profile-editor.spec.ts`, `reminders.spec.ts`,
+  `admin-users.spec.ts`, and `adherence.spec.ts` are reliably runnable
+  locally and **green +
   deterministic** (the e2e-fragility fix added a shared `login()`
   helper, an idempotent `e2e/global-setup.ts`, unique per-run med
   names, detail-scoped locators, an extended count_down test timeout,
@@ -167,8 +168,12 @@ same surface, or scheduled standalone when they grow risky to defer.
   cache-invalidation product fix was made along the way). They stay
   skip-gated behind `E2E_RUN_GRANNY` / `E2E_RUN_TIMER_MODES` /
   `E2E_RUN_DRUG_INTERACTION` / `E2E_RUN_SCHEDULES` /
-  `E2E_RUN_PROFILE_EDITOR` / `E2E_RUN_REMINDERS` only because CI does
+  `E2E_RUN_PROFILE_EDITOR` / `E2E_RUN_REMINDERS` / `E2E_RUN_ADMIN` /
+  `E2E_RUN_ADHERENCE` only because CI does
   not yet stand up the docker stack. Wire the stack
   into GitHub Actions and drop the skip gates so the smokes run on
   every PR. Phase 10 candidate ("Full Playwright suite … enforced in
   CI"). No code prerequisites remain — purely CI infra.
+  (`adherence.spec.ts` guards the two regressions live verification
+  caught — the list→detail entry point and the trend bars' rendered
+  height — neither of which jsdom unit tests can see.)

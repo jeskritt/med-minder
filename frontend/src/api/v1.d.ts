@@ -630,6 +630,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/adherence/medications/{medication_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Medication Adherence
+         * @description Per-day adherence for one medication over ``[from, to]`` (inclusive).
+         */
+        get: operations["get_medication_adherence_api_v1_adherence_medications__medication_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/adherence/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Dose History Csv
+         * @description Stream the caller's non-voided dose history as a CSV attachment.
+         *
+         *     Optional ``from``/``to`` (inclusive local days) bound the export; both
+         *     omitted exports the full history.
+         */
+        get: operations["export_dose_history_csv_api_v1_adherence_export_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -721,12 +764,40 @@ export interface components {
             /** Elapsed Seconds */
             elapsed_seconds?: number | null;
         };
+        /** CourseProgressOut */
+        CourseProgressOut: {
+            /** Total */
+            total: number;
+            /** Taken */
+            taken: number;
+            /** Complete */
+            complete: boolean;
+        };
         /** CreatedUser */
         CreatedUser: {
             user: components["schemas"]["UserOut"];
             /** Temporary Password */
             temporary_password?: string | null;
         };
+        /** DayAdherenceOut */
+        DayAdherenceOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Expected */
+            expected: number;
+            /** Taken */
+            taken: number;
+            status: components["schemas"]["DayStatus"];
+        };
+        /**
+         * DayStatus
+         * @description Per-day adherence classification for one medication.
+         * @enum {string}
+         */
+        DayStatus: "taken" | "partial" | "missed" | "future" | "inactive";
         /**
          * DoseCreate
          * @description Inbound payload for ``POST /api/doses``.
@@ -920,6 +991,31 @@ export interface components {
             quiet_hours_start?: string | null;
             /** Quiet Hours End */
             quiet_hours_end?: string | null;
+        };
+        /** MedicationAdherenceOut */
+        MedicationAdherenceOut: {
+            /**
+             * Medication Id
+             * Format: uuid
+             */
+            medication_id: string;
+            /** Timezone */
+            timezone: string;
+            /**
+             * From
+             * Format: date
+             */
+            from: string;
+            /**
+             * To
+             * Format: date
+             */
+            to: string;
+            /** Days */
+            days: components["schemas"]["DayAdherenceOut"][];
+            /** Adherence Pct */
+            adherence_pct: number | null;
+            course: components["schemas"]["CourseProgressOut"] | null;
         };
         /**
          * MedicationBody
@@ -2605,6 +2701,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PasswordResetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_medication_adherence_api_v1_adherence_medications__medication_id__get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                timezone?: string | null;
+            };
+            header?: never;
+            path: {
+                medication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MedicationAdherenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_dose_history_csv_api_v1_adherence_export_csv_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                timezone?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

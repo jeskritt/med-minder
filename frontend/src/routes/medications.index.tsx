@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Printer } from "lucide-react";
 import { client } from "@/lib/api";
 import { MedicationList } from "@/components/medications/MedicationList";
+import { ExportMenu } from "@/components/medications/ExportMenu";
 
 const medicationsQueryKey = ["medications"] as const;
 
@@ -85,6 +86,7 @@ function MedicationsPage() {
             <Printer className="size-4" />
             Print
           </button>
+          <ExportMenu />
         </div>
       </div>
 

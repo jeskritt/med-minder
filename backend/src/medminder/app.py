@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from medminder.api import adherence as adherence_api
 from medminder.api import auth as auth_api
 from medminder.api import doses as doses_api
 from medminder.api import me as me_api
@@ -108,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(push_api.router)
     app.include_router(reminders_api.router)
     app.include_router(users_api.router)
+    app.include_router(adherence_api.router)
 
     @app.exception_handler(MinIntervalNotElapsedError)
     async def _min_interval_handler(
