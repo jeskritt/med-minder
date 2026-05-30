@@ -33,7 +33,9 @@ test.describe("Adherence views", () => {
     "Set E2E_RUN_ADHERENCE=1 to run; requires the live `just dev` docker stack + seeded demo user.",
   );
 
-  test("entry point, calendar, trend bars, and CSV export", async ({ page }) => {
+  test("entry point, calendar, trend bars, and CSV export", async ({
+    page,
+  }) => {
     test.setTimeout(120_000);
     await login(page, TEST_EMAIL, TEST_PASSWORD);
 
