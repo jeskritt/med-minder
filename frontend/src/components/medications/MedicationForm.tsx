@@ -5,6 +5,7 @@ import {
   type SubmitHandler,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Info, Trash2 } from "lucide-react";
 import type { components } from "@/api/v1";
 import {
   durationToMinutes,
@@ -110,6 +111,12 @@ function toApiBody(values: MedicationFormValues): MedicationBody {
 
 const COMMON_UNITS = ["mg", "ml", "mcg", "g", "tablet", "capsule", "drop"];
 
+const LABEL_CLASS = "block text-sm font-medium text-foreground";
+const HELP_CLASS = "text-xs text-muted-foreground";
+const ERROR_CLASS = "mt-1 text-sm text-destructive";
+const FIELDSET_CLASS = "mm-card space-y-1 p-4";
+const LEGEND_CLASS = "px-1 text-sm font-semibold text-foreground";
+
 export function MedicationForm({
   mode,
   defaultValues,
@@ -172,54 +179,68 @@ export function MedicationForm({
     <form
       onSubmit={handleSubmit(submit)}
       noValidate
-      className="space-y-4"
+      className="space-y-5"
       aria-label={mode === "create" ? "Add medication" : "Edit medication"}
     >
-      <aside className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-gray-700">
-        <p className="font-medium text-blue-900">Timer modes</p>
-        <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
-          <li>
-            <strong>None</strong> — record taken/not-taken per scheduled slot.
-          </li>
-          <li>
-            <strong>Count up</strong> — show how long since the last dose.
-          </li>
-          <li>
-            <strong>Count down</strong> — block doses inside a minimum interval
-            (overdose guard).
-          </li>
-          <li>
-            <strong>Multi sub-dose</strong> — each dose opens its own rolling
-            window; cap how many overlap at once (and optionally per day).
-          </li>
-        </ul>
+      <aside className="flex gap-3 rounded-2xl border border-accent bg-accent/40 p-4 text-sm text-foreground">
+        <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+        <div>
+          <p className="font-semibold text-foreground">Timer modes</p>
+          <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+            <li>
+              <strong className="font-medium text-foreground">None</strong> —
+              record taken/not-taken per scheduled slot.
+            </li>
+            <li>
+              <strong className="font-medium text-foreground">Count up</strong>{" "}
+              — show how long since the last dose.
+            </li>
+            <li>
+              <strong className="font-medium text-foreground">
+                Count down
+              </strong>{" "}
+              — block doses inside a minimum interval (overdose guard).
+            </li>
+            <li>
+              <strong className="font-medium text-foreground">
+                Multi sub-dose
+              </strong>{" "}
+              — each dose opens its own rolling window; cap how many overlap at
+              once (and optionally per day).
+            </li>
+          </ul>
+        </div>
       </aside>
 
       <div>
-        <label htmlFor="name" className="block text-sm font-medium">
+        <label htmlFor="name" className={LABEL_CLASS}>
           Name
         </label>
         <input
           id="name"
           type="text"
           autoComplete="off"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+          className="mm-input mt-1"
           {...register("name")}
         />
         {errors.name && (
-          <p role="alert" className="mt-1 text-sm text-red-600">
+          <p role="alert" className={ERROR_CLASS}>
             {errors.name.message}
           </p>
         )}
       </div>
 
-      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-medium">Dosage</legend>
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register("pill_based")} />
+      <fieldset className={FIELDSET_CLASS}>
+        <legend className={LEGEND_CLASS}>Dosage</legend>
+        <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            className="size-4 rounded"
+            {...register("pill_based")}
+          />
           Pill-based (count pills, derive dose)
         </label>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className={HELP_CLASS}>
           Check this for tablets/capsules where you take a whole number of pills
           each dose. We&apos;ll multiply the per-pill strength by the
           pills-per-dose to get the actual dose.
@@ -228,27 +249,24 @@ export function MedicationForm({
         {!pillBased && (
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
-              <label
-                htmlFor="quantity_per_dose"
-                className="block text-sm font-medium"
-              >
+              <label htmlFor="quantity_per_dose" className={LABEL_CLASS}>
                 Quantity per dose
               </label>
               <input
                 id="quantity_per_dose"
                 type="text"
                 inputMode="decimal"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                className="mm-input mt-1"
                 {...register("quantity_per_dose")}
               />
               {errors.quantity_per_dose && (
-                <p role="alert" className="mt-1 text-sm text-red-600">
+                <p role="alert" className={ERROR_CLASS}>
                   {errors.quantity_per_dose.message}
                 </p>
               )}
             </div>
             <div>
-              <label htmlFor="unit" className="block text-sm font-medium">
+              <label htmlFor="unit" className={LABEL_CLASS}>
                 Unit
               </label>
               <input
@@ -257,7 +275,7 @@ export function MedicationForm({
                 list="med-units"
                 autoComplete="off"
                 placeholder="mg"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                className="mm-input mt-1"
                 {...register("unit")}
               />
               <datalist id="med-units">
@@ -266,7 +284,7 @@ export function MedicationForm({
                 ))}
               </datalist>
               {errors.unit && (
-                <p role="alert" className="mt-1 text-sm text-red-600">
+                <p role="alert" className={ERROR_CLASS}>
                   {errors.unit.message}
                 </p>
               )}
@@ -278,27 +296,24 @@ export function MedicationForm({
           <div className="mt-3 space-y-3">
             <div className="grid grid-cols-[1fr_8rem] gap-3">
               <div>
-                <label
-                  htmlFor="pill_strength"
-                  className="block text-sm font-medium"
-                >
+                <label htmlFor="pill_strength" className={LABEL_CLASS}>
                   Strength per pill
                 </label>
                 <input
                   id="pill_strength"
                   type="text"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                  className="mm-input mt-1"
                   {...register("pill_strength")}
                 />
                 {errors.pill_strength && (
-                  <p role="alert" className="mt-1 text-sm text-red-600">
+                  <p role="alert" className={ERROR_CLASS}>
                     {errors.pill_strength.message}
                   </p>
                 )}
               </div>
               <div>
-                <label htmlFor="unit" className="block text-sm font-medium">
+                <label htmlFor="unit" className={LABEL_CLASS}>
                   Unit
                 </label>
                 <input
@@ -307,7 +322,7 @@ export function MedicationForm({
                   list="med-units"
                   autoComplete="off"
                   placeholder="mg"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                  className="mm-input mt-1"
                   {...register("unit")}
                 />
                 <datalist id="med-units">
@@ -316,17 +331,14 @@ export function MedicationForm({
                   ))}
                 </datalist>
                 {errors.unit && (
-                  <p role="alert" className="mt-1 text-sm text-red-600">
+                  <p role="alert" className={ERROR_CLASS}>
                     {errors.unit.message}
                   </p>
                 )}
               </div>
             </div>
             <div>
-              <label
-                htmlFor="pills_per_dose"
-                className="block text-sm font-medium"
-              >
+              <label htmlFor="pills_per_dose" className={LABEL_CLASS}>
                 Pills per dose
               </label>
               <input
@@ -334,19 +346,19 @@ export function MedicationForm({
                 type="number"
                 min={1}
                 step={1}
-                className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                className="mm-input mt-1 w-32"
                 {...register("pills_per_dose")}
               />
               {errors.pills_per_dose && (
-                <p role="alert" className="mt-1 text-sm text-red-600">
+                <p role="alert" className={ERROR_CLASS}>
                   {errors.pills_per_dose.message}
                 </p>
               )}
             </div>
             {derivedQuantity !== null && (
-              <p className="text-sm text-gray-700">
+              <p className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
                 Effective dose:{" "}
-                <strong>
+                <strong className="font-semibold">
                   {derivedQuantity} {unit}
                 </strong>
               </p>
@@ -356,12 +368,12 @@ export function MedicationForm({
       </fieldset>
 
       <div>
-        <label htmlFor="timer_preference" className="block text-sm font-medium">
+        <label htmlFor="timer_preference" className={LABEL_CLASS}>
           Timer mode
         </label>
         <select
           id="timer_preference"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+          className="mm-input mt-1"
           {...register("timer_preference")}
         >
           <option value="none">None (boolean taken today)</option>
@@ -373,13 +385,10 @@ export function MedicationForm({
 
       {timerPreference === "count_down" && (
         <div>
-          <label
-            htmlFor="min_interval_value"
-            className="block text-sm font-medium"
-          >
+          <label htmlFor="min_interval_value" className={LABEL_CLASS}>
             Minimum interval
           </label>
-          <p className="text-xs text-gray-600">
+          <p className={HELP_CLASS}>
             Blocks the next dose until this much time has passed.
           </p>
           <div className="mt-1 flex items-center gap-2">
@@ -388,12 +397,12 @@ export function MedicationForm({
               type="number"
               min={1}
               step={1}
-              className="w-24 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              className="mm-input w-24"
               {...register("min_interval_value")}
             />
             <select
               aria-label="Interval unit"
-              className="rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              className="mm-input w-auto"
               {...register("min_interval_unit")}
             >
               <option value="min">minutes</option>
@@ -402,7 +411,7 @@ export function MedicationForm({
             </select>
           </div>
           {errors.min_interval_value && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p role="alert" className={ERROR_CLASS}>
               {errors.min_interval_value.message}
             </p>
           )}
@@ -411,13 +420,10 @@ export function MedicationForm({
 
       {timerPreference === "multi_sub_dose" && (
         <div>
-          <label
-            htmlFor="window_duration_value"
-            className="block text-sm font-medium"
-          >
+          <label htmlFor="window_duration_value" className={LABEL_CLASS}>
             Window duration
           </label>
-          <p className="text-xs text-gray-600">
+          <p className={HELP_CLASS}>
             How long each rolling window lasts (e.g., 6 hours).
           </p>
           <div className="mt-1 flex items-center gap-2">
@@ -426,12 +432,12 @@ export function MedicationForm({
               type="number"
               min={1}
               step={1}
-              className="w-24 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              className="mm-input w-24"
               {...register("window_duration_value")}
             />
             <select
               aria-label="Window unit"
-              className="rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              className="mm-input w-auto"
               {...register("window_duration_unit")}
             >
               <option value="min">minutes</option>
@@ -440,7 +446,7 @@ export function MedicationForm({
             </select>
           </div>
           {errors.window_duration_value && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p role="alert" className={ERROR_CLASS}>
               {errors.window_duration_value.message}
             </p>
           )}
@@ -448,21 +454,21 @@ export function MedicationForm({
       )}
 
       <div>
-        <label htmlFor="times_per_day" className="block text-sm font-medium">
+        <label htmlFor="times_per_day" className={LABEL_CLASS}>
           {timesPerDayLabel}
         </label>
-        <p className="text-xs text-gray-600">{timesPerDayHint}</p>
+        <p className={HELP_CLASS}>{timesPerDayHint}</p>
         <input
           id="times_per_day"
           type="number"
           min={0}
           max={24}
           step={1}
-          className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+          className="mm-input mt-1 w-32"
           {...register("times_per_day")}
         />
         {errors.times_per_day && (
-          <p role="alert" className="mt-1 text-sm text-red-600">
+          <p role="alert" className={ERROR_CLASS}>
             {errors.times_per_day.message}
           </p>
         )}
@@ -470,13 +476,10 @@ export function MedicationForm({
 
       {timerPreference === "multi_sub_dose" && (
         <div>
-          <label
-            htmlFor="max_doses_per_day"
-            className="block text-sm font-medium"
-          >
+          <label htmlFor="max_doses_per_day" className={LABEL_CLASS}>
             Max doses per day (optional)
           </label>
-          <p className="text-xs text-gray-600">
+          <p className={HELP_CLASS}>
             Hard cap across the whole day, on top of the max-at-a-time cap
             above. Leave blank for no daily cap.
           </p>
@@ -485,11 +488,11 @@ export function MedicationForm({
             type="number"
             min={1}
             step={1}
-            className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+            className="mm-input mt-1 w-32"
             {...register("max_doses_per_day")}
           />
           {errors.max_doses_per_day && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p role="alert" className={ERROR_CLASS}>
               {errors.max_doses_per_day.message}
             </p>
           )}
@@ -498,91 +501,91 @@ export function MedicationForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="start_date" className="block text-sm font-medium">
+          <label htmlFor="start_date" className={LABEL_CLASS}>
             Start date
           </label>
           <input
             id="start_date"
             type="date"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+            className="mm-input mt-1"
             {...register("start_date")}
           />
           {errors.start_date && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p role="alert" className={ERROR_CLASS}>
               {errors.start_date.message}
             </p>
           )}
         </div>
         <div>
-          <label htmlFor="end_date" className="block text-sm font-medium">
+          <label htmlFor="end_date" className={LABEL_CLASS}>
             End date
           </label>
           <input
             id="end_date"
             type="date"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+            className="mm-input mt-1"
             {...register("end_date")}
           />
           {errors.end_date && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p role="alert" className={ERROR_CLASS}>
               {errors.end_date.message}
             </p>
           )}
         </div>
       </div>
 
-      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-medium">Course length</legend>
-        <p className="text-xs text-gray-600">
+      <fieldset className={FIELDSET_CLASS}>
+        <legend className={LEGEND_CLASS}>Course length</legend>
+        <p className={HELP_CLASS}>
           For a fixed course (e.g. a 14-day antibiotic) — the total number of
           doses it runs from start to finish. This is the size of the
           prescription, not how much you have on hand right now.
         </p>
 
-        <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" {...register("untracked")} />
+        <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            className="size-4 rounded"
+            {...register("untracked")}
+          />
           Untracked / As Needed
         </label>
-        <p className="text-xs text-gray-600">
+        <p className={HELP_CLASS}>
           Check this for ongoing or as-needed meds that have no fixed course
           length.
         </p>
 
         <div className="mt-3">
-          <label htmlFor="total_doses" className="block text-sm font-medium">
+          <label htmlFor="total_doses" className={LABEL_CLASS}>
             Total doses
           </label>
-          <p className="text-xs text-gray-600">
-            Total doses in the whole course.
-          </p>
+          <p className={HELP_CLASS}>Total doses in the whole course.</p>
           <input
             id="total_doses"
             type="number"
             min={1}
             step={1}
             disabled={untracked}
-            className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:bg-gray-100"
+            className="mm-input mt-1 w-32"
             {...register("total_doses")}
           />
           {errors.total_doses && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
+            <p role="alert" className={ERROR_CLASS}>
               {errors.total_doses.message}
             </p>
           )}
         </div>
       </fieldset>
 
-      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-medium">
-          Supply &amp; refills
-        </legend>
-        <p className="text-xs text-gray-600">
+      <fieldset className={FIELDSET_CLASS}>
+        <legend className={LEGEND_CLASS}>Supply &amp; refills</legend>
+        <p className={HELP_CLASS}>
           How much you have on hand now and when to be reminded to refill —
           separate from the course length above.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="refill_count" className="block text-sm font-medium">
+            <label htmlFor="refill_count" className={LABEL_CLASS}>
               {pillBased ? "Pills on hand" : "Refill count"}
             </label>
             <input
@@ -590,20 +593,17 @@ export function MedicationForm({
               type="number"
               min={0}
               step={1}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              className="mm-input mt-1"
               {...register("refill_count")}
             />
             {errors.refill_count && (
-              <p role="alert" className="mt-1 text-sm text-red-600">
+              <p role="alert" className={ERROR_CLASS}>
                 {errors.refill_count.message}
               </p>
             )}
           </div>
           <div>
-            <label
-              htmlFor="refill_threshold"
-              className="block text-sm font-medium"
-            >
+            <label htmlFor="refill_threshold" className={LABEL_CLASS}>
               Refill threshold
             </label>
             <input
@@ -611,11 +611,11 @@ export function MedicationForm({
               type="number"
               min={0}
               step={1}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+              className="mm-input mt-1"
               {...register("refill_threshold")}
             />
             {errors.refill_threshold && (
-              <p role="alert" className="mt-1 text-sm text-red-600">
+              <p role="alert" className={ERROR_CLASS}>
                 {errors.refill_threshold.message}
               </p>
             )}
@@ -630,15 +630,15 @@ export function MedicationForm({
         showParity={timerPreference !== "multi_sub_dose"}
       />
 
-      <fieldset className="rounded-xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-medium">Conflicts with</legend>
-        <p className="mb-2 text-xs text-gray-600">
+      <fieldset className={FIELDSET_CLASS}>
+        <legend className={LEGEND_CLASS}>Conflicts with</legend>
+        <p className={`mb-2 ${HELP_CLASS}`}>
           Pair this medication with another of yours and set a cooldown. The
           rule is symmetric and applies in both directions. To change a
           cooldown, remove the entry and add it again.
         </p>
         {conflictFields.fields.length === 0 && (
-          <p className="mb-2 text-xs text-gray-500">
+          <p className="mb-2 text-xs text-muted-foreground">
             No interactions configured.
           </p>
         )}
@@ -656,13 +656,13 @@ export function MedicationForm({
                 <div className="grow">
                   <label
                     htmlFor={`conflict-med-${index}`}
-                    className="block text-xs font-medium"
+                    className="block text-xs font-medium text-foreground"
                   >
                     Medication
                   </label>
                   <select
                     id={`conflict-med-${index}`}
-                    className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+                    className="mm-input mt-1 py-1.5 text-sm"
                     {...register(`conflicts.${index}.other_medication_id`)}
                   >
                     <option value="">Select…</option>
@@ -681,7 +681,7 @@ export function MedicationForm({
                 <div>
                   <label
                     htmlFor={`conflict-cd-${index}`}
-                    className="block text-xs font-medium"
+                    className="block text-xs font-medium text-foreground"
                   >
                     Cooldown (min)
                   </label>
@@ -690,16 +690,17 @@ export function MedicationForm({
                     type="number"
                     min={1}
                     step={1}
-                    className="mt-1 w-28 rounded border px-2 py-1.5 text-sm"
+                    className="mm-input mt-1 w-28 py-1.5 text-sm"
                     {...register(`conflicts.${index}.cooldown_minutes`)}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => conflictFields.remove(index)}
-                  className="rounded border border-red-300 px-2 py-1.5 text-sm text-red-700"
+                  aria-label="Remove interaction"
+                  className="mm-btn mm-btn-danger size-9 p-0"
                 >
-                  Remove
+                  <Trash2 className="size-4" />
                 </button>
               </li>
             );
@@ -708,13 +709,13 @@ export function MedicationForm({
         {Array.isArray(errors.conflicts) &&
           errors.conflicts.map((e, i) =>
             e ? (
-              <p key={i} role="alert" className="mt-1 text-xs text-red-600">
+              <p key={i} role="alert" className="mt-1 text-xs text-destructive">
                 {e.other_medication_id?.message ?? e.cooldown_minutes?.message}
               </p>
             ) : null,
           )}
         {!Array.isArray(errors.conflicts) && errors.conflicts?.message && (
-          <p role="alert" className="mt-1 text-xs text-red-600">
+          <p role="alert" className="mt-1 text-xs text-destructive">
             {errors.conflicts.message}
           </p>
         )}
@@ -727,19 +728,19 @@ export function MedicationForm({
             })
           }
           disabled={availableMedications.length === 0}
-          className="mt-2 rounded border px-3 py-1.5 text-sm disabled:opacity-50"
+          className="mm-btn mm-btn-secondary mt-2"
         >
           Add interaction
         </button>
         {availableMedications.length === 0 && (
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Add another medication first to configure interactions.
           </p>
         )}
       </fieldset>
 
       {serverError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {serverError}
         </p>
       )}
@@ -747,7 +748,7 @@ export function MedicationForm({
       <button
         type="submit"
         disabled={submittingNow}
-        className="w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50"
+        className="mm-btn mm-btn-primary mm-btn-touch mm-btn-block"
       >
         {submittingNow
           ? "Saving…"

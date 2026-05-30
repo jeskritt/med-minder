@@ -17,12 +17,12 @@ export function UpdatePrompt() {
   if (!available) return null;
 
   return (
-    <div className="flex items-center justify-center gap-3 bg-blue-600 px-4 py-1.5 text-sm text-white">
+    <div className="flex items-center justify-center gap-3 bg-primary px-4 py-2 text-sm text-primary-foreground">
       <span>A new version of MedMinder is available.</span>
       <button
         type="button"
         onClick={() => applyPendingUpdate()}
-        className="rounded bg-white/20 px-3 py-1 font-medium hover:bg-white/30"
+        className="rounded-full bg-primary-foreground/20 px-3 py-1 font-semibold transition hover:bg-primary-foreground/30"
       >
         Refresh
       </button>

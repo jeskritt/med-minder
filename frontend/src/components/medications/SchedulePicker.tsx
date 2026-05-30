@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useController, type Control, type FieldErrors } from "react-hook-form";
+import { Pencil } from "lucide-react";
 import {
   useCreateSchedule,
   useDeleteSchedule,
@@ -32,6 +33,8 @@ function displayLabel(schedule: ScheduleOut): string {
     ? formatTimeOfDay(schedule.time_of_day)
     : `${schedule.label} (${formatTimeOfDay(schedule.time_of_day)})`;
 }
+
+const SMALL_INPUT = "mm-input mt-1 py-1.5 text-sm";
 
 /**
  * Multi-select chips + inline "Add new" / edit / delete for the user's
@@ -179,25 +182,27 @@ export function SchedulePicker({
     timesPerDay !== selected.length;
 
   return (
-    <fieldset className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-      <legend className="px-1 text-sm font-medium">Schedules</legend>
-      <p className="text-xs text-gray-600">
+    <fieldset className="mm-card mt-4 space-y-1 p-4">
+      <legend className="px-1 text-sm font-semibold text-foreground">
+        Schedules
+      </legend>
+      <p className="text-xs text-muted-foreground">
         Pick existing time slots (or add new ones). Schedules are shared across
         all your medications — editing or deleting one here affects every
         medication attached to the same slot.
       </p>
 
       {isLoading && (
-        <p className="mt-2 text-sm text-gray-500">Loading schedules…</p>
+        <p className="mt-2 text-sm text-muted-foreground">Loading schedules…</p>
       )}
       {isError && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 text-sm text-destructive">
           Failed to load schedules.
         </p>
       )}
 
       {!isLoading && !isError && schedules.length === 0 && (
-        <p className="mt-2 text-sm italic text-gray-500">
+        <p className="mt-2 text-sm italic text-muted-foreground">
           No schedules yet — add one below.
         </p>
       )}
@@ -208,12 +213,12 @@ export function SchedulePicker({
             if (editingId === s.id) {
               return (
                 <li key={s.id} className="w-full">
-                  <div className="rounded border bg-gray-50 p-3">
+                  <div className="rounded-xl border border-border bg-muted/50 p-3">
                     <div className="flex flex-wrap items-end gap-2">
                       <div>
                         <label
                           htmlFor={`edit-sched-time-${s.id}`}
-                          className="block text-xs font-medium"
+                          className="block text-xs font-medium text-foreground"
                         >
                           Time
                         </label>
@@ -222,13 +227,13 @@ export function SchedulePicker({
                           type="time"
                           value={editTime}
                           onChange={(e) => setEditTime(e.target.value)}
-                          className="mt-1 rounded border px-2 py-1 text-sm"
+                          className={`${SMALL_INPUT} w-auto`}
                         />
                       </div>
                       <div className="grow">
                         <label
                           htmlFor={`edit-sched-label-${s.id}`}
-                          className="block text-xs font-medium"
+                          className="block text-xs font-medium text-foreground"
                         >
                           Label (optional)
                         </label>
@@ -238,21 +243,21 @@ export function SchedulePicker({
                           value={editLabel}
                           onChange={(e) => setEditLabel(e.target.value)}
                           placeholder="Morning"
-                          className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                          className={SMALL_INPUT}
                         />
                       </div>
                       <button
                         type="button"
                         onClick={() => void handleEditSave(s)}
                         disabled={updateSchedule.isPending}
-                        className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+                        className="mm-btn mm-btn-primary"
                       >
                         {updateSchedule.isPending ? "Saving…" : "Save"}
                       </button>
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                        className="mm-btn mm-btn-secondary"
                       >
                         Cancel
                       </button>
@@ -263,13 +268,13 @@ export function SchedulePicker({
                         type="button"
                         aria-label={`Delete ${displayLabel(s)}`}
                         onClick={() => setDeletingId(s.id)}
-                        className="ml-auto rounded border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                        className="mm-btn mm-btn-danger ml-auto"
                       >
                         Delete schedule
                       </button>
                     </div>
                     {editError && (
-                      <p role="alert" className="mt-2 text-sm text-red-600">
+                      <p role="alert" className="mt-2 text-sm text-destructive">
                         {editError}
                       </p>
                     )}
@@ -287,8 +292,8 @@ export function SchedulePicker({
                   onClick={() => toggle(s.id)}
                   className={
                     isSelected
-                      ? "inline-flex min-h-11 items-center rounded-full bg-blue-600 px-4 text-sm text-white hover:bg-blue-700"
-                      : "inline-flex min-h-11 items-center rounded-full border border-gray-300 px-4 text-sm hover:bg-gray-50"
+                      ? "inline-flex min-h-11 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+                      : "inline-flex min-h-11 items-center rounded-full border border-input bg-card px-4 text-sm transition hover:bg-muted"
                   }
                 >
                   {displayLabel(s)}
@@ -299,9 +304,9 @@ export function SchedulePicker({
                   type="button"
                   aria-label={`Edit ${displayLabel(s)}`}
                   onClick={() => startEdit(s)}
-                  className="inline-flex size-11 items-center justify-center rounded-full text-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="inline-flex size-11 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
                 >
-                  ✎
+                  <Pencil className="size-4" />
                 </button>
               </li>
             );
@@ -310,7 +315,7 @@ export function SchedulePicker({
       )}
 
       {errors.selected_schedule_ids && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 text-sm text-destructive">
           {errors.selected_schedule_ids.message?.toString()}
         </p>
       )}
@@ -320,18 +325,18 @@ export function SchedulePicker({
           <button
             type="button"
             onClick={() => setShowAdd(true)}
-            className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            className="mm-btn mm-btn-secondary"
           >
             + Add a new schedule
           </button>
         )}
         {showAdd && (
-          <div className="rounded border bg-gray-50 p-3">
+          <div className="rounded-xl border border-border bg-muted/50 p-3">
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <label
                   htmlFor="new-sched-time"
-                  className="block text-xs font-medium"
+                  className="block text-xs font-medium text-foreground"
                 >
                   Time
                 </label>
@@ -340,13 +345,13 @@ export function SchedulePicker({
                   type="time"
                   value={newTime}
                   onChange={(e) => setNewTime(e.target.value)}
-                  className="mt-1 rounded border px-2 py-1 text-sm"
+                  className={`${SMALL_INPUT} w-auto`}
                 />
               </div>
               <div className="grow">
                 <label
                   htmlFor="new-sched-label"
-                  className="block text-xs font-medium"
+                  className="block text-xs font-medium text-foreground"
                 >
                   Label (optional)
                 </label>
@@ -356,14 +361,14 @@ export function SchedulePicker({
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="Morning"
-                  className="mt-1 w-full rounded border px-2 py-1 text-sm"
+                  className={SMALL_INPUT}
                 />
               </div>
               <button
                 type="button"
                 onClick={handleAdd}
                 disabled={createSchedule.isPending}
-                className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+                className="mm-btn mm-btn-primary"
               >
                 {createSchedule.isPending ? "Adding…" : "Add"}
               </button>
@@ -375,13 +380,13 @@ export function SchedulePicker({
                   setNewLabel("");
                   setSubmitError(null);
                 }}
-                className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                className="mm-btn mm-btn-secondary"
               >
                 Cancel
               </button>
             </div>
             {submitError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">
+              <p role="alert" className="mt-2 text-sm text-destructive">
                 {submitError}
               </p>
             )}
@@ -392,7 +397,7 @@ export function SchedulePicker({
       {mismatch && (
         <p
           role="alert"
-          className="mt-3 rounded bg-yellow-50 px-2 py-1 text-sm text-yellow-800"
+          className="mt-3 rounded-lg bg-warning/15 px-3 py-1.5 text-sm text-warning-foreground"
         >
           Heads up: you set <strong>{timesPerDay}</strong> times per day but
           have <strong>{selected.length}</strong> schedule
@@ -405,28 +410,28 @@ export function SchedulePicker({
           role="dialog"
           aria-modal="true"
           aria-label="Delete schedule"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-lg">
-            <h2 className="text-base font-semibold">
+          <div className="mm-card w-full max-w-sm p-5 shadow-lg">
+            <h2 className="text-base font-semibold text-foreground">
               Delete “{displayLabel(deleting)}”?
             </h2>
             {(deleting.medications ?? []).length > 0 ? (
               <>
-                <p className="mt-2 text-sm text-gray-700">
+                <p className="mt-2 text-sm text-muted-foreground">
                   This schedule is attached to:
                 </p>
-                <ul className="mt-1 list-disc pl-5 text-sm text-gray-700">
+                <ul className="mt-1 list-disc pl-5 text-sm text-foreground">
                   {(deleting.medications ?? []).map((m) => (
                     <li key={m.id}>{m.name}</li>
                   ))}
                 </ul>
-                <p className="mt-2 text-sm text-gray-700">
+                <p className="mt-2 text-sm text-muted-foreground">
                   They will be unscheduled (not deleted).
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-gray-700">
+              <p className="mt-2 text-sm text-muted-foreground">
                 No medications are attached to this schedule.
               </p>
             )}
@@ -434,7 +439,7 @@ export function SchedulePicker({
               <button
                 type="button"
                 onClick={() => setDeletingId(null)}
-                className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
+                className="mm-btn mm-btn-secondary"
               >
                 Cancel
               </button>
@@ -442,7 +447,7 @@ export function SchedulePicker({
                 type="button"
                 onClick={() => void handleDeleteConfirm()}
                 disabled={deleteSchedule.isPending}
-                className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="mm-btn mm-btn-danger"
               >
                 {deleteSchedule.isPending ? "Deleting…" : "Delete schedule"}
               </button>
@@ -456,28 +461,28 @@ export function SchedulePicker({
           role="dialog"
           aria-modal="true"
           aria-label="Move schedule time"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-lg">
-            <h2 className="text-base font-semibold">
+          <div className="mm-card w-full max-w-sm p-5 shadow-lg">
+            <h2 className="text-base font-semibold text-foreground">
               Move “{displayLabel(confirmingMove)}” to {editTime}?
             </h2>
-            <p className="mt-2 text-sm text-gray-700">
+            <p className="mt-2 text-sm text-muted-foreground">
               This time is shared by:
             </p>
-            <ul className="mt-1 list-disc pl-5 text-sm text-gray-700">
+            <ul className="mt-1 list-disc pl-5 text-sm text-foreground">
               {(confirmingMove.medications ?? []).map((m) => (
                 <li key={m.id}>{m.name}</li>
               ))}
             </ul>
-            <p className="mt-2 text-sm text-gray-700">
+            <p className="mt-2 text-sm text-muted-foreground">
               Their reminders and Today slots all shift.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmingMoveId(null)}
-                className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
+                className="mm-btn mm-btn-secondary"
               >
                 Cancel
               </button>
@@ -489,7 +494,7 @@ export function SchedulePicker({
                   void doUpdate(target);
                 }}
                 disabled={updateSchedule.isPending}
-                className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="mm-btn mm-btn-primary"
               >
                 {updateSchedule.isPending ? "Moving…" : "Move time"}
               </button>

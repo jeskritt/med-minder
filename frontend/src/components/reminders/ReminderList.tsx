@@ -13,13 +13,22 @@ export function ReminderList() {
   const dismiss = useDismissReminder();
 
   if (isLoading) {
-    return <p className="text-sm text-slate-500">Loading reminders…</p>;
+    return <p className="text-sm text-muted-foreground">Loading reminders…</p>;
   }
   if (isError) {
-    return <p className="text-sm text-amber-700">Could not load reminders.</p>;
+    return (
+      <p className="text-sm text-destructive">Could not load reminders.</p>
+    );
   }
   if (!data || data.length === 0) {
-    return <p className="text-sm text-slate-500">No reminders right now.</p>;
+    return (
+      <div className="mm-card px-6 py-10 text-center">
+        <p className="font-medium text-foreground">You're all caught up</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          No reminders right now.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -27,21 +36,25 @@ export function ReminderList() {
       {data.map((reminder) => (
         <li
           key={reminder.id}
-          className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${
-            reminder.overdue
-              ? "border-amber-300 bg-amber-50"
-              : "border-slate-200"
+          className={`mm-card flex items-start justify-between gap-3 px-4 py-3 text-sm ${
+            reminder.overdue ? "border-warning/50 bg-warning/10" : ""
           }`}
         >
           <div>
-            <div className="font-medium text-gray-900">{reminder.title}</div>
-            <div className="text-xs text-slate-500">
+            <div className="font-semibold text-foreground">
+              {reminder.title}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {new Date(reminder.scheduled_for).toLocaleString()}
               {reminder.overdue && (
-                <span className="ml-2 text-amber-700">overdue</span>
+                <span className="mm-chip bg-warning/20 text-warning-foreground">
+                  overdue
+                </span>
               )}
               {reminder.status === "snoozed" && (
-                <span className="ml-2 text-slate-500">snoozed</span>
+                <span className="mm-chip bg-muted text-muted-foreground">
+                  snoozed
+                </span>
               )}
             </div>
           </div>
@@ -50,7 +63,7 @@ export function ReminderList() {
               type="button"
               onClick={() => snooze.mutate(reminder.id)}
               disabled={snooze.isPending}
-              className="rounded-lg border border-slate-200 px-2 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="mm-btn mm-btn-secondary mm-btn-sm"
             >
               Snooze 1h
             </button>
@@ -58,7 +71,7 @@ export function ReminderList() {
               type="button"
               onClick={() => dismiss.mutate(reminder.id)}
               disabled={dismiss.isPending}
-              className="rounded-lg border border-slate-200 px-2 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="mm-btn mm-btn-ghost mm-btn-sm"
             >
               Dismiss
             </button>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { useUsers, type AdminUser } from "@/lib/adminUsers";
 import { useCurrentUser } from "@/lib/auth";
 import { UserList } from "@/components/admin/UserList";
@@ -21,28 +22,28 @@ function AdminUsersPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Users</h1>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/admin/audit"
-            className="text-sm text-slate-600 hover:text-blue-600"
-          >
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          Users
+        </h1>
+        <div className="flex items-center gap-2">
+          <Link to="/admin/audit" className="mm-btn mm-btn-ghost">
             Audit log
           </Link>
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+            className="mm-btn mm-btn-primary"
           >
+            <Plus className="size-4" />
             Add user
           </button>
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-slate-500">Loading…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           Could not load users.
         </p>
       )}

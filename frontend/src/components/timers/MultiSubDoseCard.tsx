@@ -43,16 +43,16 @@ export function MultiSubDoseCard({
   };
 
   return (
-    <div className="space-y-1">
-      <p className="text-sm text-gray-700">
+    <div className="flex flex-col items-end gap-1.5">
+      <p className="text-sm font-medium text-foreground">
         max {total} at a time
-        <span className="ml-2 text-gray-500">
+        <span className="ml-2 font-normal text-muted-foreground">
           · {used}/{total} active
         </span>
       </p>
 
       {payload.active_sub_doses.length > 0 && (
-        <ul className="text-xs text-gray-500">
+        <ul className="text-right text-xs text-muted-foreground">
           {payload.active_sub_doses.map((d) => (
             <li key={d.taken_at}>
               Dose {formatTime(d.taken_at)} — frees {formatTime(d.expires_at)}
@@ -62,13 +62,16 @@ export function MultiSubDoseCard({
       )}
 
       {isFull && nextAvailableAt && (
-        <p role="status" className="text-xs text-amber-700">
+        <p
+          role="status"
+          className="text-xs font-medium text-warning-foreground"
+        >
           Max {total} at a time — next dose at {formatTime(nextAvailableAt)}
         </p>
       )}
 
       {take.error instanceof WindowFullError && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="text-xs text-destructive">
           Max {take.error.body.slots_total} at a time — next dose at{" "}
           {formatTime(take.error.body.next_available_at)}
         </p>
@@ -83,8 +86,8 @@ export function MultiSubDoseCard({
         disabled={isFull || take.isPending}
         className={
           isFull
-            ? "rounded border border-gray-300 bg-gray-100 px-3 py-1.5 text-sm text-gray-500 disabled:opacity-50"
-            : "rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            ? "mm-btn mm-btn-touch border border-border bg-muted text-muted-foreground"
+            : "mm-btn mm-btn-primary mm-btn-touch"
         }
       >
         {isFull ? "Max reached" : "Dose available"}

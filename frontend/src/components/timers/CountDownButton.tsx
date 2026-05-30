@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Clock } from "lucide-react";
 import { MinIntervalError, useTakeDose } from "@/hooks/useTakeDose";
 import { formatRemaining } from "@/lib/timers";
 import type { components } from "@/api/v1";
@@ -82,14 +83,21 @@ export function CountDownButton({
         disabled={!isReady || take.isPending}
         className={
           isReady
-            ? "rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-            : "rounded border border-gray-300 bg-gray-100 px-3 py-1.5 text-sm text-gray-600 disabled:opacity-50"
+            ? "mm-btn mm-btn-primary mm-btn-touch"
+            : "mm-btn mm-btn-touch border border-border bg-muted font-mono text-muted-foreground tabular-nums"
         }
       >
-        {isReady ? "Mark taken" : formatRemaining(remaining)}
+        {isReady ? (
+          "Mark taken"
+        ) : (
+          <>
+            <Clock className="size-4" />
+            {formatRemaining(remaining)}
+          </>
+        )}
       </button>
       {minIntervalError && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-destructive">
           Next dose in {formatRemaining(minIntervalError.remaining_seconds)}
         </p>
       )}

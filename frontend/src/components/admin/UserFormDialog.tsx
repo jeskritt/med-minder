@@ -10,8 +10,8 @@ import {
   type UserCreateBody,
 } from "@/lib/adminUsers";
 
-const INPUT_CLASS =
-  "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
+const INPUT_CLASS = "mm-input mt-1";
+const LABEL_CLASS = "block text-sm font-medium text-foreground";
 
 const schema = z.object({
   email: z.string().trim().email("Enter a valid email"),
@@ -146,16 +146,16 @@ export function UserFormDialog({
       role="dialog"
       aria-modal="true"
       aria-label={isEdit ? "Edit user" : "Add user"}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
     >
-      <div className="max-h-[90vh] w-full max-w-md space-y-5 overflow-y-auto rounded-lg border bg-white p-6 shadow">
+      <div className="mm-card max-h-[90vh] w-full max-w-md space-y-5 overflow-y-auto p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           <button
             type="button"
             onClick={closeAll}
             aria-label="Close"
-            className="rounded p-1 text-slate-500 hover:bg-slate-100"
+            className="rounded-full p-1.5 text-muted-foreground transition hover:bg-muted"
           >
             ✕
           </button>
@@ -163,13 +163,13 @@ export function UserFormDialog({
 
         {tempPassword ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               Share this temporary password with the user now — it won’t be
               shown again.
             </p>
             <code
               data-testid="temp-password"
-              className="block break-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-sm text-slate-900"
+              className="block break-all rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground"
             >
               {tempPassword}
             </code>
@@ -180,14 +180,14 @@ export function UserFormDialog({
                   void navigator.clipboard?.writeText(tempPassword);
                   setCopied(true);
                 }}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="mm-btn mm-btn-secondary"
               >
                 {copied ? "Copied" : "Copy"}
               </button>
               <button
                 type="button"
                 onClick={closeAll}
-                className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                className="mm-btn mm-btn-primary"
               >
                 Done
               </button>
@@ -196,7 +196,7 @@ export function UserFormDialog({
         ) : (
           <form onSubmit={onSubmit} noValidate className="space-y-3">
             <div>
-              <label htmlFor="user-email" className="block text-sm font-medium">
+              <label htmlFor="user-email" className={LABEL_CLASS}>
                 Email
               </label>
               <input
@@ -207,13 +207,13 @@ export function UserFormDialog({
                 {...register("email")}
               />
               {errors.email && (
-                <p role="alert" className="mt-1 text-sm text-red-600">
+                <p role="alert" className="mt-1 text-sm text-destructive">
                   {errors.email.message}
                 </p>
               )}
             </div>
             <div>
-              <label htmlFor="user-name" className="block text-sm font-medium">
+              <label htmlFor="user-name" className={LABEL_CLASS}>
                 Display name
               </label>
               <input
@@ -223,13 +223,13 @@ export function UserFormDialog({
                 {...register("name")}
               />
               {errors.name && (
-                <p role="alert" className="mt-1 text-sm text-red-600">
+                <p role="alert" className="mt-1 text-sm text-destructive">
                   {errors.name.message}
                 </p>
               )}
             </div>
             <div>
-              <label htmlFor="user-role" className="block text-sm font-medium">
+              <label htmlFor="user-role" className={LABEL_CLASS}>
                 Role
               </label>
               <select
@@ -243,9 +243,10 @@ export function UserFormDialog({
             </div>
             {!isEdit && (
               <>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
+                    className="size-4 rounded"
                     checked={generate}
                     onChange={(e) => setGenerate(e.target.checked)}
                   />
@@ -253,10 +254,7 @@ export function UserFormDialog({
                 </label>
                 {!generate && (
                   <div>
-                    <label
-                      htmlFor="user-password"
-                      className="block text-sm font-medium"
-                    >
+                    <label htmlFor="user-password" className={LABEL_CLASS}>
                       Password
                     </label>
                     <input
@@ -267,7 +265,7 @@ export function UserFormDialog({
                       {...register("password")}
                     />
                     {errors.password && (
-                      <p role="alert" className="mt-1 text-sm text-red-600">
+                      <p role="alert" className="mt-1 text-sm text-destructive">
                         {errors.password.message}
                       </p>
                     )}
@@ -276,14 +274,14 @@ export function UserFormDialog({
               </>
             )}
             {formError && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-destructive">
                 {formError}
               </p>
             )}
             <button
               type="submit"
               disabled={mutation.isPending}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="mm-btn mm-btn-primary mm-btn-block"
             >
               {mutation.isPending
                 ? "Saving…"

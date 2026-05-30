@@ -119,21 +119,18 @@ function EditMedicationPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Edit medication
         </h1>
-        <Link
-          to="/medications"
-          className="text-sm text-blue-600 hover:underline"
-        >
+        <Link to="/medications" className="mm-btn mm-btn-ghost -mr-2">
           ← Back
         </Link>
       </div>
 
-      {loading && <p className="text-gray-600">Loading…</p>}
+      {loading && <p className="text-muted-foreground">Loading…</p>}
       {!loading && errored && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-destructive">
           Could not load medication.
         </p>
       )}

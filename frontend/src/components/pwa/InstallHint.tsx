@@ -35,10 +35,10 @@ export function InstallHint() {
   if (!show) return null;
 
   return (
-    <div className="flex items-start gap-3 bg-slate-900 px-4 py-2 text-sm text-slate-100">
+    <div className="flex items-start gap-3 bg-foreground px-4 py-2.5 text-sm text-background">
       <p className="flex-1">
         Install MedMinder: tap the Share icon, then{" "}
-        <span className="font-medium">Add to Home Screen</span>.
+        <span className="font-semibold">Add to Home Screen</span>.
       </p>
       <button
         type="button"
@@ -47,7 +47,7 @@ export function InstallHint() {
           localStorage.setItem(DISMISS_KEY, "1");
           setShow(false);
         }}
-        className="rounded px-2 font-medium text-slate-300 hover:text-white"
+        className="rounded px-2 font-medium text-background/70 transition hover:text-background"
       >
         Dismiss
       </button>

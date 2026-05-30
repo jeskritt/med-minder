@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { formatRemaining } from "@/lib/timers";
 import type { components } from "@/api/v1";
 
@@ -34,8 +35,14 @@ export function InteractionIndicator({ state }: InteractionIndicatorProps) {
     .join(", ");
 
   return (
-    <p role="status" className="text-sm text-amber-700">
-      Interacts with {names} — safe in {formatRemaining(remaining)}
+    <p
+      role="status"
+      className="inline-flex items-start gap-1.5 rounded-lg bg-warning/15 px-2.5 py-1 text-sm font-medium text-warning-foreground"
+    >
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+      <span>
+        Interacts with {names} — safe in {formatRemaining(remaining)}
+      </span>
     </p>
   );
 }

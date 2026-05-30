@@ -37,25 +37,27 @@ export function InteractionConfirmModal({
       role="dialog"
       aria-modal="true"
       aria-label="Confirm interaction override"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
     >
-      <div className="rounded-lg border bg-white p-6 shadow">
-        <p className="mb-2 font-medium">Interacts with {names}</p>
-        <p className="mb-4 text-sm text-gray-600">
+      <div className="mm-card w-full max-w-sm p-6 shadow-xl">
+        <p className="mb-2 font-semibold text-foreground">
+          Interacts with {names}
+        </p>
+        <p className="mb-4 text-sm text-muted-foreground">
           Safe in {remaining}. You can take it anyway — this will be recorded.
         </p>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border px-3 py-1.5 text-sm"
+            className="mm-btn mm-btn-secondary"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded bg-red-600 px-3 py-1.5 text-sm text-white"
+            className="mm-btn mm-btn-danger"
           >
             Take anyway
           </button>
