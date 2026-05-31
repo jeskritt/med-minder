@@ -31,9 +31,10 @@ The realistic ways to make it work:
 
 Two further constraints from existing decisions:
 
-- The reminder loop is an **in-process APScheduler** that must stay alive, which
-  is why the deploy targets a Koyeb Eco Micro instance that **does not sleep**
-  (ADR-0002).
+- The reminder loop is an **in-process APScheduler** that must stay alive
+  (ADR-0002), so the deploy targets a single instance that doesn't sleep — in
+  practice a free Render instance kept awake by an external keep-alive ping
+  (see `docs/deployment.md`).
 - The service worker performs **same-origin** `fetch(credentials: 'include')`
   for notification actions (ADR-0015); split origins would break those too.
 
@@ -54,15 +55,17 @@ logic.
   with `VITE_API_BASE_URL=""` (relative, same-origin paths, baked at build
   time); the Python stage installs the backend (prod deps, no `[dev]`, no
   editable), keeps `postgresql-client-17` for the backup CLI, copies the built
-  `dist`, and runs `uvicorn` (no `--reload`) on Koyeb's `$PORT`. The dev
-  `backend/Dockerfile` and `frontend/Dockerfile` (which back docker-compose) are
-  left untouched.
+  `dist`, and runs `uvicorn` (no `--reload`) on the host-injected `$PORT`. The
+  dev `backend/Dockerfile` and `frontend/Dockerfile` (which back docker-compose)
+  are left untouched.
 - Migrations run in the image **entrypoint** (`alembic upgrade head &&
-  uvicorn ...`) on container start. Koyeb has no release/pre-deploy command
-  ([feature request](https://community.koyeb.com/t/pre-deploy-jobs/1672));
-  this is safe because we run a single always-on instance and the upgrade is
-  idempotent. When the two-role hardening lands (DML-only runtime role),
-  migrations move out of the entrypoint to a separate step.
+  uvicorn ...`) on container start, because the free PaaS hosts we use (Render,
+  Koyeb) have no release/pre-deploy command
+  ([example](https://community.koyeb.com/t/pre-deploy-jobs/1672)); this is safe
+  because we run a single instance and the upgrade is idempotent. `env.py` passes
+  the URL straight to SQLAlchemy (not via ConfigParser) so `%`-encoded passwords
+  work. When the two-role hardening lands (DML-only runtime role), migrations
+  move out of the entrypoint to a separate step.
 
 ## Consequences
 
