@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from medminder.db.models import PushSubscription
+from medminder.domain.crypto import build_fernet, decrypt_secret
 from medminder.domain.users import DuplicateEmailError, create_user
 from medminder.settings import Settings
 
@@ -59,6 +62,34 @@ async def test_register_is_idempotent(
     assert first.status_code == 201, first.text
     second = await client.post("/api/v1/push/subscriptions", json=_SUB)
     assert second.status_code == 200
+
+
+async def test_keys_are_encrypted_at_rest(
+    client: AsyncClient, session: AsyncSession, app_settings: Settings
+) -> None:
+    """Stored p256dh/auth are ciphertext (ADR-0020); endpoint stays plaintext."""
+    await _login(client, session, email="enc-sub@example.com")
+    assert (
+        await client.post("/api/v1/push/subscriptions", json=_SUB)
+    ).status_code == 201
+
+    row = (
+        await session.execute(
+            select(PushSubscription).where(
+                PushSubscription.endpoint == _SUB["endpoint"]
+            )
+        )
+    ).scalar_one()
+
+    # Not stored as the plaintext fixture values.
+    assert row.p256dh != "BPpubkey"
+    assert row.auth != "authsecret"
+    # Endpoint is the lookup/unique key — left plaintext.
+    assert row.endpoint == _SUB["endpoint"]
+    # And they decrypt back to the originals.
+    fernet = build_fernet(app_settings)
+    assert decrypt_secret(fernet, row.p256dh) == "BPpubkey"
+    assert decrypt_secret(fernet, row.auth) == "authsecret"
 
 
 async def test_unsubscribe_is_idempotent(

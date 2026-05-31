@@ -19,6 +19,7 @@ from typing import Any
 from pywebpush import WebPushException, webpush  # type: ignore[import-untyped]
 
 from medminder.db.models import PushSubscription
+from medminder.domain.crypto import InvalidToken, build_fernet, decrypt_secret
 from medminder.settings import Settings
 
 
@@ -48,13 +49,23 @@ async def send_web_push(
     if not settings.vapid_private_key:
         return PushResult(delivered=False, gone=False)
 
+    # Decrypt the at-rest key material (ADR-0020).  A row written before
+    # encryption — or under a now-rotated key — won't decrypt: treat it as a
+    # dead subscription so the caller deletes it and the browser re-subscribes.
+    fernet = build_fernet(settings)
+    try:
+        p256dh = decrypt_secret(fernet, subscription.p256dh)
+        auth = decrypt_secret(fernet, subscription.auth)
+    except InvalidToken:
+        return PushResult(delivered=False, gone=True)
+
     def _send() -> None:
         webpush(
             subscription_info={
                 "endpoint": subscription.endpoint,
                 "keys": {
-                    "p256dh": subscription.p256dh,
-                    "auth": subscription.auth,
+                    "p256dh": p256dh,
+                    "auth": auth,
                 },
             },
             data=json.dumps(payload),

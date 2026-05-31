@@ -137,7 +137,9 @@ class AuditEntryOut(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     id: uuid.UUID
-    actor_id: uuid.UUID
+    # Null for actions performed via the admin CLI, which has no authenticated
+    # principal (the ``details`` carry ``"via": "cli"``); ADR-0014 / G7.
+    actor_id: uuid.UUID | None
     target_user_id: uuid.UUID
     action: AdminAuditAction
     details: dict[str, object]

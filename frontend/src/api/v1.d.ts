@@ -37,6 +37,11 @@ export interface paths {
         /**
          * Login
          * @description Verify credentials, mint a session, set a signed cookie.
+         *
+         *     Throttled per client IP and per email (ADR-0018): too many recent
+         *     failures → 429 with ``Retry-After`` and an identical generic body for any
+         *     email, so the limiter never leaks whether an account exists.  The check
+         *     runs before any password verification, so it adds no crypto timing.
          */
         post: operations["login_auth_login_post"];
         delete?: never;
@@ -427,6 +432,8 @@ export interface paths {
          * @description Idempotently register this device's subscription (FR-001).
          *
          *     New endpoint → 201; an existing ``(user, endpoint)`` → keys refreshed, 200.
+         *     The ``p256dh``/``auth`` key material is encrypted at rest (ADR-0020); the
+         *     ``endpoint`` stays plaintext as it is the lookup + unique-constraint key.
          */
         post: operations["register_subscription_api_v1_push_subscriptions_post"];
         /**
@@ -700,11 +707,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Actor Id
-             * Format: uuid
-             */
-            actor_id: string;
+            /** Actor Id */
+            actor_id: string | null;
             /**
              * Target User Id
              * Format: uuid

@@ -9,6 +9,10 @@
  * watches for 401s on non-`/auth/*` endpoints and invokes the
  * runtime-injected `onUnauthenticated` callback (set in `main.tsx`) so
  * the cache is cleared and the user lands on `/login` (FR-008).
+ *
+ * A request middleware implements the CSRF double-submit (ADR-0019): it
+ * echoes the non-HttpOnly `mm_csrf` cookie in the `X-CSRF-Token` header on
+ * every unsafe (state-changing) request.
  */
 
 import createClient, { type Middleware } from "openapi-fetch";
@@ -33,6 +37,26 @@ export function setApiContext(ctx: ApiContext): void {
   apiContext = ctx;
 }
 
+const CSRF_COOKIE_NAME = "mm_csrf";
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function readCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export const csrfMiddleware: Middleware = {
+  async onRequest({ request }) {
+    if (UNSAFE_METHODS.has(request.method.toUpperCase())) {
+      const token = readCookie(CSRF_COOKIE_NAME);
+      if (token) {
+        request.headers.set("X-CSRF-Token", token);
+      }
+    }
+    return request;
+  },
+};
+
 const authMiddleware: Middleware = {
   async onResponse({ response, request }) {
     if (response.status === 401) {
@@ -51,6 +75,7 @@ const authMiddleware: Middleware = {
   },
 };
 
+client.use(csrfMiddleware);
 client.use(authMiddleware);
 
 export interface HealthzResponse {

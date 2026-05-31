@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from itsdangerous import BadSignature
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from medminder.api.csrf import issue_csrf_token
 from medminder.api.deps import (
     clear_session_cookie,
     cookie_serializer,
+    get_login_rate_limiter,
     get_session,
     get_settings,
+    set_csrf_cookie,
     set_session_cookie,
 )
 from medminder.domain.auth import LoginOutcome, attempt_login
+from medminder.domain.rate_limit import LoginRateLimiter
 from medminder.domain.sessions import (
     create_session,
     delete_session_by_token_hash,
@@ -61,21 +67,44 @@ async def login(
     request: Request,
     db: AsyncSession = Depends(get_session),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
+    limiter: LoginRateLimiter = Depends(get_login_rate_limiter),  # noqa: B008
 ) -> Response:
-    """Verify credentials, mint a session, set a signed cookie."""
+    """Verify credentials, mint a session, set a signed cookie.
+
+    Throttled per client IP and per email (ADR-0018): too many recent
+    failures → 429 with ``Retry-After`` and an identical generic body for any
+    email, so the limiter never leaks whether an account exists.  The check
+    runs before any password verification, so it adds no crypto timing.
+    """
+    ip = _client_ip(request, trusted_proxy_count=settings.trusted_proxy_count)
+    now = time.monotonic()
+    if settings.login_rate_limit_enabled:
+        retry_after = limiter.check(ip=ip, email=payload.email, now=now)
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts. Try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
     user, outcome = await attempt_login(
         db,
         email=payload.email,
         password=payload.password,
-        ip=_client_ip(request, trusted_proxy_count=settings.trusted_proxy_count),
+        ip=ip,
         user_agent=request.headers.get("user-agent", ""),
     )
 
     if outcome is not LoginOutcome.SUCCESS or user is None:
+        if settings.login_rate_limit_enabled:
+            limiter.record_failure(ip=ip, email=payload.email, now=now)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=GENERIC_AUTH_FAILURE_DETAIL,
         )
+
+    if settings.login_rate_limit_enabled:
+        limiter.reset(ip=ip, email=payload.email)
 
     # FR-016 / D9: only on success do we delete a pre-existing session
     # bound to the inbound cookie.  A failed login must not log the user
@@ -94,6 +123,9 @@ async def login(
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     set_session_cookie(response, signed_value=signed_value, settings=settings)
+    # Pair the new session with a fresh CSRF token (ADR-0019) so the SPA can
+    # make its first mutation right after login.
+    set_csrf_cookie(response, token=issue_csrf_token(), settings=settings)
     return response
 
 

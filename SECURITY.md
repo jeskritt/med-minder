@@ -73,6 +73,30 @@ New surface area (endpoints, fields, dependencies, third-party calls)
 requires explicit threat consideration in the relevant ADR or PR
 description, per the [roadmap's exit criteria](specs/roadmap.md).
 
+## Implemented controls
+
+The Phase 10 hardening review (`docs/security-review-2026-05.md`) is the
+consolidated record. Key controls currently in place:
+
+- **Sessions** — signed (`itsdangerous`), `HttpOnly`, `SameSite=Lax`,
+  `Secure` outside dev; SHA-256-hashed tokens with a unique index; rolling
+  expiry; revoked on logout and on password change.
+- **Login throttling** — per-IP and per-email sliding-window rate limit on
+  `/auth/login` (ADR-0018).
+- **CSRF** — `SameSite=Lax` plus a double-submit `mm_csrf` token enforced on
+  unsafe methods (ADR-0019).
+- **Push keys at rest** — `p256dh`/`auth` are Fernet-encrypted with an
+  env-only key (ADR-0020).
+- **Input validation** — Pydantic `extra="forbid"` with field constraints at
+  every boundary; ORM-only queries (no string-built SQL).
+- **Response headers** — `X-Content-Type-Options`, `X-Frame-Options: DENY`,
+  `Referrer-Policy`, a Content-Security-Policy, and HSTS outside dev.
+- **Audit log** — every privileged admin action (web **and** CLI) appends one
+  append-only `admin_audit_log` row recording changed field *names* only,
+  never secret values.
+- **Dependency auditing** — `pip-audit` and `pnpm audit` run in CI, with
+  Dependabot watching pip/npm/actions.
+
 ## Supported versions
 
 The project is in active development. Only the current `main` branch
