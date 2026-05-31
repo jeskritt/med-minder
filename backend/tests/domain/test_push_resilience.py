@@ -9,14 +9,18 @@ import pytest
 from pywebpush import WebPushException
 
 from medminder.domain import push as push_mod
+from medminder.domain.crypto import build_fernet, encrypt_secret
 from medminder.domain.push import PushResult, send_web_push
 from medminder.settings import Settings
+
+# Keys are stored encrypted at rest (ADR-0020); the sender decrypts them.
+_FERNET = build_fernet(Settings(env="development"))
 
 
 class _Sub:
     endpoint = "https://push.example/x"
-    p256dh = "pubkey"
-    auth = "authsecret"
+    p256dh = encrypt_secret(_FERNET, "pubkey")
+    auth = encrypt_secret(_FERNET, "authsecret")
 
 
 def _settings(max_attempts: int = 3) -> Settings:

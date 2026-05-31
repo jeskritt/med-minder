@@ -17,6 +17,7 @@ from medminder.api.schemas.push import (
     VapidKeyOut,
 )
 from medminder.db.models import PushSubscription, User
+from medminder.domain.crypto import build_fernet, encrypt_secret
 from medminder.settings import Settings
 
 router = APIRouter(prefix="/api/v1/push", tags=["push"])
@@ -40,11 +41,17 @@ async def register_subscription(
     body: PushSubscriptionIn,
     user: User = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(get_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> Response:
     """Idempotently register this device's subscription (FR-001).
 
     New endpoint → 201; an existing ``(user, endpoint)`` → keys refreshed, 200.
+    The ``p256dh``/``auth`` key material is encrypted at rest (ADR-0020); the
+    ``endpoint`` stays plaintext as it is the lookup + unique-constraint key.
     """
+    fernet = build_fernet(settings)
+    p256dh = encrypt_secret(fernet, body.keys.p256dh)
+    auth = encrypt_secret(fernet, body.keys.auth)
     existing = (
         await db.execute(
             select(PushSubscription).where(
@@ -54,16 +61,16 @@ async def register_subscription(
         )
     ).scalar_one_or_none()
     if existing is not None:
-        existing.p256dh = body.keys.p256dh
-        existing.auth = body.keys.auth
+        existing.p256dh = p256dh
+        existing.auth = auth
         await db.flush()
         return Response(status_code=status.HTTP_200_OK)
     db.add(
         PushSubscription(
             user_id=user.id,
             endpoint=body.endpoint,
-            p256dh=body.keys.p256dh,
-            auth=body.keys.auth,
+            p256dh=p256dh,
+            auth=auth,
         )
     )
     await db.flush()

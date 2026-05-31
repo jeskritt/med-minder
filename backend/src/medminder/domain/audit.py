@@ -21,16 +21,19 @@ from medminder.db.models.admin_audit import AdminAuditAction
 async def record_admin_action(
     session: AsyncSession,
     *,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     action: AdminAuditAction,
     target_user_id: uuid.UUID,
     details: dict[str, Any] | None = None,
 ) -> AdminAuditLog:
     """Append one audit row; return the persisted entry.
 
-    ``details`` should carry only non-secret descriptors (e.g.
-    ``{"fields": ["name", "email"]}``); pass ``None`` for actions with nothing
-    to summarize and an empty object is stored.
+    ``actor_id`` is the acting admin's id, or ``None`` for actions performed
+    via the admin CLI (which has no authenticated principal — those callers
+    set ``details={"via": "cli", ...}``).  ``details`` should carry only
+    non-secret descriptors (e.g. ``{"fields": ["name", "email"]}``); pass
+    ``None`` for actions with nothing to summarize and an empty object is
+    stored.
     """
     entry = AdminAuditLog(
         actor_id=actor_id,

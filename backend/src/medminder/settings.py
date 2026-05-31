@@ -12,6 +12,15 @@ non-development environment that boots with this value will refuse to
 start (see ``Settings.model_validator``).
 """
 
+DEV_PUSH_ENCRYPTION_KEY_FALLBACK = "NknnBqb6tbuye8eJ-C29YBOGfyHJ_VXCYO0jTelbZvc="
+"""Fixed dev-only fallback for ``PUSH_ENCRYPTION_KEY`` (a valid Fernet key).
+
+Lets dev/test boot and round-trip push key encryption without configuration.
+Any non-development environment that boots with this value refuses to start
+(see ``Settings.model_validator``).  Generate a real key with
+``Fernet.generate_key()`` from ``cryptography.fernet``.
+"""
+
 
 class Settings(BaseSettings):
     """MedMinder configuration.
@@ -43,6 +52,13 @@ class Settings(BaseSettings):
     session_cookie_name: str = "mm_session"
     """Name of the signed session cookie set by ``POST /auth/login``."""
 
+    # --- CSRF double-submit (Phase 10, ADR-0019) -----------------------
+    csrf_protection_enabled: bool = True
+    """Whether the CSRF double-submit middleware enforces unsafe requests."""
+
+    csrf_cookie_name: str = "mm_csrf"
+    """Non-HttpOnly cookie the SPA echoes back in the ``X-CSRF-Token`` header."""
+
     trusted_proxy_count: int = 0
     """Number of trusted reverse proxies in front of the app.
 
@@ -51,6 +67,16 @@ class Settings(BaseSettings):
     where N = trusted_proxy_count.  Koyeb adds one proxy layer, so
     set to 1 in production.  When 0, the raw peer address is used.
     """
+
+    # --- Login rate-limiting (Phase 10, ADR-0018) ----------------------
+    login_rate_limit_enabled: bool = True
+    """Whether ``POST /auth/login`` is throttled.  On by default (incl. tests)."""
+
+    login_rate_limit_max_attempts: int = 5
+    """Failed login attempts per key (IP / email) before a 429."""
+
+    login_rate_limit_window_seconds: int = 900
+    """Rolling window for ``login_rate_limit_max_attempts`` (default 15 min)."""
 
     # --- Reminders / Web Push (Phase 7) --------------------------------
     vapid_public_key: str = ""
@@ -68,6 +94,14 @@ class Settings(BaseSettings):
 
     vapid_subject: str = "mailto:admin@example.com"
     """VAPID ``sub`` claim — an operator contact (``mailto:`` or ``https:``)."""
+
+    push_encryption_key: str = DEV_PUSH_ENCRYPTION_KEY_FALLBACK
+    """Fernet key used to encrypt push subscription keys at rest (ADR-0020).
+
+    URL-safe base64 of 32 random bytes.  Environment-only; must be set
+    explicitly outside development (the dev fallback is refused there).
+    Rotating it makes existing subscriptions undecryptable — they are
+    treated as gone and the browser re-subscribes."""
 
     reminders_enabled: bool = True
     """Whether the in-process scheduler starts with the app.
@@ -126,14 +160,18 @@ class Settings(BaseSettings):
         return self.env != "development"
 
     @model_validator(mode="after")
-    def _require_session_secret_outside_dev(self) -> "Settings":
-        """Refuse to boot if a non-dev env still has the dev fallback secret."""
-        if (
-            self.env != "development"
-            and self.session_secret == DEV_SESSION_SECRET_FALLBACK
-        ):
+    def _require_secrets_outside_dev(self) -> "Settings":
+        """Refuse to boot if a non-dev env still holds a dev fallback secret."""
+        if self.env == "development":
+            return self
+        if self.session_secret == DEV_SESSION_SECRET_FALLBACK:
             raise ValueError(
                 "SESSION_SECRET must be set to a strong, environment-specific "
                 "value when ENV is not 'development'."
+            )
+        if self.push_encryption_key == DEV_PUSH_ENCRYPTION_KEY_FALLBACK:
+            raise ValueError(
+                "PUSH_ENCRYPTION_KEY must be set to a unique Fernet key "
+                "when ENV is not 'development'."
             )
         return self

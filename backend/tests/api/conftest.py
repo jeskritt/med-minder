@@ -40,8 +40,16 @@ async def client(
     session: AsyncSession,
     app_settings: Settings,
 ) -> AsyncIterator[AsyncClient]:
-    """``httpx.AsyncClient`` bound to an ASGI app sharing the test's session."""
-    app = create_app(settings=app_settings)
+    """``httpx.AsyncClient`` bound to an ASGI app sharing the test's session.
+
+    CSRF double-submit is disabled here (like ``reminders_enabled``) so the
+    broad mutation-test suite doesn't have to plumb an ``X-CSRF-Token`` header
+    on every request — the middleware itself is exercised in ``test_csrf.py``,
+    which builds its own client with protection enabled.
+    """
+    app = create_app(
+        settings=app_settings.model_copy(update={"csrf_protection_enabled": False})
+    )
 
     async def _override_get_session() -> AsyncIterator[AsyncSession]:
         yield session

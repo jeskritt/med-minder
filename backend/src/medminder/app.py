@@ -25,6 +25,7 @@ from medminder.api import reminders as reminders_api
 from medminder.api import schedules as schedules_api
 from medminder.api import schedules_crud as schedules_crud_api
 from medminder.api import users as users_api
+from medminder.api.csrf import CsrfMiddleware
 from medminder.api.schemas.errors import (
     ConflictOut,
     DailyCapViolation,
@@ -32,8 +33,10 @@ from medminder.api.schemas.errors import (
     MinIntervalViolation,
     WindowFullViolation,
 )
+from medminder.api.security_headers import SecurityHeadersMiddleware
 from medminder.db import make_async_engine, make_async_session_factory
 from medminder.domain.interactions import MedicationInteractionConflictError
+from medminder.domain.rate_limit import LoginRateLimiter
 from medminder.domain.timers import (
     DailyCapReachedError,
     MinIntervalNotElapsedError,
@@ -105,14 +108,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = session_factory
+    app.state.login_rate_limiter = LoginRateLimiter(
+        max_attempts=settings.login_rate_limit_max_attempts,
+        window_seconds=settings.login_rate_limit_window_seconds,
+    )
+
+    # --- Security headers ----------------------------------------------
+    app.add_middleware(SecurityHeadersMiddleware, settings=settings)
+
+    # --- CSRF (double-submit, ADR-0019) --------------------------------
+    app.add_middleware(CsrfMiddleware, settings=settings)
 
     # --- CORS ----------------------------------------------------------
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-CSRF-Token"],
     )
 
     # --- Routes --------------------------------------------------------

@@ -8,7 +8,9 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from medminder.api.csrf import issue_csrf_token
 from medminder.db.models import User
+from medminder.domain.rate_limit import LoginRateLimiter
 from medminder.domain.sessions import SESSION_LIFETIME, authenticate_token
 from medminder.settings import Settings
 
@@ -18,6 +20,12 @@ _COOKIE_SALT = "mm_session"
 def cookie_serializer(settings: Settings) -> URLSafeTimedSerializer:
     """Build the ``itsdangerous`` serializer used to sign session cookies."""
     return URLSafeTimedSerializer(settings.session_secret, salt=_COOKIE_SALT)
+
+
+def get_login_rate_limiter(request: Request) -> LoginRateLimiter:
+    """Return the process-local login rate limiter bound to the app."""
+    limiter: LoginRateLimiter = request.app.state.login_rate_limiter
+    return limiter
 
 
 def get_settings(request: Request) -> Settings:
@@ -53,6 +61,24 @@ def set_session_cookie(
         value=signed_value,
         max_age=int(SESSION_LIFETIME.total_seconds()),
         httponly=True,
+        samesite="lax",
+        secure=settings.session_cookie_secure,
+        path="/",
+    )
+
+
+def set_csrf_cookie(response: Response, *, token: str, settings: Settings) -> None:
+    """Write the non-HttpOnly ``mm_csrf`` cookie for the double-submit check.
+
+    Readable by JS by design (ADR-0019): the SPA echoes it in the
+    ``X-CSRF-Token`` header.  Shares the session cookie's ``SameSite`` /
+    ``Secure`` posture.
+    """
+    response.set_cookie(
+        key=settings.csrf_cookie_name,
+        value=token,
+        max_age=int(SESSION_LIFETIME.total_seconds()),
+        httponly=False,
         samesite="lax",
         secure=settings.session_cookie_secure,
         path="/",
@@ -96,6 +122,10 @@ async def get_current_user(
     if user is None:
         raise _unauthorized()
     set_session_cookie(response, signed_value=cookie_value, settings=settings)
+    # Self-heal the CSRF cookie if a logged-in client somehow lacks one
+    # (e.g. it expired or predates the feature) — ADR-0019.
+    if request.cookies.get(settings.csrf_cookie_name) is None:
+        set_csrf_cookie(response, token=issue_csrf_token(), settings=settings)
     return user
 
 

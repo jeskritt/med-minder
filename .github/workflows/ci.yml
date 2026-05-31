@@ -142,6 +142,44 @@ jobs:
       - name: Run vitest
         run: cd frontend && pnpm test
 
+  security-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+          pip install pip-audit
+
+      # pip-audit has no severity filter: it fails the job on any known
+      # vulnerable dependency in the resolved environment. --strict also fails
+      # on audit errors (e.g. an unresolvable advisory) so we don't silently
+      # pass a partial scan.
+      - name: pip-audit (backend)
+        run: cd backend && pip-audit --strict
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install frontend dependencies
+        run: cd frontend && pnpm install --frozen-lockfile
+
+      - name: pnpm audit (frontend)
+        run: cd frontend && pnpm audit --audit-level high
+
   openapi-drift:
     name: OpenAPI Client Drift
     runs-on: ubuntu-latest

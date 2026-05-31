@@ -107,6 +107,29 @@ async function notifyOpenApp(message: string): Promise<void> {
   });
 }
 
+// The Cookie Store API lets the worker read the non-HttpOnly mm_csrf cookie
+// (document.cookie is unavailable here). Not in this TS release's
+// lib.webworker, and not present on every browser, so it's typed and probed
+// defensively — these endpoints are CSRF-exempt server-side (ADR-0019), so a
+// missing token is not a hard failure.
+interface CookieStoreLike {
+  get(name: string): Promise<{ value: string } | undefined | null>;
+}
+
+async function csrfHeaders(): Promise<Record<string, string>> {
+  const store = (self as unknown as { cookieStore?: CookieStoreLike })
+    .cookieStore;
+  if (!store) {
+    return {};
+  }
+  try {
+    const cookie = await store.get("mm_csrf");
+    return cookie?.value ? { "X-CSRF-Token": cookie.value } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function actOnReminder(
   reminderId: string,
   action: "snooze" | "take",
@@ -119,6 +142,7 @@ async function actOnReminder(
     const response = await fetch(`/api/v1/reminders/${reminderId}/${action}`, {
       method: "POST",
       credentials: "include",
+      headers: await csrfHeaders(),
     });
     if (!response.ok) {
       await notifyOpenApp(

@@ -63,8 +63,9 @@ the service worker's same-origin notification fetches working. See
 | `TRUSTED_PROXY_COUNT` | Phase 2 | `1` — Render (and its Cloudflare front) add a proxy layer. |
 | `CORS_ORIGINS` | Phase 2 | **Omit** — same-origin needs no CORS, and it has a fiddly JSON-array format. The default is harmless. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Phase 7 | Web Push keys; `python scripts/generate_vapid_keys.py`. **Private key is a secret.** |
+| `PUSH_ENCRYPTION_KEY` | Phase 10 | Fernet key encrypting push keys at rest (ADR-0020). **App refuses to boot in prod without it.** Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. |
 | `REMINDERS_ENABLED` | Phase 7 | `true` in production. **Single instance only** (ADR-0002). |
-| `ENV=production` | Always | Disables dev `/docs` + dev CORS; enables `Secure` cookies. |
+| `ENV=production` | Always | Disables dev `/docs` + dev CORS; enables `Secure` cookies, HSTS, and login rate-limiting + CSRF (on by default). |
 
 `VITE_API_BASE_URL` is **intentionally empty** in this deploy (the React
 app calls relative, same-origin paths). The Dockerfile bakes it as `""` at
@@ -183,9 +184,11 @@ Add under the service's **Environment** section:
 | `TRUSTED_PROXY_COUNT` | `1` |
 | `REMINDERS_ENABLED` | `true` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | from `python scripts/generate_vapid_keys.py` (set `VAPID_SUBJECT` to a real `mailto:`) |
+| `PUSH_ENCRYPTION_KEY` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` (ADR-0020) |
 
-Generate `SESSION_SECRET` and the VAPID keys **in your own terminal** and
-paste the values straight into Render — don't route secrets through anything
+Generate `SESSION_SECRET`, `PUSH_ENCRYPTION_KEY`, and the VAPID keys **in your
+own terminal** and paste the values straight into Render — don't route secrets
+through anything
 that logs them. Do **not** set `VITE_API_BASE_URL` or `CORS_ORIGINS`.
 
 On Create, Render builds the image (~5–10 min first time), then the
@@ -333,4 +336,5 @@ Render routes traffic once `/healthz` is healthy.
 | `prepared statement "..." does not exist` | Hitting the pooler with prepared statements enabled. See §1.3 (don't override the defaults). |
 | Build fails | Ensure the build uses the **root** `Dockerfile`, repo root as context; `frontend/pnpm-lock.yaml` and `backend/pyproject.toml` committed. (pnpm is pinned in the Dockerfile to match the lockfile.) |
 | App won't start: "SESSION_SECRET must be set…" | `ENV` is non-development but `SESSION_SECRET` is unset/default. Set a strong base64 secret. |
+| App won't start: "PUSH_ENCRYPTION_KEY must be set…" | `ENV` is non-development but `PUSH_ENCRYPTION_KEY` is unset/default. Set a unique Fernet key (ADR-0020). |
 | Duplicate-email on bootstrap | The admin already exists; `medminder-admin user list --role admin` to confirm. |

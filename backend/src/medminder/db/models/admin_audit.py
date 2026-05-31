@@ -32,11 +32,13 @@ class AdminAuditLog(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     # No ON DELETE CASCADE: users are soft-deleted, and audit history must
-    # outlive a deactivated actor or target.
-    actor_id: Mapped[uuid.UUID] = mapped_column(
+    # outlive a deactivated actor or target.  Nullable because the admin CLI
+    # has no authenticated principal — those rows record ``"via": "cli"`` in
+    # ``details`` instead (G7).
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("users.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     target_user_id: Mapped[uuid.UUID] = mapped_column(

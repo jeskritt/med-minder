@@ -12,7 +12,9 @@ from rich.console import Console
 from rich.table import Table
 
 from medminder.cli._session import run_with_session
+from medminder.db.models.admin_audit import AdminAuditAction
 from medminder.domain import users as users_domain
+from medminder.domain.audit import record_admin_action
 from medminder.domain.users import (
     DuplicateEmailError,
     NoChangesSpecifiedError,
@@ -81,7 +83,7 @@ def add(
     password = _read_password_from_stdin()
 
     async def op(session):  # type: ignore[no-untyped-def]
-        return await users_domain.create_user(
+        user = await users_domain.create_user(
             session,
             email=email,
             name=name,
@@ -89,6 +91,14 @@ def add(
             password=password,
             timezone_name=timezone,
         )
+        await record_admin_action(
+            session,
+            actor_id=None,
+            action="create",
+            target_user_id=user.id,
+            details={"via": "cli", "fields": ["email", "name", "role"]},
+        )
+        return user
 
     try:
         user = run_with_session(op)
@@ -107,7 +117,15 @@ def delete(
     """Soft-delete a user (sets ``deleted_at``)."""
 
     async def op(session):  # type: ignore[no-untyped-def]
-        return await users_domain.soft_delete_user(session, email=email)
+        user_id = await users_domain.soft_delete_user(session, email=email)
+        await record_admin_action(
+            session,
+            actor_id=None,
+            action="deactivate",
+            target_user_id=user_id,
+            details={"via": "cli"},
+        )
+        return user_id
 
     try:
         user_id = run_with_session(op)
@@ -167,8 +185,29 @@ def update(
     qh_start = _parse_hhmm(quiet_hours_start) if quiet_hours_start else None
     qh_end = _parse_hhmm(quiet_hours_end) if quiet_hours_end else None
 
+    # Audit descriptor: changed field NAMES only (never values) — FR-020.
+    fields: list[str] = []
+    if new_email is not None:
+        fields.append("email")
+    if name is not None:
+        fields.append("name")
+    if role is not None:
+        fields.append("role")
+    if new_password is not None:
+        fields.append("password")
+    if clear_quiet_hours or qh_start is not None:
+        fields.append("quiet_hours")
+    # Precedence mirrors the web layer's action vocabulary.
+    action: AdminAuditAction
+    if role is not None:
+        action = "role_change"
+    elif new_password is not None:
+        action = "password_reset"
+    else:
+        action = "update"
+
     async def op(session):  # type: ignore[no-untyped-def]
-        return await users_domain.update_user(
+        user = await users_domain.update_user(
             session,
             email=email,
             new_email=new_email,
@@ -179,6 +218,14 @@ def update(
             new_quiet_hours_end=qh_end,
             clear_quiet_hours=clear_quiet_hours,
         )
+        await record_admin_action(
+            session,
+            actor_id=None,
+            action=action,
+            target_user_id=user.id,
+            details={"via": "cli", "fields": fields},
+        )
+        return user
 
     try:
         user = run_with_session(op)
