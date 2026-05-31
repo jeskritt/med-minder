@@ -78,13 +78,15 @@ describe("MedicationForm — Conflicts with", () => {
     await fillRequired(user);
     await user.click(screen.getByRole("button", { name: /add interaction/i }));
     await user.selectOptions(screen.getByLabelText(/^medication$/i), "med-2");
-    await user.type(screen.getByLabelText(/cooldown/i), "30");
+    // Cooldown is a value + unit pair; 2 hours → 120 minutes on submit.
+    await user.type(screen.getByLabelText("Cooldown"), "2");
+    await user.selectOptions(screen.getByLabelText("Cooldown unit"), "hour");
     await user.click(screen.getByRole("button", { name: /add medication/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const conflicts = onSubmit.mock.calls[0][1];
     expect(conflicts).toEqual([
-      { other_medication_id: "med-2", cooldown_minutes: 30 },
+      { other_medication_id: "med-2", cooldown_minutes: 120 },
     ]);
   });
 

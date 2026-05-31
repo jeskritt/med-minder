@@ -71,13 +71,16 @@ export const medicationFormSchema = z
     conflicts: z.array(
       z.object({
         other_medication_id: z.string().min(1, "Pick a medication"),
-        cooldown_minutes: z
+        // Cooldown as a value + unit pair (like min_interval / window_duration),
+        // converted to minutes on submit. Value is a required positive int.
+        cooldown_value: z
           .string()
           .trim()
           .refine(
             (v) => /^[0-9]+$/.test(v) && Number(v) > 0,
             "Cooldown must be a whole number greater than zero",
           ),
+        cooldown_unit: DURATION_UNIT,
       }),
     ),
   })

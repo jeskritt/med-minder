@@ -12,6 +12,7 @@ import {
   type ConflictInput,
 } from "@/components/medications/MedicationForm";
 import { defaultsFromMedication } from "@/components/medications/medicationFormDefaults";
+import { minutesToDuration } from "@/components/medications/medicationFormSchema";
 import {
   createInteractionRule,
   deleteInteractionRule,
@@ -139,10 +140,14 @@ function EditMedicationPage() {
           mode="edit"
           defaultValues={{
             ...defaultsFromMedication(med),
-            conflicts: rulesQuery.data.map((r) => ({
-              other_medication_id: r.conflicting_medication_id,
-              cooldown_minutes: String(r.cooldown_minutes),
-            })),
+            conflicts: rulesQuery.data.map((r) => {
+              const cd = minutesToDuration(r.cooldown_minutes);
+              return {
+                other_medication_id: r.conflicting_medication_id,
+                cooldown_value: cd.value,
+                cooldown_unit: cd.unit,
+              };
+            }),
           }}
           availableMedications={(medsQuery.data?.items ?? [])
             .filter((m) => m.id !== id)

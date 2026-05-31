@@ -62,7 +62,10 @@ test.describe("Drug-interaction cooldown — warn + take anyway", () => {
     await addSchedule(page, slot);
     await page.getByRole("button", { name: /add interaction/i }).click();
     await page.getByLabel(/^medication$/i).selectOption({ label: bName });
-    await page.getByLabel(/cooldown/i).fill("120");
+    // Cooldown is a value + unit pair (defaults to hours); pick minutes so the
+    // 120 below is a 120-minute cooldown.
+    await page.getByLabel("Cooldown unit").selectOption("min");
+    await page.getByLabel("Cooldown", { exact: true }).fill("120");
     await page.getByRole("button", { name: /add medication/i }).click();
     await expect(page).toHaveURL(/\/medications$/);
 

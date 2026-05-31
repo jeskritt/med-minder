@@ -146,7 +146,10 @@ export function MedicationForm({
       toApiBody(values),
       values.conflicts.map((c) => ({
         other_medication_id: c.other_medication_id,
-        cooldown_minutes: Number(c.cooldown_minutes),
+        // Value+unit → minutes (the API shape). Schema guarantees a positive
+        // value, so the null branch of durationToMinutes is unreachable.
+        cooldown_minutes:
+          durationToMinutes(c.cooldown_value, c.cooldown_unit) ?? 0,
       })),
     );
   };
@@ -686,16 +689,27 @@ export function MedicationForm({
                     htmlFor={`conflict-cd-${index}`}
                     className="block text-xs font-medium text-foreground"
                   >
-                    Cooldown (min)
+                    Cooldown
                   </label>
-                  <input
-                    id={`conflict-cd-${index}`}
-                    type="number"
-                    min={1}
-                    step={1}
-                    className="mm-input mt-1 w-28 py-1.5 text-sm"
-                    {...register(`conflicts.${index}.cooldown_minutes`)}
-                  />
+                  <div className="mt-1 flex items-center gap-1">
+                    <input
+                      id={`conflict-cd-${index}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      className="mm-input w-16 py-1.5 text-sm"
+                      {...register(`conflicts.${index}.cooldown_value`)}
+                    />
+                    <select
+                      aria-label="Cooldown unit"
+                      className="mm-input w-auto py-1.5 text-sm"
+                      {...register(`conflicts.${index}.cooldown_unit`)}
+                    >
+                      <option value="min">minutes</option>
+                      <option value="hour">hours</option>
+                      <option value="day">days</option>
+                    </select>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -713,7 +727,7 @@ export function MedicationForm({
           errors.conflicts.map((e, i) =>
             e ? (
               <p key={i} role="alert" className="mt-1 text-xs text-destructive">
-                {e.other_medication_id?.message ?? e.cooldown_minutes?.message}
+                {e.other_medication_id?.message ?? e.cooldown_value?.message}
               </p>
             ) : null,
           )}
@@ -727,7 +741,8 @@ export function MedicationForm({
           onClick={() =>
             conflictFields.append({
               other_medication_id: "",
-              cooldown_minutes: "",
+              cooldown_value: "",
+              cooldown_unit: "hour",
             })
           }
           disabled={availableMedications.length === 0}
