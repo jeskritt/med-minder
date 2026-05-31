@@ -23,7 +23,11 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 _settings = Settings()
-config.set_main_option("sqlalchemy.url", _settings.database_url_sync)
+# Do NOT push the URL through ``config.set_main_option`` / ``alembic.ini``:
+# ConfigParser performs ``%`` interpolation and raises on percent-encoded
+# passwords (e.g. ``%24`` for ``$``). Both run modes below pass
+# ``database_url_sync`` straight to SQLAlchemy, which decodes percent-encoding
+# correctly — so the config-file URL is unnecessary here.
 
 
 def run_migrations_offline() -> None:
