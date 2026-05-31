@@ -76,6 +76,15 @@ COPY --from=frontend-build /frontend/dist ./frontend_dist
 
 EXPOSE 8000
 
-# exec-form sh -c so ${PORT} (injected by Koyeb) expands and `exec` hands
-# PID 1 to uvicorn for clean SIGTERM-driven shutdown; falls back to 8000.
-CMD ["sh", "-c", "exec uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run migrations on startup, then launch the app. Koyeb has no native
+# release/pre-deploy command (community.koyeb.com/t/pre-deploy-jobs/1672),
+# so the entrypoint runs `alembic upgrade head` first; `&&` aborts the boot
+# if it fails. This is safe because we run a SINGLE always-on instance
+# (ADR-0002) and the upgrade is idempotent. exec-form sh -c so ${PORT}
+# (injected by Koyeb) expands and `exec` hands PID 1 to uvicorn for clean
+# SIGTERM shutdown; falls back to 8000.
+#
+# NOTE: this couples migrations to the app's DB role (needs DDL). When the
+# two-role hardening lands (DML-only runtime role; see docs/deployment.md
+# §8), migrations move out of this entrypoint to a separate step.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]

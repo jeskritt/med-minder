@@ -57,8 +57,12 @@ logic.
   `dist`, and runs `uvicorn` (no `--reload`) on Koyeb's `$PORT`. The dev
   `backend/Dockerfile` and `frontend/Dockerfile` (which back docker-compose) are
   left untouched.
-- Migrations run as the Koyeb **release command** (`alembic upgrade head`),
-  before traffic is routed.
+- Migrations run in the image **entrypoint** (`alembic upgrade head &&
+  uvicorn ...`) on container start. Koyeb has no release/pre-deploy command
+  ([feature request](https://community.koyeb.com/t/pre-deploy-jobs/1672));
+  this is safe because we run a single always-on instance and the upgrade is
+  idempotent. When the two-role hardening lands (DML-only runtime role),
+  migrations move out of the entrypoint to a separate step.
 
 ## Consequences
 

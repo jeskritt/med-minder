@@ -12,28 +12,35 @@ same origin. Postgres is a managed Supabase instance.
 
 ```
 ┌──────────────────┐     ┌────────────────────────────┐     ┌──────────────────┐
-│                  │     │  Koyeb (Eco Micro)         │     │                  │
+│                  │     │  Koyeb (always-on Eco)     │     │                  │
 │  Browser / PWA   │────▶│  FastAPI                   │────▶│  Supabase        │
 │                  │     │   ├─ /            → React  │     │  (PostgreSQL)    │
 │                  │     │   └─ /api,/auth,  → API    │     │                  │
 │                  │     │      /me,/healthz          │     │                  │
 └──────────────────┘     └────────────────────────────┘     └──────────────────┘
-   One origin              Single no-sleep instance           Free-tier Postgres
+   One origin              Single always-on instance          Free-tier Postgres
                            (serves SPA + API)                 (pooler connection)
 ```
 
 **Why one service?** The session cookie is `SameSite=Lax`, which the
 browser only sends on **same-origin** requests. Serving the frontend from
-the backend keeps login working with no auth/cookie/CORS changes, keeps the
-service worker's same-origin notification fetches working, and runs on one
-Koyeb Eco Micro instance that **does not sleep** — required so the
-in-process APScheduler reminder loop (ADR-0002) keeps delivering push
-reminders. See **ADR-0017** for the full rationale and the alternatives
-(Vercel/Cloudflare split, `SameSite=None`) that were rejected.
+the backend keeps login working with no auth/cookie/CORS changes, and keeps
+the service worker's same-origin notification fetches working. See
+**ADR-0017** for the full rationale and the alternatives (Vercel/Cloudflare
+split, `SameSite=None`) that were rejected.
 
-- **Koyeb Free Tier (Eco Micro, no sleep)**: runs the FastAPI service,
+> **The instance must not sleep.** The in-process APScheduler reminder loop
+> (ADR-0002) only delivers push reminders while the process is running.
+> **Koyeb's *free* instance scales to zero after ~1h idle** (it sleeps), so
+> reminders would be unreliable on it. Use a small **paid, always-on**
+> instance (an "Eco" type, ~US$2/mo) with **scaling fixed at 1 instance**
+> (no scale-to-zero). The free instance is fine for a no-reminders demo, but
+> not for production reminders.
+
+- **Koyeb (paid always-on Eco instance)**: runs the FastAPI service,
   built from the **root `Dockerfile`** (multi-stage: it compiles the React
-  app and bakes it into the image).
+  app and bakes it into the image). Migrations run on container start (no
+  Koyeb release command exists — see §2.1).
 - **Supabase Free Tier**: managed PostgreSQL, connected directly via
   `asyncpg` over the **transaction pooler** — **not** through Supabase's
   REST or GraphQL APIs.
@@ -46,7 +53,7 @@ required environment variables and migrations grows:
 | Variable / step | Required from phase | Notes |
 |-----------------|---------------------|-------|
 | `DATABASE_URL` | Phase 1 | Supabase connection string (`+asyncpg`, pooler). |
-| `alembic upgrade head` (release command) | Phase 1 | Runs once per deploy before traffic. |
+| `alembic upgrade head` (container entrypoint) | Phase 1 | Runs on each container start, before uvicorn — Koyeb has no release command (§2.1). |
 | `medminder-admin user add` (bootstrap admin) | Phase 1b | One-shot Koyeb job after first deploy. |
 | `medminder-admin db backup` (scheduled) | Phase 1b | One-shot or cron job — see §6. |
 | `SESSION_SECRET` | Phase 2 | 32+ random bytes, base64. Signs session cookies. App refuses to boot in prod without it. |
@@ -123,12 +130,15 @@ local Docker Postgres or Supabase's *direct* connection on port
 
 ### 1.4 Database migrations
 
-Alembic migrations run as the Koyeb **release command**
-(`alembic upgrade head`, configured in §2.1) — once per deploy, before
-the new container serves traffic. `alembic.ini` deliberately omits
-`sqlalchemy.url`; `alembic/env.py` reads it from
-`Settings.database_url_sync` (your `DATABASE_URL`, swapped to the
-sync `+psycopg` driver).
+Koyeb has **no release / pre-deploy command**
+([feature request](https://community.koyeb.com/t/pre-deploy-jobs/1672)), so
+the production image runs `alembic upgrade head` in its **entrypoint** on
+each container start, *before* uvicorn launches (`&&`-gated, so a failed
+migration aborts the boot). This is safe because we run a **single**
+always-on instance (§2.1) and the upgrade is idempotent. `alembic.ini`
+deliberately omits `sqlalchemy.url`; `alembic/env.py` reads it from
+`Settings.database_url_sync` (your `DATABASE_URL`, swapped to the sync
+`+psycopg` driver).
 
 ### 1.5 Security checklist
 
@@ -154,21 +164,26 @@ sync `+psycopg` driver).
 2. Create a new **Web Service** connected to your GitHub repository.
 3. Configure:
    - **Builder**: **Docker**.
-   - **Dockerfile location**: `./Dockerfile` (the repo-root production
+   - **Dockerfile location**: `Dockerfile` (the repo-root production
      Dockerfile — it builds the React app and serves it from FastAPI).
-     **Build context**: the repository root.
-   - **Release command**: `alembic upgrade head` — runs once per deploy
-     before traffic is routed.
-   - **Run command**: leave as the image default
-     (`uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}`,
+     **Work directory / build context**: the repository root.
+   - **Migrations**: nothing to configure — the image entrypoint runs
+     `alembic upgrade head` on start (Koyeb has no release command; §1.4).
+   - **Run command**: leave blank to use the image default
+     (`alembic upgrade head && uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}`,
      no `--reload`). Koyeb injects `$PORT`.
-   - **Instance type**: Eco Micro (free tier, **does not sleep**).
-   - **Port**: 8000 (or let Koyeb's `$PORT` drive it).
-   - **Scaling**: keep **a single instance / single worker**. The reminder
-     scheduler (`REMINDERS_ENABLED=true`) runs in-process; two instances would
-     each fire the dispatch tick and **double-deliver** reminders (ADR-0002).
-     Do not run `uvicorn --workers N>1` or scale horizontally without
+   - **Instance type**: a **paid always-on "Eco"** instance (~US$2/mo). **Do
+     not** use the *Free* instance for production — it scales to zero after
+     ~1h idle, which stops the reminder scheduler (ADR-0002).
+   - **Scaling**: set **min = max = 1** (a single, always-on instance, no
+     scale-to-zero). The reminder scheduler runs in-process; two instances
+     would each fire the dispatch tick and **double-deliver** reminders
+     (ADR-0002). Don't run `uvicorn --workers N>1` or scale out without
      revisiting ADR-0002.
+   - **Region**: Washington, D.C. (closest free-tier-region match to a
+     Supabase `us-east-1` database; keeps backend↔DB latency low).
+   - **Port**: 8000 (or let Koyeb's `$PORT` drive it).
+   - **Health check**: HTTP `GET /healthz`.
 
 > The dev images `backend/Dockerfile` and `frontend/Dockerfile` are for
 > local docker-compose only (they run with `--reload`). Production uses
@@ -324,8 +339,9 @@ do not commit either to the repository.
 ### Updating
 
 Koyeb auto-deploys from GitHub. Push to `main` and the pipeline handles
-the rest: it rebuilds the image (frontend + backend), runs the release
-command `alembic upgrade head`, then routes traffic to the new container.
+the rest: it rebuilds the image (frontend + backend); on start the new
+container's entrypoint runs `alembic upgrade head`, then launches uvicorn,
+and Koyeb routes traffic once `/healthz` is healthy.
 
 ### Cost
 
@@ -333,10 +349,10 @@ All services used are within their free tiers; verify the current
 limits on each provider's pricing page before relying on the numbers
 below.
 
-| Service | Free tier (verify before relying) |
-|---------|------------------------------------|
-| Supabase | 500 MB database, 5 GB egress/month |
-| Koyeb | 1 Eco Micro instance (does not sleep) |
+| Service | Tier (verify before relying) |
+|---------|------------------------------|
+| Supabase | Free: 500 MB database, 5 GB egress/month |
+| Koyeb | Paid always-on "Eco" instance, ~US$2/mo (the *free* instance sleeps after ~1h idle — unsuitable for reminders) |
 
 ---
 
