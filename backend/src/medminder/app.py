@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
+from starlette.types import Scope
 
 from medminder.api import adherence as adherence_api
 from medminder.api import auth as auth_api
@@ -35,6 +40,25 @@ from medminder.domain.timers import (
     WindowFullError,
 )
 from medminder.settings import Settings
+
+
+class _SPAStaticFiles(StaticFiles):
+    """Serve the built frontend, falling back to ``index.html`` on 404.
+
+    Client-side routes (``/medications``, ``/reminders``, ``/admin/...``)
+    have no matching file on disk, so a hard refresh or deep link would
+    otherwise 404.  Returning ``index.html`` lets the React router take
+    over.  Mounted at ``/`` *after* the API routers, so real endpoints
+    (``/auth/*``, ``/me``, ``/api/*``, ``/healthz``) still win; only
+    unmatched paths reach this mount (see ADR-0017)."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -171,5 +195,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             remaining_seconds=latest.remaining_seconds,
         )
         return JSONResponse(status_code=409, content=body.model_dump(mode="json"))
+
+    # --- Static frontend (single-service deploy, ADR-0017) -------------
+    # Mounted LAST so the API routers and /healthz match first; only
+    # unmatched paths fall through to the SPA.  Skipped entirely when no
+    # build is configured (dev/tests), leaving the API surface unchanged.
+    if settings.frontend_dist is not None:
+        dist = Path(settings.frontend_dist)
+        if dist.is_dir():
+            app.mount(
+                "/",
+                _SPAStaticFiles(directory=dist, html=True),
+                name="spa",
+            )
 
     return app

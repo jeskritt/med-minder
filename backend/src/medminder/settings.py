@@ -86,6 +86,18 @@ class Settings(BaseSettings):
     """Max attempts for a transient push send before giving up (FR-016).
     A subscription reported gone (HTTP 404/410) is deleted, not retried."""
 
+    # --- Single-service deployment (ADR-0017) --------------------------
+    frontend_dist: str | None = None
+    """Filesystem path to the built frontend (Vite ``dist``) to serve.
+
+    When set and the directory exists, the app serves the static SPA at
+    ``/`` with an ``index.html`` fallback for client-side routes — the
+    single-service production deployment (FastAPI serves both the API and
+    the React build from one origin, so the ``SameSite=Lax`` session
+    cookie works without CORS; see ADR-0017).  Unset in dev and tests,
+    where the Vite dev server serves the frontend, so the static mount is
+    skipped entirely and the API surface is unchanged."""
+
     model_config = {"env_prefix": "", "case_sensitive": False}
 
     @property

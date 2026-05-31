@@ -1,0 +1,30 @@
+# Build context for the production single-service image (./Dockerfile).
+# Keep the context small: deps and build outputs are produced inside the
+# image, and caches / VCS metadata are never needed at build time.
+
+.git
+.github
+
+# Node
+**/node_modules
+frontend/dist
+frontend/.vite
+**/*.local
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/.coverage.*
+**/*.egg-info
+**/.venv
+backend/htmlcov
+
+# Local env / editor
+.env
+.env.*
+.vscode
+.idea
