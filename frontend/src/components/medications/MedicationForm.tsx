@@ -50,7 +50,10 @@ const EMPTY_DEFAULTS: MedicationFormValues = {
   times_per_day: "1",
   start_date: "",
   end_date: "",
-  untracked: false,
+  // Most meds aren't part of a fixed course, so a new med defaults to
+  // untracked / as-needed (total_doses: null). The edit flow overrides this
+  // via defaultsFromMedication(), so this only affects the create form.
+  untracked: true,
   total_doses: "",
   refill_count: "",
   refill_threshold: "",

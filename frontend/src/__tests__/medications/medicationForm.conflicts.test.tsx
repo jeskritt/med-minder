@@ -61,7 +61,7 @@ async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/^quantity per dose$/i), "1");
   await user.clear(screen.getByLabelText(/^unit$/i));
   await user.type(screen.getByLabelText(/^unit$/i), "tablet");
-  await user.click(screen.getByLabelText(/untracked/i));
+  // Untracked / As Needed is checked by default → total_doses: null.
 }
 
 describe("MedicationForm — Conflicts with", () => {

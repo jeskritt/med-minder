@@ -95,6 +95,15 @@ describe("MedicationForm (Add)", () => {
     ).toBeInTheDocument();
   });
 
+  it("defaults Untracked / As Needed to checked in create mode", () => {
+    // Most meds aren't part of a fixed course, so a new med is untracked by
+    // default (total_doses disabled → submitted as null). Guards a past
+    // regression where this had silently flipped to unchecked.
+    renderForm();
+    expect(screen.getByLabelText(/untracked/i)).toBeChecked();
+    expect(screen.getByLabelText(/total doses/i)).toBeDisabled();
+  });
+
   it("blocks submission when required fields are blank", async () => {
     const { user, onSubmit } = renderForm();
     await user.click(screen.getByRole("button", { name: /add medication/i }));
@@ -127,6 +136,9 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "200");
     await user.clear(screen.getByLabelText(/^unit$/i));
     await user.type(screen.getByLabelText(/^unit$/i), "mg");
+    // Untracked is checked by default (disables total_doses); uncheck it so
+    // we can enter a value and exercise the "must be > 0" validation.
+    await user.click(screen.getByLabelText(/untracked/i));
     await user.type(screen.getByLabelText(/total doses/i), "0");
     await user.click(screen.getByRole("button", { name: /add medication/i }));
 
@@ -325,7 +337,7 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^unit$/i), "mg");
     await user.clear(screen.getByLabelText(/^times per day$/i));
     await user.type(screen.getByLabelText(/^times per day$/i), "1");
-    await user.click(screen.getByLabelText(/untracked/i));
+    // Untracked / As Needed is checked by default → total_doses: null.
     // Toggle the "Morning" chip → adds its id to selected_schedule_ids.
     // (The exact-name matcher avoids the sibling Edit/Delete icon buttons.)
     await user.click(
@@ -376,7 +388,6 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "200");
     await user.clear(screen.getByLabelText(/^unit$/i));
     await user.type(screen.getByLabelText(/^unit$/i), "mg");
-    await user.click(screen.getByLabelText(/untracked/i));
     await user.selectOptions(
       screen.getByLabelText(/timer mode/i),
       "count_down",
@@ -397,7 +408,6 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "1");
     await user.clear(screen.getByLabelText(/^unit$/i));
     await user.type(screen.getByLabelText(/^unit$/i), "tablet");
-    await user.click(screen.getByLabelText(/untracked/i));
     await user.selectOptions(screen.getByLabelText(/timer mode/i), "count_up");
     await user.click(screen.getByRole("button", { name: /add medication/i }));
 
@@ -417,7 +427,6 @@ describe("MedicationForm (Add)", () => {
     await user.type(screen.getByLabelText(/^quantity per dose$/i), "50");
     await user.clear(screen.getByLabelText(/^unit$/i));
     await user.type(screen.getByLabelText(/^unit$/i), "mg");
-    await user.click(screen.getByLabelText(/untracked/i));
     await user.selectOptions(
       screen.getByLabelText(/timer mode/i),
       "count_down",
@@ -442,7 +451,6 @@ describe("MedicationForm (Add)", () => {
     await user.clear(screen.getByLabelText(/^unit$/i));
     await user.type(screen.getByLabelText(/^unit$/i), "mg");
     await user.type(screen.getByLabelText(/pills per dose/i), "2");
-    await user.click(screen.getByLabelText(/untracked/i));
     await user.click(screen.getByRole("button", { name: /add medication/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
