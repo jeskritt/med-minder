@@ -39,7 +39,7 @@ export function UserList({
         return (
           <li
             key={u.id}
-            className="flex items-center justify-between gap-4 px-4 py-3"
+            className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
           >
             <div className="min-w-0">
               <p className="truncate font-semibold text-foreground">{u.name}</p>
@@ -47,7 +47,7 @@ export function UserList({
                 {u.email}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-sm sm:shrink-0">
               <span
                 className={
                   u.role === "admin"

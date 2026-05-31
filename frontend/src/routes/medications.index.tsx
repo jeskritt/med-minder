@@ -69,11 +69,11 @@ function MedicationsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           Medications
         </h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to="/medications/new" className="mm-btn mm-btn-primary">
             <Plus className="size-4" />
             Add
