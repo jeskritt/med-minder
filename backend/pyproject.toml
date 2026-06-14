@@ -19,7 +19,7 @@ dependencies = [
     "pywebpush>=2.0,<3.0",
     # Explicitly pinned (also a pywebpush transitive dep) — used to encrypt
     # push subscription keys at rest (ADR-0020); ships py.typed.
-    "cryptography>=44,<47",
+    "cryptography>=44,<50",
 ]
 
 [project.optional-dependencies]
