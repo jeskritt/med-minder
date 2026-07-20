@@ -49,9 +49,10 @@ async def test_generate_is_per_slot_and_idempotent(session: AsyncSession) -> Non
     )
     assert created >= 1
     # Re-running creates nothing new.
-    assert await generate_due_dose_reminders(
-        session, now=now, horizon=timedelta(days=2)
-    ) == 0
+    assert (
+        await generate_due_dose_reminders(session, now=now, horizon=timedelta(days=2))
+        == 0
+    )
 
     rows = list(
         (
@@ -78,9 +79,10 @@ async def test_generate_skips_schedule_without_live_med(
     user = await make_user(session)
     await make_schedule(session, user=user)  # no medication attached
     now = datetime(2026, 5, 24, 0, 0, tzinfo=UTC)
-    assert await generate_due_dose_reminders(
-        session, now=now, horizon=timedelta(days=1)
-    ) == 0
+    assert (
+        await generate_due_dose_reminders(session, now=now, horizon=timedelta(days=1))
+        == 0
+    )
 
 
 async def test_dispatch_sends_within_grace_and_marks_sent(
@@ -111,9 +113,7 @@ async def test_dispatch_sends_within_grace_and_marks_sent(
 
     calls: list[dict[str, Any]] = []
 
-    async def fake_send(
-        _sub: PushSubscription, payload: dict[str, Any]
-    ) -> PushResult:
+    async def fake_send(_sub: PushSubscription, payload: dict[str, Any]) -> PushResult:
         calls.append(payload)
         return PushResult(delivered=True, gone=False)
 
@@ -140,9 +140,7 @@ async def test_dispatch_overdue_stays_pending(session: AsyncSession) -> None:
     session.add(rem)
     await session.flush()
 
-    async def fake_send(
-        _sub: PushSubscription, _payload: dict[str, Any]
-    ) -> PushResult:
+    async def fake_send(_sub: PushSubscription, _payload: dict[str, Any]) -> PushResult:
         return PushResult(delivered=True, gone=False)
 
     n = await dispatch_due_reminders(
@@ -151,6 +149,78 @@ async def test_dispatch_overdue_stays_pending(session: AsyncSession) -> None:
     assert n == 0
     await session.refresh(rem)
     assert rem.status == "pending"
+
+
+async def test_dispatch_leaves_reminder_pending_when_no_send_succeeds(
+    session: AsyncSession,
+) -> None:
+    """A failed send must not resolve the reminder.
+
+    Marking it ``sent`` regardless of delivery is how the #17 encryption
+    regression stayed invisible: reminders looked delivered while every push
+    was being dropped.  A reminder with subscriptions but no successful send
+    stays ``pending`` so a later tick retries it within the grace window.
+    """
+    user = await make_user(session)
+    sched = await make_schedule(session, user=user)
+    session.add(
+        PushSubscription(
+            user_id=user.id,
+            endpoint="https://push.example/transient",
+            p256dh="p",
+            auth="a",
+        )
+    )
+    now = datetime(2026, 5, 24, 12, 0, tzinfo=UTC)
+    rem = Reminder(
+        user_id=user.id,
+        type="dose",
+        schedule_id=sched.id,
+        scheduled_for=now,
+        status="pending",
+    )
+    session.add(rem)
+    await session.flush()
+
+    async def fake_send(_sub: PushSubscription, _payload: dict[str, Any]) -> PushResult:
+        return PushResult(delivered=False, gone=False)
+
+    n = await dispatch_due_reminders(
+        session, now=now, grace=timedelta(minutes=15), send=fake_send
+    )
+    assert n == 0
+    await session.refresh(rem)
+    assert rem.status == "pending"
+
+
+async def test_dispatch_resolves_reminder_when_user_has_no_subscriptions(
+    session: AsyncSession,
+) -> None:
+    """No devices registered → in-app only by design, so don't retry forever."""
+    user = await make_user(session)
+    sched = await make_schedule(session, user=user)
+    now = datetime(2026, 5, 24, 12, 0, tzinfo=UTC)
+    rem = Reminder(
+        user_id=user.id,
+        type="dose",
+        schedule_id=sched.id,
+        scheduled_for=now,
+        status="pending",
+    )
+    session.add(rem)
+    await session.flush()
+
+    async def fake_send(
+        _sub: PushSubscription, _payload: dict[str, Any]
+    ) -> PushResult:  # pragma: no cover - no subscriptions to send to
+        raise AssertionError("send must not be called without subscriptions")
+
+    n = await dispatch_due_reminders(
+        session, now=now, grace=timedelta(minutes=15), send=fake_send
+    )
+    assert n == 1
+    await session.refresh(rem)
+    assert rem.status == "sent"
 
 
 async def test_dispatch_deletes_gone_subscription(session: AsyncSession) -> None:
@@ -176,9 +246,7 @@ async def test_dispatch_deletes_gone_subscription(session: AsyncSession) -> None
     )
     await session.flush()
 
-    async def fake_send(
-        _sub: PushSubscription, _payload: dict[str, Any]
-    ) -> PushResult:
+    async def fake_send(_sub: PushSubscription, _payload: dict[str, Any]) -> PushResult:
         return PushResult(delivered=False, gone=True)
 
     await dispatch_due_reminders(
@@ -187,9 +255,7 @@ async def test_dispatch_deletes_gone_subscription(session: AsyncSession) -> None
     remaining = list(
         (
             await session.execute(
-                select(PushSubscription).where(
-                    PushSubscription.user_id == user.id
-                )
+                select(PushSubscription).where(PushSubscription.user_id == user.id)
             )
         )
         .scalars()
@@ -219,9 +285,7 @@ async def test_dispatch_defers_reminder_during_quiet_hours(
 
     sent: list[dict[str, Any]] = []
 
-    async def fake_send(
-        _sub: PushSubscription, payload: dict[str, Any]
-    ) -> PushResult:
+    async def fake_send(_sub: PushSubscription, payload: dict[str, Any]) -> PushResult:
         sent.append(payload)
         return PushResult(delivered=True, gone=False)
 

@@ -65,6 +65,30 @@ async function fetchVapidPublicKey(): Promise<string> {
   return data.public_key;
 }
 
+/** Send a browser subscription to the backend.
+ *
+ * The endpoint is idempotent: an existing `(user, endpoint)` has its key
+ * material refreshed, a new one is inserted. Both the initial opt-in and the
+ * startup re-sync go through here so the two paths can't drift.
+ */
+async function registerSubscription(
+  subscription: PushSubscription,
+): Promise<void> {
+  const keys = subscription.toJSON().keys;
+  if (!keys?.p256dh || !keys?.auth) {
+    throw new Error("The browser subscription is missing its keys.");
+  }
+  const { error } = await client.POST("/api/v1/push/subscriptions", {
+    body: {
+      endpoint: subscription.endpoint,
+      keys: { p256dh: keys.p256dh, auth: keys.auth },
+    },
+  });
+  if (error) {
+    throw new Error("Could not register this device for notifications.");
+  }
+}
+
 export async function enablePushNotifications(): Promise<void> {
   if (!isPushSupported()) {
     throw new Error("This browser does not support notifications.");
@@ -84,19 +108,29 @@ export async function enablePushNotifications(): Promise<void> {
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(publicKey),
   });
-  const keys = subscription.toJSON().keys;
-  if (!keys?.p256dh || !keys?.auth) {
-    throw new Error("The browser subscription is missing its keys.");
-  }
-  const { error } = await client.POST("/api/v1/push/subscriptions", {
-    body: {
-      endpoint: subscription.endpoint,
-      keys: { p256dh: keys.p256dh, auth: keys.auth },
-    },
-  });
-  if (error) {
-    throw new Error("Could not register this device for notifications.");
-  }
+  await registerSubscription(subscription);
+}
+
+/**
+ * Re-register this device's existing subscription with the backend.
+ *
+ * The server can lose a subscription while the browser still holds a valid one
+ * — a row it can no longer decrypt is treated as dead and deleted, but nothing
+ * tells the browser that, so the UI keeps reporting "subscribed" and no push
+ * ever arrives again. Mirroring what the browser already holds on every load
+ * repairs that silently.
+ *
+ * Never prompts for permission and never calls `subscribe()`: if this device
+ * has no subscription, there is nothing to sync and the user must opt in
+ * explicitly. Best-effort — callers ignore failures.
+ */
+export async function syncPushSubscription(): Promise<void> {
+  if (!isPushSupported()) return;
+  if (Notification.permission !== "granted") return;
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) return;
+  await registerSubscription(subscription);
 }
 
 export async function disablePushNotifications(): Promise<void> {

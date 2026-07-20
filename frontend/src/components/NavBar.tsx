@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCurrentUser, useLogout } from "@/lib/auth";
+import { useSyncPushSubscription } from "@/hooks/usePushSubscription";
 import { ProfileDialog } from "@/components/profile/ProfileDialog";
 
 interface NavItem {
@@ -31,6 +32,9 @@ export function NavBar() {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [profileOpen, setProfileOpen] = useState(false);
+  // Repair a subscription the server may have dropped without telling the
+  // browser (see ADR-0021). Must run before the /login early return.
+  useSyncPushSubscription(Boolean(user));
 
   if (path === "/login") {
     return null;

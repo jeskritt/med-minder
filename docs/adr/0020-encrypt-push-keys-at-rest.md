@@ -2,7 +2,13 @@
 
 ## Status
 
-**Accepted** (Phase 10 — Hardening).
+**Accepted** (Phase 10 — Hardening), **amended by
+[ADR-0021](0021-push-subscription-resync.md)**.
+
+> **Correction.** The "the browser re-subscribes" claim below was **false when
+> written** — no such client-side path existed, so this decision silently
+> unsubscribed every pre-existing device in production. ADR-0021 implements the
+> re-subscribe this ADR assumed.
 
 ## Context
 
@@ -31,6 +37,7 @@ versioned URL-safe base64), keyed from a new env-only `PUSH_ENCRYPTION_KEY`.
   `send_web_push` treats that as `gone=True`, the row is deleted on the existing
   cleanup path, and the browser re-subscribes with fresh encrypted keys. The
   column type is unchanged (`Text`), so there is no schema migration.
+  *(Corrected: the re-subscribe step was never implemented — see ADR-0021.)*
 - `cryptography` (already transitive via pywebpush, and `py.typed`) is now
   **pinned explicitly** in `pyproject.toml`.
 
@@ -40,6 +47,6 @@ versioned URL-safe base64), keyed from a new env-only `PUSH_ENCRYPTION_KEY`.
   domain/API split; fully typed; no schema change.
 - **Negative / accepted**: **rotating `PUSH_ENCRYPTION_KEY` orphans all
   subscriptions** — they become undecryptable, are deleted as `gone`, and
-  self-heal on the user's next app open. Acceptable for a single-tenant app with
+  self-heal on the user's next app open *(only true as of ADR-0021)*. Acceptable for a single-tenant app with
   a handful of devices. Encrypt/decrypt runs on the push hot path, but volume is
   negligible.

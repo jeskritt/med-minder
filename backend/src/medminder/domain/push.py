@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 # pywebpush ships no type stubs and is not py.typed; this is the single
 # isolated import-untyped suppression for the feature (Principle II).
@@ -21,6 +23,19 @@ from pywebpush import WebPushException, webpush  # type: ignore[import-untyped]
 from medminder.db.models import PushSubscription
 from medminder.domain.crypto import InvalidToken, build_fernet, decrypt_secret
 from medminder.settings import Settings
+
+logger = logging.getLogger(__name__)
+
+_warned_unconfigured = False
+
+
+def _host(subscription: PushSubscription) -> str | None:
+    """Push-service hostname, for logs.
+
+    The endpoint path carries a per-device secret token, so only the host is
+    ever logged — enough to tell FCM from Mozilla, useless to an attacker.
+    """
+    return urlsplit(subscription.endpoint).hostname
 
 
 @dataclass(frozen=True)
@@ -47,6 +62,13 @@ async def send_web_push(
     never returned or logged (FR-002).
     """
     if not settings.vapid_private_key:
+        global _warned_unconfigured
+        if not _warned_unconfigured:
+            _warned_unconfigured = True
+            logger.warning(
+                "web push disabled: VAPID_PRIVATE_KEY is unset — reminders "
+                "will be in-app only"
+            )
         return PushResult(delivered=False, gone=False)
 
     # Decrypt the at-rest key material (ADR-0020).  A row written before
@@ -57,6 +79,13 @@ async def send_web_push(
         p256dh = decrypt_secret(fernet, subscription.p256dh)
         auth = decrypt_secret(fernet, subscription.auth)
     except InvalidToken:
+        # Legacy plaintext row, or written under a since-rotated key.  Log the
+        # endpoint host only — never the token or key material.
+        logger.warning(
+            "push subscription key material failed to decrypt "
+            "(legacy plaintext or rotated PUSH_ENCRYPTION_KEY): host=%s",
+            _host(subscription),
+        )
         return PushResult(delivered=False, gone=True)
 
     def _send() -> None:
@@ -82,11 +111,29 @@ async def send_web_push(
             status = getattr(response, "status_code", None)
             if status in (404, 410):
                 # Permanently gone — don't retry; caller deletes it (FR-016).
+                logger.info(
+                    "push endpoint gone (HTTP %s): host=%s",
+                    status,
+                    _host(subscription),
+                )
                 return PushResult(delivered=False, gone=True)
+            logger.warning(
+                "push send failed (HTTP %s), attempt %d/%d: host=%s",
+                status,
+                attempt,
+                attempts,
+                _host(subscription),
+            )
             if attempt >= attempts:
                 return PushResult(delivered=False, gone=False)
         except Exception:
             # Best-effort: transient/network errors must not break the tick.
+            logger.exception(
+                "push send errored, attempt %d/%d: host=%s",
+                attempt,
+                attempts,
+                _host(subscription),
+            )
             if attempt >= attempts:
                 return PushResult(delivered=False, gone=False)
         else:
