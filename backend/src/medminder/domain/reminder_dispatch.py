@@ -8,10 +8,12 @@ the dispatcher is testable with a fake sender and no network (Principle III).
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select, update
@@ -33,6 +35,8 @@ from medminder.domain.reminders import (
 )
 from medminder.domain.timezone import resolve_today_bounds
 
+logger = logging.getLogger(__name__)
+
 GENERATION_HORIZON: timedelta = timedelta(hours=48)
 """How far ahead dose reminders are materialised (plan research D3)."""
 
@@ -42,6 +46,7 @@ SNOOZE_DURATION: timedelta = timedelta(hours=1)
 
 class ReminderNotFoundError(Exception):
     """The reminder doesn't exist or isn't owned by the user (→ HTTP 404)."""
+
 
 PushSender = Callable[[PushSubscription, dict[str, Any]], Awaitable[PushResult]]
 
@@ -231,10 +236,10 @@ async def dispatch_due_reminders(
             users[u.id] = u
 
     dispatched = 0
+    failed = 0
+    dropped = 0
     for rem in due:
-        if not is_within_grace(
-            scheduled_for=rem.scheduled_for, now=now, grace=grace
-        ):
+        if not is_within_grace(scheduled_for=rem.scheduled_for, now=now, grace=grace):
             continue  # overdue — stays pending, not pushed (FR-006a)
         user = users.get(rem.user_id)
         if user is not None:
@@ -265,12 +270,34 @@ async def dispatch_due_reminders(
             "type": rem.type,
             "title": titles.get(rem.id, "MedMinder reminder"),
         }
+        delivered_any = False
         for sub in subs:
             result = await send(sub, payload)
+            delivered_any = delivered_any or result.delivered
             if result.gone:
+                logger.warning(
+                    "push subscription gone, deleting: id=%s host=%s user=%s",
+                    sub.id,
+                    urlsplit(sub.endpoint).hostname,
+                    rem.user_id,
+                )
+                dropped += 1
                 await session.delete(sub)
-        rem.status = "sent"
-        dispatched += 1
+        # Only resolve the reminder when something actually went out, or when
+        # there was nothing to send to (in-app-only by design).  Marking a
+        # failed send "sent" would burn the reminder without delivering it.
+        if delivered_any or not subs:
+            rem.status = "sent"
+            dispatched += 1
+        else:
+            failed += 1
+    logger.info(
+        "reminder tick: due=%d dispatched=%d failed=%d subs_dropped=%d",
+        len(due),
+        dispatched,
+        failed,
+        dropped,
+    )
     await session.flush()
     return dispatched
 
@@ -301,9 +328,7 @@ async def load_reminder_titles(
     schedule_meds: dict[uuid.UUID, list[str]] = {}
     if schedule_ids:
         for sched_row in (
-            await session.execute(
-                select(Schedule).where(Schedule.id.in_(schedule_ids))
-            )
+            await session.execute(select(Schedule).where(Schedule.id.in_(schedule_ids)))
         ).scalars():
             schedules[sched_row.id] = sched_row
         for sid, name in (
@@ -358,9 +383,7 @@ async def _load_owned_reminder(
     session: AsyncSession, *, user: User, reminder_id: uuid.UUID
 ) -> Reminder:
     rem = (
-        await session.execute(
-            select(Reminder).where(Reminder.id == reminder_id)
-        )
+        await session.execute(select(Reminder).where(Reminder.id == reminder_id))
     ).scalar_one_or_none()
     if rem is None or rem.user_id != user.id:
         raise ReminderNotFoundError(str(reminder_id))

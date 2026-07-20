@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -90,6 +91,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             scheduler = build_scheduler(settings, session_factory)
             scheduler.start()
             _app.state.scheduler = scheduler
+        else:
+            logging.getLogger(__name__).info(
+                "reminder scheduler disabled (REMINDERS_ENABLED=false)"
+            )
         try:
             yield
         finally:
@@ -189,9 +194,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def _interaction_conflict_handler(
         _request: Request, exc: MedicationInteractionConflictError
     ) -> JSONResponse:
-        latest = max(
-            exc.conflict.conflicts, key=lambda c: c.cooldown_elapses_at
-        )
+        latest = max(exc.conflict.conflicts, key=lambda c: c.cooldown_elapses_at)
         body = InteractionCooldownViolation(
             code="interaction_cooldown_active",
             medication_id=exc.medication_id,

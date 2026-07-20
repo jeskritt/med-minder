@@ -12,6 +12,7 @@ tests / CI / Alembic never spin up a background loop.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -28,6 +29,8 @@ from medminder.domain.reminder_dispatch import (
     generate_due_dose_reminders,
 )
 from medminder.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 _TICK_JOB_ID = "reminder_dispatch_tick"
 
@@ -81,6 +84,12 @@ def build_scheduler(
         replace_existing=True,
         max_instances=1,
         coalesce=True,
+    )
+    logger.info(
+        "reminder scheduler built: tick=%ss grace=%smin push=%s",
+        settings.reminder_tick_seconds,
+        settings.reminder_grace_minutes,
+        "configured" if settings.vapid_private_key else "UNCONFIGURED",
     )
     return scheduler
 
