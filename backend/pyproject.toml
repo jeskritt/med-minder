@@ -19,7 +19,9 @@ dependencies = [
     "pywebpush>=2.0,<3.0",
     # Explicitly pinned (also a pywebpush transitive dep) — used to encrypt
     # push subscription keys at rest (ADR-0020); ships py.typed.
-    "cryptography>=44,<47",
+    # Floor is 48.0.1: wheels below that statically link an OpenSSL with an
+    # out-of-bounds read (GHSA-537c-gmf6-5ccf, CVSS 7.5) that pip-audit fails on.
+    "cryptography>=48.0.1,<50",
 ]
 
 [project.optional-dependencies]
