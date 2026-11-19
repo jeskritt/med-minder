@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
@@ -72,16 +73,31 @@ describe("TimezoneCombobox", () => {
     expect(options.length).toBeGreaterThan(1);
   });
 
-  it("commits an exact typed IANA match immediately so Save can enable", async () => {
+  it("commits an exact typed IANA match immediately while keeping dropdown filtered", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<TimezoneCombobox value="UTC" onChange={onChange} />);
+    function Wrapper() {
+      const [tz, setTz] = React.useState("America/Edmonton");
+      return (
+        <TimezoneCombobox
+          value={tz}
+          onChange={(next) => {
+            setTz(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+    render(<Wrapper />);
 
     const input = screen.getByRole("combobox");
     await user.clear(input);
     await user.type(input, "America/Regina");
 
     expect(onChange).toHaveBeenCalledWith("America/Regina");
+    expect(
+      await screen.findByRole("option", { name: /America\/Regina/ }),
+    ).toBeInTheDocument();
   });
 
   it("reverts to the committed value when free text matches nothing", async () => {

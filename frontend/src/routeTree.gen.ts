@@ -9,37 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TodayRouteImport } from './routes/today'
-import { Route as RemindersRouteImport } from './routes/reminders'
-import { Route as MedicationsRouteImport } from './routes/medications'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MedicationsIndexRouteImport } from './routes/medications.index'
-import { Route as MedicationsNewRouteImport } from './routes/medications.new'
-import { Route as MedicationsMedicationIdRouteImport } from './routes/medications.$medicationId'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MedicationsRouteImport } from './routes/medications'
+import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as TodayRouteImport } from './routes/today'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as MedicationsIndexRouteImport } from './routes/medications.index'
+import { Route as MedicationsMedicationIdRouteImport } from './routes/medications.$medicationId'
+import { Route as MedicationsNewRouteImport } from './routes/medications.new'
 import { Route as MedicationsIdEditRouteImport } from './routes/medications.$id.edit'
 
-const TodayRoute = TodayRouteImport.update({
-  id: '/today',
-  path: '/today',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RemindersRoute = RemindersRouteImport.update({
-  id: '/reminders',
-  path: '/reminders',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MedicationsRoute = MedicationsRouteImport.update({
-  id: '/medications',
-  path: '/medications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -47,19 +32,39 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MedicationsRoute = MedicationsRouteImport.update({
+  id: '/medications',
+  path: '/medications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TodayRoute = TodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
 } as any)
 const MedicationsIndexRoute = MedicationsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => MedicationsRoute,
-} as any)
-const MedicationsNewRoute = MedicationsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
   getParentRoute: () => MedicationsRoute,
 } as any)
 const MedicationsMedicationIdRoute = MedicationsMedicationIdRouteImport.update({
@@ -67,15 +72,10 @@ const MedicationsMedicationIdRoute = MedicationsMedicationIdRouteImport.update({
   path: '/$medicationId',
   getParentRoute: () => MedicationsRoute,
 } as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAuditRoute = AdminAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => AdminRoute,
+const MedicationsNewRoute = MedicationsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => MedicationsRoute,
 } as any)
 const MedicationsIdEditRoute = MedicationsIdEditRouteImport.update({
   id: '/$id/edit',
@@ -180,32 +180,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/today': {
-      id: '/today'
-      path: '/today'
-      fullPath: '/today'
-      preLoaderRoute: typeof TodayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reminders': {
-      id: '/reminders'
-      path: '/reminders'
-      fullPath: '/reminders'
-      preLoaderRoute: typeof RemindersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/medications': {
-      id: '/medications'
-      path: '/medications'
-      fullPath: '/medications'
-      preLoaderRoute: typeof MedicationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -215,25 +194,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/medications': {
+      id: '/medications'
+      path: '/medications'
+      fullPath: '/medications'
+      preLoaderRoute: typeof MedicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/today': {
+      id: '/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/medications/': {
       id: '/medications/'
       path: '/'
       fullPath: '/medications/'
       preLoaderRoute: typeof MedicationsIndexRouteImport
-      parentRoute: typeof MedicationsRoute
-    }
-    '/medications/new': {
-      id: '/medications/new'
-      path: '/new'
-      fullPath: '/medications/new'
-      preLoaderRoute: typeof MedicationsNewRouteImport
       parentRoute: typeof MedicationsRoute
     }
     '/medications/$medicationId': {
@@ -243,19 +250,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MedicationsMedicationIdRouteImport
       parentRoute: typeof MedicationsRoute
     }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/audit': {
-      id: '/admin/audit'
-      path: '/audit'
-      fullPath: '/admin/audit'
-      preLoaderRoute: typeof AdminAuditRouteImport
-      parentRoute: typeof AdminRoute
+    '/medications/new': {
+      id: '/medications/new'
+      path: '/new'
+      fullPath: '/medications/new'
+      preLoaderRoute: typeof MedicationsNewRouteImport
+      parentRoute: typeof MedicationsRoute
     }
     '/medications/$id/edit': {
       id: '/medications/$id/edit'

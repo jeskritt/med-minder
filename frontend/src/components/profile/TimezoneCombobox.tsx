@@ -125,12 +125,16 @@ export function TimezoneCombobox({
 
   // Reflect the committed value in the field when it changes externally (e.g.
   // /me resolving after first render). Render-phase reconciliation, not an
-  // effect — React's "adjusting state when a prop changes" pattern.
+  // effect — React's "adjusting state when a prop changes" pattern. Skip
+  // resetting `isFiltering` when the prop merely echoes back what the user
+  // already typed.
   const [lastValue, setLastValue] = useState(value);
   if (value !== lastValue) {
     setLastValue(value);
-    setQuery(value);
-    setIsFiltering(false);
+    if (value !== query) {
+      setQuery(value);
+      setIsFiltering(false);
+    }
   }
 
   const matches = useMemo(() => {
