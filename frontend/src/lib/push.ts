@@ -16,11 +16,7 @@ import { client } from "@/lib/api";
  * keys off this, not permission alone.
  */
 export type PushStatus =
-  | "unsupported"
-  | "denied"
-  | "default"
-  | "subscribed"
-  | "unsubscribed";
+  "unsupported" | "denied" | "default" | "subscribed" | "unsubscribed";
 
 export function isPushSupported(): boolean {
   return (
