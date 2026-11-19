@@ -26,7 +26,13 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { login, medIdByName, setPlainDose, addSchedule } from "./helpers";
+import {
+  addSchedule,
+  isE2eEnabled,
+  login,
+  medIdByName,
+  setPlainDose,
+} from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -34,8 +40,8 @@ const TEST_PASSWORD =
 
 test.describe("Timer modes — count_down boundary", () => {
   test.skip(
-    !process.env.E2E_RUN_TIMER_MODES,
-    "Set E2E_RUN_TIMER_MODES=1 to run; requires `just dev` + the seeded demo user.",
+    !isE2eEnabled("E2E_RUN_TIMER_MODES"),
+    "Set E2E_RUN_TIMER_MODES=1 or E2E_RUN_ALL=1 to run; requires `just dev` + the seeded demo user.",
   );
 
   test("button transitions from disabled to enabled at zero, no flicker", async ({
@@ -132,8 +138,8 @@ test.describe("Timer modes — count_down boundary", () => {
 
 test.describe("Timer modes — multi_sub_dose window fill", () => {
   test.skip(
-    !process.env.E2E_RUN_TIMER_MODES,
-    "Set E2E_RUN_TIMER_MODES=1 to run; requires `just dev` + the seeded demo user.",
+    !isE2eEnabled("E2E_RUN_TIMER_MODES"),
+    "Set E2E_RUN_TIMER_MODES=1 or E2E_RUN_ALL=1 to run; requires `just dev` + the seeded demo user.",
   );
 
   test("fills a window's slots then disables the control when full", async ({

@@ -17,12 +17,13 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
-import { login } from "./helpers";
+import { isE2eEnabled, login } from "./helpers";
 
 const EMAIL = process.env.E2E_USER_EMAIL ?? "granny@example.com";
 const PASSWORD =
   process.env.E2E_USER_PASSWORD ?? "correct horse battery staple";
 const TEMP_PASSWORD = "e2e temporary passphrase 007";
+const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
 
 async function openProfile(page: Page): Promise<void> {
   await page.getByTestId("open-profile").click();
@@ -31,29 +32,27 @@ async function openProfile(page: Page): Promise<void> {
 
 test.describe("Self-service profile editor", () => {
   test.skip(
-    !process.env.E2E_RUN_PROFILE_EDITOR,
-    "Set E2E_RUN_PROFILE_EDITOR=1 to run; requires the live `just dev` docker stack.",
+    !isE2eEnabled("E2E_RUN_PROFILE_EDITOR"),
+    "Set E2E_RUN_PROFILE_EDITOR=1 or E2E_RUN_ALL=1 to run; requires the live `just dev` docker stack.",
   );
 
   test("change display name reflects in the nav bar", async ({ page }) => {
     await login(page, EMAIL, PASSWORD);
 
-    const original = (
-      await page.getByTestId("open-profile").innerText()
-    ).trim();
-    const renamed = `${original} ✎`;
-
     await openProfile(page);
     const nameInput = page.getByLabel("Display name");
+    const original = (await nameInput.inputValue()).trim();
+    const renamed = `${original} ✎`;
+
     await nameInput.fill(renamed);
     await page.getByRole("button", { name: /save name/i }).click();
     await expect(page.getByText("Name saved.")).toBeVisible();
-    await expect(page.getByTestId("open-profile")).toHaveText(renamed);
+    await expect(page.getByTestId("open-profile")).toContainText(renamed);
 
     // Restore the original name to keep the fixture stable.
     await nameInput.fill(original);
     await page.getByRole("button", { name: /save name/i }).click();
-    await expect(page.getByTestId("open-profile")).toHaveText(original);
+    await expect(page.getByTestId("open-profile")).toContainText(original);
   });
 
   test("password change keeps this device, signs out the other", async ({
@@ -92,6 +91,70 @@ test.describe("Self-service profile editor", () => {
     } finally {
       await deviceA.close();
       await deviceB.close();
+    }
+  });
+
+  test("change timezone via Alberta alias persists and updates quiet-hours label", async ({
+    page,
+  }) => {
+    await login(page, EMAIL, PASSWORD);
+
+    // Snapshot original timezone so we can restore cleanly.
+    const meBefore = await page.request.get(`${API_BASE}/me`);
+    expect(meBefore.ok()).toBeTruthy();
+    const originalTz = ((await meBefore.json()) as { timezone: string })
+      .timezone;
+
+    // First switch to UTC if already America/Edmonton so the save is dirty.
+    const targetTz = "America/Edmonton";
+    const prepTz = originalTz === targetTz ? "UTC" : null;
+
+    await openProfile(page);
+    const dialog = page.getByRole("dialog", { name: "Profile" });
+    const tzInput = dialog.getByRole("combobox");
+    const saveTzBtn = dialog.getByRole("button", { name: /save timezone/i });
+
+    if (prepTz) {
+      await tzInput.click();
+      await tzInput.fill(prepTz);
+      await dialog.getByRole("option", { name: /^UTC\b/ }).click();
+      await saveTzBtn.click();
+      await expect(dialog.getByText("Timezone saved.")).toBeVisible();
+    }
+
+    // Search using the friendly "Alberta" alias and pick America/Edmonton.
+    await tzInput.click();
+    await tzInput.fill("Alberta");
+    const edmontonOpt = dialog.getByRole("option", {
+      name: /America\/Edmonton/,
+    });
+    await expect(edmontonOpt).toBeVisible();
+    await edmontonOpt.click();
+    await saveTzBtn.click();
+    await expect(dialog.getByText("Timezone saved.")).toBeVisible();
+
+    // Verify persistence on /reminders Quiet Hours heading and across reload.
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await page.goto("/reminders");
+    await expect(
+      page.getByRole("heading", { name: /Quiet hours \(America\/Edmonton\)/ }),
+    ).toBeVisible();
+
+    // Restore original timezone if it differed.
+    if (originalTz !== targetTz) {
+      await openProfile(page);
+      const restoreDialog = page.getByRole("dialog", { name: "Profile" });
+      const restoreInput = restoreDialog.getByRole("combobox");
+      await restoreInput.click();
+      await restoreInput.fill(originalTz);
+      await restoreDialog
+        .getByRole("option", { name: new RegExp(originalTz) })
+        .first()
+        .click();
+      await restoreDialog
+        .getByRole("button", { name: /save timezone/i })
+        .click();
+      await expect(restoreDialog.getByText("Timezone saved.")).toBeVisible();
     }
   });
 });

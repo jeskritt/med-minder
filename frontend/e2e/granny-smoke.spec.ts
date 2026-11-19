@@ -17,7 +17,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers";
+import { isE2eEnabled, login } from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_USER_EMAIL ?? "granny@example.com";
 const TEST_PASSWORD =
@@ -25,8 +25,8 @@ const TEST_PASSWORD =
 
 test.describe("Granny flow", () => {
   test.skip(
-    !process.env.E2E_RUN_GRANNY,
-    "Set E2E_RUN_GRANNY=1 to run; requires the live `just dev` docker stack (global-setup provisions the fixture).",
+    !isE2eEnabled("E2E_RUN_GRANNY"),
+    "Set E2E_RUN_GRANNY=1 or E2E_RUN_ALL=1 to run; requires the live `just dev` docker stack (global-setup provisions the fixture).",
   );
 
   test("login, mark taken, cancel, then un-take", async ({ page }) => {

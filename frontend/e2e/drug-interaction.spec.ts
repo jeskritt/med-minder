@@ -22,7 +22,13 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { login, medIdByName, setPlainDose, addSchedule } from "./helpers";
+import {
+  addSchedule,
+  isE2eEnabled,
+  login,
+  medIdByName,
+  setPlainDose,
+} from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -30,8 +36,8 @@ const TEST_PASSWORD =
 
 test.describe("Drug-interaction cooldown — warn + take anyway", () => {
   test.skip(
-    !process.env.E2E_RUN_DRUG_INTERACTION,
-    "Set E2E_RUN_DRUG_INTERACTION=1 to run; requires `just dev` + the seeded demo user.",
+    !isE2eEnabled("E2E_RUN_DRUG_INTERACTION"),
+    "Set E2E_RUN_DRUG_INTERACTION=1 or E2E_RUN_ALL=1 to run; requires `just dev` + the seeded demo user.",
   );
 
   test("conflicting dose warns, is overridable, and is recorded", async ({

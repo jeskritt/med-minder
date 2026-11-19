@@ -20,7 +20,13 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
-import { login, medIdByName, setPlainDose, addSchedule } from "./helpers";
+import {
+  addSchedule,
+  isE2eEnabled,
+  login,
+  medIdByName,
+  setPlainDose,
+} from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -47,8 +53,8 @@ async function createMedWithSchedule(
 
 test.describe("Schedule management", () => {
   test.skip(
-    !process.env.E2E_RUN_SCHEDULES,
-    "Set E2E_RUN_SCHEDULES=1 to run; requires `just dev` + the seeded demo user.",
+    !isE2eEnabled("E2E_RUN_SCHEDULES"),
+    "Set E2E_RUN_SCHEDULES=1 or E2E_RUN_ALL=1 to run; requires `just dev` + the seeded demo user.",
   );
 
   test("inline label edit persists without a warning", async ({ page }) => {

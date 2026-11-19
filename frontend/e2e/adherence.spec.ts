@@ -20,7 +20,14 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { addSchedule, login, medIdByName, setPlainDose } from "./helpers";
+import {
+  addSchedule,
+  csrfHeaders,
+  isE2eEnabled,
+  login,
+  medIdByName,
+  setPlainDose,
+} from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -29,8 +36,8 @@ const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:8000";
 
 test.describe("Adherence views", () => {
   test.skip(
-    !process.env.E2E_RUN_ADHERENCE,
-    "Set E2E_RUN_ADHERENCE=1 to run; requires the live `just dev` docker stack + seeded demo user.",
+    !isE2eEnabled("E2E_RUN_ADHERENCE"),
+    "Set E2E_RUN_ADHERENCE=1 or E2E_RUN_ALL=1 to run; requires the live `just dev` docker stack + seeded demo user.",
   );
 
   test("entry point, calendar, trend bars, and CSV export", async ({
@@ -52,6 +59,7 @@ test.describe("Adherence views", () => {
     const medId = await medIdByName(page, medName);
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     const doseResp = await page.request.post(`${API_BASE}/api/doses`, {
+      headers: await csrfHeaders(page),
       data: { medication_id: medId, taken_at: twoDaysAgo.toISOString() },
     });
     expect(doseResp.ok()).toBeTruthy();

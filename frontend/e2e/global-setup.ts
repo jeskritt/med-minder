@@ -75,10 +75,19 @@ function ensureUser(
     PASSWORD,
   );
   if (add.ok) return;
-  // Already exists (or transient) — force the known password so the
+  // Already exists (or transient) — force the known name & password so the
   // specs can log in deterministically regardless of prior state.
   const upd = dc(
-    ["medminder-admin", "user", "update", "--email", email, "--password-stdin"],
+    [
+      "medminder-admin",
+      "user",
+      "update",
+      "--email",
+      email,
+      "--name",
+      name,
+      "--password-stdin",
+    ],
     PASSWORD,
   );
   if (!upd.ok) {
@@ -99,9 +108,21 @@ async function ensureGrannyMedication(): Promise<void> {
       `global-setup: granny login failed (HTTP ${loginResp.status})`,
     );
   }
-  const setCookie = loginResp.headers.get("set-cookie");
-  if (!setCookie) throw new Error("global-setup: no session cookie returned");
-  const cookie = setCookie.split(";")[0];
+  const setCookies = loginResp.headers.getSetCookie();
+  if (setCookies.length === 0) {
+    throw new Error("global-setup: no session cookie returned");
+  }
+  const cookiePairs = setCookies.map((c) => c.split(";")[0]);
+  const cookie = cookiePairs.join("; ");
+  const csrfPair = cookiePairs.find((p) => p.startsWith("mm_csrf="));
+  const csrfToken = csrfPair
+    ? decodeURIComponent(csrfPair.slice("mm_csrf=".length))
+    : "";
+  const writeHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    Cookie: cookie,
+    ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+  };
 
   // UX enhancements: schedules are shared user-level resources. Refresh
   // (or create) granny's "Morning" slot at the CURRENT local time on
@@ -121,7 +142,7 @@ async function ensureGrannyMedication(): Promise<void> {
   if (existingSlot) {
     const upd = await fetch(`${API}/api/v1/schedules/${existingSlot.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Cookie: cookie },
+      headers: writeHeaders,
       body: JSON.stringify({
         time_of_day: slot,
         label: "Morning",
@@ -137,7 +158,7 @@ async function ensureGrannyMedication(): Promise<void> {
   } else {
     const schedResp = await fetch(`${API}/api/v1/schedules`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: cookie },
+      headers: writeHeaders,
       body: JSON.stringify({ time_of_day: slot, label: "Morning" }),
     });
     if (schedResp.status !== 201) {
@@ -152,23 +173,42 @@ async function ensureGrannyMedication(): Promise<void> {
     headers: { Cookie: cookie },
   });
   const body = (await list.json()) as { items: { name: string }[] };
-  if (body.items.some((m) => m.name === GRANNY_MED_NAME)) return;
+  if (!body.items.some((m) => m.name === GRANNY_MED_NAME)) {
+    const create = await fetch(`${API}/api/v1/medications`, {
+      method: "POST",
+      headers: writeHeaders,
+      body: JSON.stringify({
+        name: GRANNY_MED_NAME,
+        times_per_day: 1,
+        quantity_per_dose: "10.000",
+        unit: "mg",
+        schedules: [scheduleId],
+      }),
+    });
+    if (create.status !== 201) {
+      throw new Error(
+        `global-setup: granny medication create failed (HTTP ${create.status})`,
+      );
+    }
+  }
 
-  const create = await fetch(`${API}/api/v1/medications`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify({
-      name: GRANNY_MED_NAME,
-      times_per_day: 1,
-      quantity_per_dose: "10.000",
-      unit: "mg",
-      schedules: [scheduleId],
-    }),
+  // Ensure Granny's today slot starts untaken so reruns stay idempotent even if
+  // a previous run aborted between "Mark taken" and "Confirm un-take".
+  const todayResp = await fetch(`${API}/api/schedules/today`, {
+    headers: { Cookie: cookie },
   });
-  if (create.status !== 201) {
-    throw new Error(
-      `global-setup: granny medication create failed (HTTP ${create.status})`,
-    );
+  if (todayResp.ok) {
+    const todayBody = (await todayResp.json()) as {
+      items: { name: string; dose: { id: string } | null }[];
+    };
+    for (const item of todayBody.items) {
+      if (item.name === GRANNY_MED_NAME && item.dose) {
+        await fetch(`${API}/api/doses/${item.dose.id}/void`, {
+          method: "POST",
+          headers: writeHeaders,
+        });
+      }
+    }
   }
 }
 
@@ -189,6 +229,10 @@ async function waitForBackend(): Promise<void> {
 
 export default async function globalSetup(): Promise<void> {
   await waitForBackend();
+  const mig = dc(["alembic", "upgrade", "head"]);
+  if (!mig.ok) {
+    throw new Error(`global-setup: alembic upgrade head failed:\n${mig.out}`);
+  }
   ensureUser(DEMO_EMAIL, "Demo User");
   ensureUser(GRANNY_EMAIL, "Granny");
   ensureUser(ADMIN_EMAIL, "Admin", "admin");
