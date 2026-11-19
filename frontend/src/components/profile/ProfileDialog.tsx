@@ -150,8 +150,8 @@ function TimezoneSection({ currentTimezone }: { currentTimezone: string }) {
         Timezone
       </label>
       <p className="text-sm text-muted-foreground">
-        Used for your reminder times and quiet hours. Type to search — e.g.
-        “Edmo” finds “America/Edmonton”.
+        Used for your reminder times and quiet hours. Search by city, region, or
+        UTC offset — e.g. “Edmonton”, “Alberta”, or “UTC-6”.
       </p>
       <TimezoneCombobox
         id="profile-timezone"
