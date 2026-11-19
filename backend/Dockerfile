@@ -1,5 +1,7 @@
 FROM python:3.12-slim
 
+ENV PYTHONTZPATH=""
+
 WORKDIR /app
 
 # postgresql-client-17 provides pg_dump / pg_restore for the
@@ -14,7 +16,7 @@ RUN apt-get update \
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" \
         > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get install -y --no-install-recommends postgresql-client-17 tzdata \
     && apt-get purge -y curl gnupg \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
@@ -26,7 +28,8 @@ COPY pyproject.toml ./
 COPY src/ ./src/
 
 # Install the package (editable) with dev extras
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -e ".[dev]"
 
 # Copy everything else (tests, alembic, etc.)
 COPY . .

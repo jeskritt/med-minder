@@ -15,12 +15,11 @@
 # VITE_API_BASE_URL is empty so the client calls relative, same-origin paths
 # (see frontend/src/lib/api.ts); the value is baked in at build time.
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS frontend-build
+FROM node:24-slim AS frontend-build
 
 WORKDIR /frontend
 
-# Pin pnpm to the version that produced frontend/pnpm-lock.yaml. `@latest`
-# is a moving target and recent majors require a newer Node than node:20.
+# Pin pnpm to the version that produced frontend/pnpm-lock.yaml.
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 
 # Install deps first (cached unless the manifest/lockfile change).
@@ -39,6 +38,7 @@ FROM python:3.12-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    PYTHONTZPATH="" \
     FRONTEND_DIST=/app/frontend_dist
 
 WORKDIR /app
@@ -55,7 +55,7 @@ RUN apt-get update \
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" \
         > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get install -y --no-install-recommends postgresql-client-17 tzdata \
     && apt-get purge -y curl gnupg \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
@@ -64,7 +64,7 @@ RUN apt-get update \
 # Copy metadata + src first so the pip layer caches when only alembic/ changes.
 COPY backend/pyproject.toml ./
 COPY backend/src/ ./src/
-RUN pip install .
+RUN python -m pip install --upgrade pip && pip install .
 
 # Migrations run as the release command (`alembic upgrade head`); alembic.ini
 # and the migration scripts are not part of the installed package.

@@ -143,6 +143,6 @@ class Medication(Base):
     )
 
 
-def active() -> Select[tuple[Medication]]:
+def active() -> Select[Medication]:
     """``select(Medication)`` filtered to non-soft-deleted rows."""
     return select(Medication).where(Medication.deleted_at.is_(None))

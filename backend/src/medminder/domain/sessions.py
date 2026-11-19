@@ -84,7 +84,7 @@ async def authenticate_token(
         return None
     sess_row.expires_at = now + SESSION_LIFETIME
     await session.flush()
-    return user  # type: ignore[no-any-return]
+    return user
 
 
 async def delete_session_by_token_hash(

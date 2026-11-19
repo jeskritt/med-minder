@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "MedMinder — personal medication tracker API"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115.0,<1.0",
+    "fastapi>=0.136.0,<1.0",
     "pydantic[email]>=2.9.0,<3.0",
-    "pydantic-settings>=2.6.0,<3.0",
+    "pydantic-settings>=2.14.2,<3.0",
     "uvicorn[standard]>=0.32.0,<1.0",
-    "sqlalchemy[asyncio]>=2.0.36,<3.0",
+    "sqlalchemy[asyncio]>=2.1.0,<3.0",
     "alembic>=1.14.0,<2.0",
     "psycopg[binary]>=3.2.0,<4.0",
     "asyncpg>=0.30.0,<1.0",
@@ -19,9 +19,12 @@ dependencies = [
     "pywebpush>=2.0,<3.0",
     # Explicitly pinned (also a pywebpush transitive dep) — used to encrypt
     # push subscription keys at rest (ADR-0020); ships py.typed.
-    # Floor is 48.0.1: wheels below that statically link an OpenSSL with an
-    # out-of-bounds read (GHSA-537c-gmf6-5ccf, CVSS 7.5) that pip-audit fails on.
-    "cryptography>=48.0.1,<50",
+    # Floor is 50.0.0: fixes PYSEC-2026-3552 (and earlier GHSA-537c-gmf6-5ccf).
+    "cryptography>=50.0.0,<51",
+    # Explicit IANA tzdata package so Python's zoneinfo stays current across
+    # Windows and Linux (paired with PYTHONTZPATH="" in Docker). 2026.3+
+    # includes IANA 2026c (Alberta permanent UTC-6 for America/Edmonton).
+    "tzdata>=2026.6",
 ]
 
 [project.optional-dependencies]

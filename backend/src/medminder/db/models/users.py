@@ -42,6 +42,6 @@ Index(
 )
 
 
-def active() -> Select[tuple[User]]:
+def active() -> Select[User]:
     """``select(User)`` filtered to non-soft-deleted rows."""
     return select(User).where(User.deleted_at.is_(None))
