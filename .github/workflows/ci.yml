@@ -32,7 +32,7 @@ jobs:
           node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -68,7 +68,7 @@ jobs:
           node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -135,7 +135,7 @@ jobs:
           node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -175,7 +175,7 @@ jobs:
           node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -205,7 +205,7 @@ jobs:
           node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile

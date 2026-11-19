@@ -64,12 +64,5 @@
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1",
     "workbox-window": "^7.4.1"
-  },
-  "//comment": "Overrides patch advisories in transitive deps we don't control. Both stay within the major their parent declares (jsdom wants undici ^7.x), so they patch without forcing an untested major. Remove once the parents ship the fix themselves.",
-  "pnpm": {
-    "overrides": {
-      "undici@<7.28.0": "^7.28.0",
-      "hono@<4.12.25": "^4.12.25"
-    }
   }
 }
