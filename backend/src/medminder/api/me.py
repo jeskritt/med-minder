@@ -18,6 +18,7 @@ from medminder.api.deps import (
     set_session_cookie,
 )
 from medminder.db.models import User
+from medminder.domain.reminder_dispatch import regenerate_user_reminders
 from medminder.domain.sessions import create_session
 from medminder.domain.timezone import InvalidTimezoneError, normalize_timezone
 from medminder.domain.users import (
@@ -176,13 +177,16 @@ async def update_timezone(
     user: User = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> User:
-    """Set the caller's own IANA timezone (no session effects).
+    """Set the caller's own IANA timezone and re-sync future dose reminders.
 
     ``TimezoneUpdate`` has already validated the zone against the tz database,
-    so this is a clean call into the shared ``update_user`` helper scoped to
-    the caller's own email.
+    so this updates the user's zone via ``update_user`` and regenerates their
+    future ``pending`` dose reminders so already-materialised slots don't keep
+    firing at the old UTC offset (or duplicate).
     """
-    return await update_user(db, email=user.email, new_timezone=body.timezone)
+    updated = await update_user(db, email=user.email, new_timezone=body.timezone)
+    await regenerate_user_reminders(db, user_id=updated.id)
+    return updated
 
 
 @router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
