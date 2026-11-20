@@ -144,7 +144,7 @@ or MITM attacks against Supabase:
 
 ### Step 1 — Download Supabase's Root CA certificate
 
-1. In **Supabase Dashboard → Project Settings → Database → SSL Configuration**,
+1. In **Supabase Dashboard → Project → Database → Configuration/Settings → SSL Configuration**,
    download the SSL certificate (`prod-ca-2021.crt`).
 
 ### Step 2 — Mount it as a Secret File on Render
