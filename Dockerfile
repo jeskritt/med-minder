@@ -74,6 +74,13 @@ COPY backend/alembic.ini ./alembic.ini
 # The built SPA, served at / by FastAPI when FRONTEND_DIST points at it.
 COPY --from=frontend-build /frontend/dist ./frontend_dist
 
+# Drop root privileges for the runtime process.
+RUN addgroup --system app \
+    && adduser --system --ingroup app --no-create-home appuser \
+    && chown -R appuser:app /app
+
+USER appuser
+
 EXPOSE 8000
 
 # Run migrations on startup, then launch the app. Koyeb has no native

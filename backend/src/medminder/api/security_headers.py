@@ -36,6 +36,13 @@ _CONTENT_SECURITY_POLICY = "; ".join(
 )
 
 
+_NO_STORE_PREFIXES = ("/api/", "/auth/", "/me/")
+
+
+def _is_sensitive_path(path: str) -> bool:
+    return path == "/me" or path.startswith(_NO_STORE_PREFIXES)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach defensive security headers to every response."""
 
@@ -52,6 +59,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Content-Security-Policy", _CONTENT_SECURITY_POLICY)
+        if _is_sensitive_path(request.url.path):
+            # Medication records, auth responses, and one-time temp passwords
+            # must never be persisted in browser or intermediary HTTP caches.
+            response.headers.setdefault("Cache-Control", "no-store")
+            response.headers.setdefault("Pragma", "no-cache")
         if self._settings.session_cookie_secure:
             response.headers.setdefault(
                 "Strict-Transport-Security",

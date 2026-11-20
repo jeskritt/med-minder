@@ -37,7 +37,7 @@ from medminder.api.schemas.errors import (
 from medminder.api.security_headers import SecurityHeadersMiddleware
 from medminder.db import make_async_engine, make_async_session_factory
 from medminder.domain.interactions import MedicationInteractionConflictError
-from medminder.domain.rate_limit import LoginRateLimiter
+from medminder.domain.rate_limit import LoginRateLimiter, SlidingWindowLimiter
 from medminder.domain.timers import (
     DailyCapReachedError,
     MinIntervalNotElapsedError,
@@ -105,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="MedMinder",
         docs_url="/docs" if settings.env == "development" else None,
+        openapi_url="/openapi.json" if settings.env == "development" else None,
         redoc_url=None,
         lifespan=lifespan,
     )
@@ -114,6 +115,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.login_rate_limiter = LoginRateLimiter(
+        max_attempts=settings.login_rate_limit_max_attempts,
+        window_seconds=settings.login_rate_limit_window_seconds,
+    )
+    app.state.password_change_rate_limiter = SlidingWindowLimiter(
         max_attempts=settings.login_rate_limit_max_attempts,
         window_seconds=settings.login_rate_limit_window_seconds,
     )
