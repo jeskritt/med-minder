@@ -47,6 +47,17 @@ def test_eviction_bounds_memory() -> None:
     assert all(k == "new" for k in lim._hits)
 
 
+def test_eviction_caps_active_keys_within_window() -> None:
+    """Even when all keys are still active within the window, dict stays bounded."""
+    lim = SlidingWindowLimiter(max_attempts=5, window_seconds=900, max_keys=3)
+    for i in range(10):
+        lim.record(f"active:{i}", now=float(i))
+    # Cap enforces max_keys before inserting the latest key (so <= max_keys + 1).
+    assert len(lim._hits) <= 4
+    assert "active:9" in lim._hits
+    assert "active:0" not in lim._hits
+
+
 def test_login_limiter_ip_and_email_independent() -> None:
     lim = LoginRateLimiter(max_attempts=2, window_seconds=60)
     # Two failures for the same IP but different emails → IP key trips.

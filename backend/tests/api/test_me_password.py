@@ -50,6 +50,8 @@ async def test_change_password_keeps_this_device_revokes_others(
     assert resp.status_code == 204, resp.text
     cookie_a_new = resp.cookies.get("mm_session")
     assert cookie_a_new is not None and cookie_a_new != cookie_a
+    # Fresh CSRF cookie is also rotated on password change.
+    assert resp.cookies.get("mm_csrf") is not None
 
     # Other device (session B) is now revoked.
     client.cookies.set("mm_session", cookie_b)
@@ -94,3 +96,26 @@ async def test_unauthenticated_returns_401(client: AsyncClient) -> None:
         json={"current_password": _PASSWORD, "new_password": _NEW_PASSWORD},
     )
     assert resp.status_code == 401
+
+
+async def test_wrong_current_password_is_rate_limited(
+    client: AsyncClient, session: AsyncSession, app_settings: Settings
+) -> None:
+    """Repeated wrong current_password attempts trigger 429 with Retry-After."""
+    await create_user(
+        session, email="pw-rl@example.com", name="RL", role="user", password=_PASSWORD
+    )
+    client.cookies.set("mm_session", await _login(client, "pw-rl@example.com"))
+    for _ in range(app_settings.login_rate_limit_max_attempts):
+        resp = await client.post(
+            "/me/password",
+            json={"current_password": "wrong password", "new_password": _NEW_PASSWORD},
+        )
+        assert resp.status_code == 403
+
+    blocked = await client.post(
+        "/me/password",
+        json={"current_password": _PASSWORD, "new_password": _NEW_PASSWORD},
+    )
+    assert blocked.status_code == 429
+    assert int(blocked.headers["Retry-After"]) >= 1

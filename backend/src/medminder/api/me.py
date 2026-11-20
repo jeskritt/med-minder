@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import time as monotonic_time
 import uuid
 from datetime import time
 from typing import Literal
@@ -10,14 +12,18 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from medminder.api.csrf import issue_csrf_token
 from medminder.api.deps import (
     cookie_serializer,
     get_current_user,
+    get_password_change_rate_limiter,
     get_session,
     get_settings,
+    set_csrf_cookie,
     set_session_cookie,
 )
 from medminder.db.models import User
+from medminder.domain.rate_limit import SlidingWindowLimiter
 from medminder.domain.reminder_dispatch import regenerate_user_reminders
 from medminder.domain.sessions import create_session
 from medminder.domain.timezone import InvalidTimezoneError, normalize_timezone
@@ -195,14 +201,28 @@ async def change_password(
     user: User = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(get_session),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
+    limiter: SlidingWindowLimiter = Depends(  # noqa: B008
+        get_password_change_rate_limiter
+    ),
 ) -> Response:
-    """Change the caller's password, then re-issue a fresh session cookie.
+    """Change the caller's password, then re-issue fresh session and CSRF cookies.
 
     ``change_own_password`` verifies the current password, sets the new hash,
-    and revokes *all* of the user's sessions. We then mint a new session for
-    this device and set its cookie (mirrors ``POST /auth/login``), so the
+    and revokes *all* of the user's sessions. We then mint a new session and
+    fresh CSRF token for this device (mirrors ``POST /auth/login``), so the
     current device stays signed in while other devices are logged out (FR-005).
+    Failed ``current_password`` attempts are rate-limited per user.
     """
+    rate_key = f"pwchange:{user.id}"
+    now = monotonic_time.monotonic()
+    if settings.login_rate_limit_enabled:
+        retry_after = limiter.retry_after(rate_key, now=now)
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many password-change attempts. Try again later.",
+                headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+            )
     try:
         await change_own_password(
             db,
@@ -211,6 +231,8 @@ async def change_password(
             new_password=body.new_password,
         )
     except IncorrectPasswordError as exc:
+        if settings.login_rate_limit_enabled:
+            limiter.record(rate_key, now=now)
         # 403 — distinct from 422 (too-short) and never 401 (which the client
         # treats as session-expired and bounces to /login). (FR-003)
         raise HTTPException(
@@ -223,8 +245,12 @@ async def change_password(
             detail=str(exc),
         ) from exc
 
+    if settings.login_rate_limit_enabled:
+        limiter.reset(rate_key)
+
     _row, plaintext_token = await create_session(db, user_id=user.id)
     signed_value: str = cookie_serializer(settings).dumps(plaintext_token)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     set_session_cookie(response, signed_value=signed_value, settings=settings)
+    set_csrf_cookie(response, token=issue_csrf_token(), settings=settings)
     return response

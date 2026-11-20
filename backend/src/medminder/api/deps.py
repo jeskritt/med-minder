@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from medminder.api.csrf import issue_csrf_token
 from medminder.db.models import User
-from medminder.domain.rate_limit import LoginRateLimiter
+from medminder.domain.rate_limit import LoginRateLimiter, SlidingWindowLimiter
 from medminder.domain.sessions import SESSION_LIFETIME, authenticate_token
 from medminder.settings import Settings
 
@@ -25,6 +25,12 @@ def cookie_serializer(settings: Settings) -> URLSafeTimedSerializer:
 def get_login_rate_limiter(request: Request) -> LoginRateLimiter:
     """Return the process-local login rate limiter bound to the app."""
     limiter: LoginRateLimiter = request.app.state.login_rate_limiter
+    return limiter
+
+
+def get_password_change_rate_limiter(request: Request) -> SlidingWindowLimiter:
+    """Return the process-local password-change rate limiter bound to the app."""
+    limiter: SlidingWindowLimiter = request.app.state.password_change_rate_limiter
     return limiter
 
 
@@ -92,6 +98,19 @@ def clear_session_cookie(response: Response, *, settings: Settings) -> None:
         value="",
         max_age=0,
         httponly=True,
+        samesite="lax",
+        secure=settings.session_cookie_secure,
+        path="/",
+    )
+
+
+def clear_csrf_cookie(response: Response, *, settings: Settings) -> None:
+    """Write a clearing cookie that removes any live CSRF cookie."""
+    response.set_cookie(
+        key=settings.csrf_cookie_name,
+        value="",
+        max_age=0,
+        httponly=False,
         samesite="lax",
         secure=settings.session_cookie_secure,
         path="/",
