@@ -10,7 +10,12 @@ from pywebpush import WebPushException
 
 from medminder.domain import push as push_mod
 from medminder.domain.crypto import build_fernet, encrypt_secret
-from medminder.domain.push import PushResult, send_web_push
+from medminder.domain.push import (
+    InvalidPushEndpointError,
+    PushResult,
+    send_web_push,
+    validate_push_endpoint,
+)
 from medminder.settings import Settings
 
 # Subscription rows store p256dh/auth encrypted at rest (ADR-0020); the
@@ -109,3 +114,69 @@ async def test_transient_error_not_gone(monkeypatch: pytest.MonkeyPatch) -> None
 def test_private_key_never_in_result_repr() -> None:
     # SC-009: the result object never carries the secret.
     assert "PRIVATE" not in repr(PushResult(delivered=True, gone=False))
+
+
+def test_send_passes_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_webpush(**kwargs: Any) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(push_mod, "webpush", fake_webpush)
+    settings = _settings()
+    result = send_web_push(
+        subscription=_Sub(), payload={"title": "hi"}, settings=settings
+    )
+    import asyncio
+
+    out = asyncio.run(result)
+    assert out == PushResult(delivered=True, gone=False)
+    assert captured["timeout"] == settings.reminder_send_timeout_seconds
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "http://fcm.googleapis.com/fcm/send/abc",
+        "https://localhost/push",
+        "https://sub.localhost/push",
+        "https://metadata.google.internal/computeMetadata/v1/",
+        "https://127.0.0.1/push",
+        "https://169.254.169.254/latest/meta-data/",
+        "https://10.0.0.1/push",
+        "https://[::1]/push",
+        "https://[::ffff:127.0.0.1]/push",
+        "https://user:pass@fcm.googleapis.com/push",
+        "https://intranet/push",
+        "https://fcm.googleapis.com/push\r\nX-Injected: 1",
+    ],
+)
+def test_validate_push_endpoint_rejects_ssrf_vectors(bad_url: str) -> None:
+    with pytest.raises(InvalidPushEndpointError):
+        validate_push_endpoint(bad_url)
+
+
+def test_validate_push_endpoint_accepts_public_https() -> None:
+    url = "https://fcm.googleapis.com/fcm/send/token-123"
+    assert validate_push_endpoint(url) == url
+
+
+async def test_send_blocks_dns_rebinding_to_private_ip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If DNS resolves a domain to a private/loopback IP, abort before webpush."""
+    called = {"n": 0}
+
+    def fake_webpush(**_kwargs: Any) -> None:
+        called["n"] += 1
+
+    def fake_getaddrinfo(*_args: Any, **_kwargs: Any) -> list[Any]:
+        return [(2, 1, 6, "", ("169.254.169.254", 443))]
+
+    monkeypatch.setattr(push_mod, "webpush", fake_webpush)
+    monkeypatch.setattr(push_mod.socket, "getaddrinfo", fake_getaddrinfo)
+    result = await send_web_push(
+        subscription=_Sub(), payload={"title": "hi"}, settings=_settings()
+    )
+    assert result == PushResult(delivered=False, gone=True)
+    assert called["n"] == 0
