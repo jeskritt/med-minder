@@ -7,6 +7,7 @@ class is registered on ``Base.metadata`` (Alembic relies on that).
 
 from __future__ import annotations
 
+import ssl
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -25,6 +26,38 @@ class Base(DeclarativeBase):
     """SQLAlchemy 2.0 typed declarative base for every MedMinder table."""
 
 
+def make_async_ssl_arg(settings: Settings) -> str | ssl.SSLContext | None:
+    """Build the ``ssl`` value for asyncpg ``connect_args`` from ``settings``.
+
+    Returns ``None`` when ``DATABASE_SSL_MODE`` is unset (leaving asyncpg's
+    default ``prefer`` behaviour intact).  For ``verify-ca`` and
+    ``verify-full``, returns an explicit :class:`ssl.SSLContext` backed by
+    ``DATABASE_SSL_CA_FILE`` (or the OS trust store if unset).
+    """
+    mode = settings.database_ssl_mode
+    if mode is None:
+        return None
+    if mode in {"disable", "allow", "prefer", "require"}:
+        return mode
+    ctx = ssl.create_default_context(cafile=settings.database_ssl_ca_file)
+    ctx.check_hostname = mode == "verify-full"
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    return ctx
+
+
+def make_sync_connect_args(settings: Settings) -> dict[str, Any]:
+    """Build psycopg ``connect_args`` for Alembic from ``settings``."""
+    mode = settings.database_ssl_mode
+    if mode is None:
+        return {}
+    args: dict[str, Any] = {"sslmode": mode}
+    if settings.database_ssl_ca_file is not None:
+        args["sslrootcert"] = settings.database_ssl_ca_file
+    elif mode in {"verify-ca", "verify-full"}:
+        args["sslrootcert"] = "system"
+    return args
+
+
 def make_async_engine(settings: Settings) -> AsyncEngine:
     """Construct the async SQLAlchemy engine from ``settings``.
 
@@ -36,6 +69,9 @@ def make_async_engine(settings: Settings) -> AsyncEngine:
         "statement_cache_size": 0,
         "prepared_statement_cache_size": 0,
     }
+    ssl_arg = make_async_ssl_arg(settings)
+    if ssl_arg is not None:
+        connect_args["ssl"] = ssl_arg
     return create_async_engine(
         settings.database_url,
         connect_args=connect_args,

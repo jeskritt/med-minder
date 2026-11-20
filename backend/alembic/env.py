@@ -14,7 +14,7 @@ from typing import Any
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from medminder.db import Base  # noqa: F401  (loads every model)
+from medminder.db import Base, make_sync_connect_args  # noqa: F401  (loads every model)
 from medminder.settings import Settings
 
 config = context.config
@@ -52,6 +52,7 @@ def run_migrations_online() -> None:
         section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=make_sync_connect_args(_settings),
     )
     with connectable.connect() as connection:
         context.configure(

@@ -32,6 +32,46 @@ def test_database_url_sync_other_scheme() -> None:
     assert s.database_url_sync == "sqlite:///test.db"
 
 
+def test_database_url_sync_prefers_migration_database_url() -> None:
+    """``MIGRATION_DATABASE_URL`` overrides ``DATABASE_URL`` for Alembic."""
+    s = Settings(
+        database_url="postgresql+asyncpg://app:pw@host:6543/db",
+        migration_database_url="postgresql+asyncpg://migrator:pw2@host:5432/db",
+    )
+    assert s.database_url_sync == "postgresql+psycopg://migrator:pw2@host:5432/db"
+
+    s_plain = Settings(
+        database_url="postgresql+asyncpg://app:pw@host:6543/db",
+        migration_database_url="postgresql://migrator:pw2@host:5432/db",
+    )
+    assert s_plain.database_url_sync == "postgresql+psycopg://migrator:pw2@host:5432/db"
+
+
+def test_database_ssl_ca_file_requires_verify_mode() -> None:
+    """Setting a CA file without verify-ca/verify-full is rejected."""
+    with pytest.raises(ValueError, match="DATABASE_SSL_CA_FILE requires"):
+        Settings(database_ssl_ca_file="/etc/secrets/supabase-ca.crt")
+
+    with pytest.raises(ValueError, match="DATABASE_SSL_CA_FILE requires"):
+        Settings(
+            database_ssl_mode="require",
+            database_ssl_ca_file="/etc/secrets/supabase-ca.crt",
+        )
+
+    s_ca = Settings(
+        database_ssl_mode="verify-ca",
+        database_ssl_ca_file="/etc/secrets/supabase-ca.crt",
+    )
+    assert s_ca.database_ssl_mode == "verify-ca"
+    assert s_ca.database_ssl_ca_file == "/etc/secrets/supabase-ca.crt"
+
+    s_full = Settings(
+        database_ssl_mode="verify-full",
+        database_ssl_ca_file="/etc/secrets/supabase-ca.crt",
+    )
+    assert s_full.database_ssl_mode == "verify-full"
+
+
 def test_session_cookie_secure_in_dev() -> None:
     s = Settings(env="development")
     assert s.session_cookie_secure is False

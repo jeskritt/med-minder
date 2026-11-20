@@ -80,3 +80,50 @@ def test_percent_encoded_user_and_password_decoded() -> None:
 def test_unsupported_scheme_raises() -> None:
     with pytest.raises(ValueError, match="Unsupported DB URL scheme"):
         to_pg_env("mysql://u:p@h/m")
+
+
+def test_pg_env_for_settings_uses_migration_url_and_ssl() -> None:
+    from medminder.cli.db import _pg_env_for_settings
+    from medminder.settings import Settings
+
+    s = Settings(
+        database_url="postgresql+asyncpg://app:pw@host:6543/db",
+        migration_database_url="postgresql+asyncpg://migrator:pw2@host:5432/db",
+        database_ssl_mode="verify-full",
+        database_ssl_ca_file="/etc/secrets/supabase-ca.crt",
+    )
+    env = _pg_env_for_settings(s)
+    assert env["PGUSER"] == "migrator"
+    assert env["PGPORT"] == "5432"
+    assert env["PGSSLMODE"] == "verify-full"
+    assert env["PGSSLROOTCERT"] == "/etc/secrets/supabase-ca.crt"
+
+
+def test_pg_env_for_settings_does_not_clobber_url_ssl_params() -> None:
+    from medminder.cli.db import _pg_env_for_settings
+    from medminder.settings import Settings
+
+    s = Settings(
+        database_url=(
+            "postgresql+asyncpg://app:pw@host:6543/db"
+            "?sslmode=require&sslrootcert=/custom/ca.pem"
+        ),
+        database_ssl_mode="verify-full",
+        database_ssl_ca_file="/etc/secrets/supabase-ca.crt",
+    )
+    env = _pg_env_for_settings(s)
+    assert env["PGSSLMODE"] == "require"
+    assert env["PGSSLROOTCERT"] == "/custom/ca.pem"
+
+
+def test_pg_env_for_settings_verify_full_defaults_to_system_ca() -> None:
+    from medminder.cli.db import _pg_env_for_settings
+    from medminder.settings import Settings
+
+    s = Settings(
+        database_url="postgresql+asyncpg://app:pw@host:6543/db",
+        database_ssl_mode="verify-full",
+    )
+    env = _pg_env_for_settings(s)
+    assert env["PGSSLMODE"] == "verify-full"
+    assert env["PGSSLROOTCERT"] == "system"

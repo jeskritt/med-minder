@@ -55,16 +55,35 @@ def _require_tool(name: str) -> str:
     return found
 
 
+def _pg_env_for_settings(settings: Settings) -> dict[str, str]:
+    """Derive libpq ``PG*`` env vars from ``settings`` for backup/restore.
+
+    Prefers ``MIGRATION_DATABASE_URL`` when set (restore requires DDL and
+    backups often run with the privileged role) and falls back to
+    ``DATABASE_URL``.  Applies ``DATABASE_SSL_MODE`` / ``DATABASE_SSL_CA_FILE``
+    when not already encoded in the URL's query parameters.
+    """
+    pg_env = to_pg_env(settings.migration_database_url or settings.database_url)
+    if settings.database_ssl_mode is not None and "PGSSLMODE" not in pg_env:
+        pg_env["PGSSLMODE"] = settings.database_ssl_mode
+    if "PGSSLROOTCERT" not in pg_env:
+        if settings.database_ssl_ca_file is not None:
+            pg_env["PGSSLROOTCERT"] = settings.database_ssl_ca_file
+        elif settings.database_ssl_mode in {"verify-ca", "verify-full"}:
+            pg_env["PGSSLROOTCERT"] = "system"
+    return pg_env
+
+
 @app.command("backup")
 def backup(
     out: Annotated[Path, typer.Option("--out", help="Destination dump file")],
 ) -> None:
-    """Run ``pg_dump --format=custom`` against ``DATABASE_URL``."""
+    """Run ``pg_dump --format=custom`` against the configured database."""
     pg_dump = _require_tool("pg_dump")
 
     settings = Settings()
     env = os.environ.copy()
-    env.update(to_pg_env(settings.database_url))
+    env.update(_pg_env_for_settings(settings))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     # Tighten umask so pg_dump creates the file at 0o600 from byte zero
@@ -122,7 +141,7 @@ def restore(
 
     settings = Settings()
     env = os.environ.copy()
-    env.update(to_pg_env(settings.database_url))
+    env.update(_pg_env_for_settings(settings))
 
     db_name = env.get("PGDATABASE", "")
     subprocess.run(  # noqa: S603 — list argv, shell=False
