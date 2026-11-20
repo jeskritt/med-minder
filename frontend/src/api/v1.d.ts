@@ -140,11 +140,12 @@ export interface paths {
         get?: never;
         /**
          * Update Timezone
-         * @description Set the caller's own IANA timezone (no session effects).
+         * @description Set the caller's own IANA timezone and re-sync future dose reminders.
          *
          *     ``TimezoneUpdate`` has already validated the zone against the tz database,
-         *     so this is a clean call into the shared ``update_user`` helper scoped to
-         *     the caller's own email.
+         *     so this updates the user's zone via ``update_user`` and regenerates their
+         *     future ``pending`` dose reminders so already-materialised slots don't keep
+         *     firing at the old UTC offset (or duplicate).
          */
         put: operations["update_timezone_me_timezone_put"];
         post?: never;
