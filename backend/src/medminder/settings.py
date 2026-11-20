@@ -1,7 +1,18 @@
 """Application settings loaded from environment variables."""
 
+from typing import Literal
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
+
+DatabaseSslMode = Literal[
+    "disable",
+    "allow",
+    "prefer",
+    "require",
+    "verify-ca",
+    "verify-full",
+]
 
 DEV_SESSION_SECRET_FALLBACK = "dev-only-insecure-session-secret-do-not-use-in-prod"  # noqa: S105
 """Fixed dev-only fallback for ``SESSION_SECRET``.
@@ -35,7 +46,24 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/medminder"
     )
-    """SQLAlchemy async DB URL used by the FastAPI app at runtime."""
+    """SQLAlchemy async DB URL used by the FastAPI app at runtime (DML-only role
+    in hardened production setups)."""
+
+    migration_database_url: str | None = None
+    """Optional DDL-privileged DB URL used by Alembic migrations and
+    ``medminder-admin db backup|restore``.  Falls back to ``DATABASE_URL``
+    when unset (local dev, CI, or single-role deploys)."""
+
+    database_ssl_mode: DatabaseSslMode | None = None
+    """Optional PostgreSQL TLS mode (``disable`` | ``allow`` | ``prefer`` |
+    ``require`` | ``verify-ca`` | ``verify-full``).  Applied uniformly to
+    asyncpg, Alembic (psycopg), and ``pg_dump``/``pg_restore``.  When unset,
+    the driver default (``prefer``) is used."""
+
+    database_ssl_ca_file: str | None = None
+    """Path to a PEM-encoded CA bundle used to verify the PostgreSQL server
+    certificate (e.g. ``/etc/secrets/supabase-ca.crt`` on Render).  Requires
+    ``DATABASE_SSL_MODE`` to be ``verify-ca`` or ``verify-full``."""
 
     cors_origins: list[str] = Field(default_factory=list)
     """Allowed CORS origins.  Defaults to ``["http://localhost:5173"]`` in
@@ -143,14 +171,14 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        """Synchronous variant of ``database_url`` used by Alembic.
+        """Synchronous DB URL used by Alembic.
 
-        Alembic's migration runner is synchronous, so we swap the
-        ``+asyncpg`` driver for ``+psycopg``.  The rest of the URL
-        (host, port, credentials, database) is unchanged, keeping
-        ``DATABASE_URL`` the single source of truth.
+        Prefers ``MIGRATION_DATABASE_URL`` when set so production can split
+        DDL (migrations) from DML (runtime app).  Falls back to
+        ``DATABASE_URL`` when unset.  Swaps ``+asyncpg`` (or bare
+        ``postgresql://``) for ``+psycopg``.
         """
-        url = self.database_url
+        url = self.migration_database_url or self.database_url
         if url.startswith("postgresql+asyncpg://"):
             return "postgresql+psycopg://" + url[len("postgresql+asyncpg://") :]
         if url.startswith("postgresql://"):
@@ -167,8 +195,16 @@ class Settings(BaseSettings):
         return self.env != "development"
 
     @model_validator(mode="after")
-    def _apply_env_defaults_and_require_secrets(self) -> "Settings":
-        """Apply env-aware CORS default and refuse dev fallback secrets outside dev."""
+    def _apply_env_defaults_and_require_secrets(self) -> Settings:
+        """Apply CORS default, validate TLS config, and require prod secrets."""
+        if self.database_ssl_ca_file and self.database_ssl_mode not in {
+            "verify-ca",
+            "verify-full",
+        }:
+            raise ValueError(
+                "DATABASE_SSL_CA_FILE requires DATABASE_SSL_MODE to be "
+                "'verify-ca' or 'verify-full'."
+            )
         if "cors_origins" not in self.model_fields_set:
             self.cors_origins = (
                 ["http://localhost:5173"] if self.env == "development" else []

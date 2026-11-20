@@ -34,12 +34,18 @@ RUN pnpm build
 # ---------------------------------------------------------------------------
 # Stage 2 — Python runtime serving the API + the built shell.
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /uvx /usr/local/bin/
 
 ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
     PYTHONTZPATH="" \
-    FRONTEND_DIST=/app/frontend_dist
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    PATH="/app/.venv/bin:$PATH" \
+    FRONTEND_DIST=/app/frontend_dist \
+    RUN_MIGRATIONS_ON_STARTUP=true
 
 WORKDIR /app
 
@@ -60,14 +66,14 @@ RUN apt-get update \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the backend (production deps only — no editable, no [dev] extras).
-# Copy metadata + src first so the pip layer caches when only alembic/ changes.
-COPY backend/pyproject.toml ./
+# Install the backend (locked production deps only — no editable, no [dev] extras).
+# Copy metadata + lockfile + src first so the venv layer caches when only alembic/ changes.
+COPY backend/pyproject.toml backend/uv.lock ./
 COPY backend/src/ ./src/
-RUN python -m pip install --upgrade pip && pip install .
+RUN uv sync --frozen --no-dev --no-editable
 
-# Migrations run as the release command (`alembic upgrade head`); alembic.ini
-# and the migration scripts are not part of the installed package.
+# Migrations run on startup (unless RUN_MIGRATIONS_ON_STARTUP=false);
+# alembic.ini and the migration scripts are not part of the installed package.
 COPY backend/alembic/ ./alembic/
 COPY backend/alembic.ini ./alembic.ini
 
@@ -75,23 +81,22 @@ COPY backend/alembic.ini ./alembic.ini
 COPY --from=frontend-build /frontend/dist ./frontend_dist
 
 # Drop root privileges for the runtime process.
-RUN addgroup --system app \
-    && adduser --system --ingroup app --no-create-home appuser \
+# Use GID/UID 1000 so Render Secret Files (/etc/secrets/*) are readable by appuser.
+RUN addgroup --gid 1000 app \
+    && adduser --uid 1000 --ingroup app --disabled-password --gecos "" --no-create-home appuser \
     && chown -R appuser:app /app
 
 USER appuser
 
 EXPOSE 8000
 
-# Run migrations on startup, then launch the app. Koyeb has no native
-# release/pre-deploy command (community.koyeb.com/t/pre-deploy-jobs/1672),
-# so the entrypoint runs `alembic upgrade head` first; `&&` aborts the boot
-# if it fails. This is safe because we run a SINGLE always-on instance
-# (ADR-0002) and the upgrade is idempotent. exec-form sh -c so ${PORT}
-# (injected by Koyeb) expands and `exec` hands PID 1 to uvicorn for clean
-# SIGTERM shutdown; falls back to 8000.
+# Run migrations on startup by default, then launch uvicorn.
 #
-# NOTE: this couples migrations to the app's DB role (needs DDL). When the
-# two-role hardening lands (DML-only runtime role; see docs/deployment.md
-# §8), migrations move out of this entrypoint to a separate step.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
+# - Default (RUN_MIGRATIONS_ON_STARTUP=true): runs `alembic upgrade head` first
+#   (using MIGRATION_DATABASE_URL if set, else DATABASE_URL); `set -e` aborts
+#   boot if the migration fails. Safe for a single always-on instance (ADR-0002).
+# - Hardened two-role mode (RUN_MIGRATIONS_ON_STARTUP=false): skips startup
+#   migrations so the runtime container only holds DML-only DATABASE_URL and
+#   never receives DDL credentials; run migrations out-of-band before deploy
+#   (see docs/deployment.md §7 & §8).
+CMD ["sh", "-c", "set -e; if [ \"${RUN_MIGRATIONS_ON_STARTUP:-true}\" != \"false\" ]; then alembic upgrade head; fi; exec uvicorn medminder.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]

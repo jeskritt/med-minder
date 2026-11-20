@@ -55,17 +55,20 @@ the service worker's same-origin notification fetches working. See
 
 | Variable / step | Required from phase | Notes |
 |-----------------|---------------------|-------|
-| `DATABASE_URL` | Phase 1 | Supabase pooler string, `+asyncpg` form. Percent-encode symbols in the password. |
-| `alembic upgrade head` (container entrypoint) | Phase 1 | Runs on each container start, before uvicorn (§1.4). |
+| `DATABASE_URL` | Phase 1 | Supabase pooler string, `+asyncpg` form. Percent-encode symbols in the password. Use a DML-only role in hardened mode ([operations.md §2](operations.md#2-hardening-setup-two-database-roles-supabase--render)). |
+| `MIGRATION_DATABASE_URL` | Optional (hardening) | Privileged DDL URL used by Alembic and `db backup|restore`. Falls back to `DATABASE_URL` when unset. Keep off Render if `RUN_MIGRATIONS_ON_STARTUP=false`. |
+| `RUN_MIGRATIONS_ON_STARTUP` | Optional (hardening) | `true` (default) runs `alembic upgrade head` on container boot; set `false` when running migrations from your workstation with a separate DDL role ([operations.md §1–2](operations.md)). |
+| `DATABASE_SSL_MODE` / `DATABASE_SSL_CA_FILE` | Optional (hardening) | Set `verify-full` + `/etc/secrets/supabase-ca.crt` (Render Secret File) to verify Supabase's CA & hostname ([operations.md §3](operations.md#3-hardening-setup-strict-postgresql-tls-verify-full)). |
+| `alembic upgrade head` (container entrypoint) | Phase 1 | Runs on each container start before uvicorn unless `RUN_MIGRATIONS_ON_STARTUP=false` (§1.4). |
 | `medminder-admin user add` (bootstrap admin) | Phase 1b | Run from your workstation against `DATABASE_URL` (§2.4). |
-| `medminder-admin db backup` (scheduled) | Phase 1b | Run from a workstation/cron — see §6. |
+| `medminder-admin db backup` (scheduled) | Phase 1b | Run from a workstation/cron — see §6 and [operations.md §4](operations.md#4-database-backups--restores). |
 | `SESSION_SECRET` | Phase 2 | 32+ random bytes, base64. Signs session cookies. App refuses to boot in prod without it. |
 | `TRUSTED_PROXY_COUNT` | Phase 2 | `1` — Render (and its Cloudflare front) add a proxy layer. |
-| `CORS_ORIGINS` | Phase 2 | **Omit** — same-origin needs no CORS, and it has a fiddly JSON-array format. The default is harmless. |
+| `CORS_ORIGINS` | Phase 2 | **Omit** — defaults to `[]` (deny-all) outside development; same-origin deploys need no CORS. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Phase 7 | Web Push keys; `python scripts/generate_vapid_keys.py`. **Private key is a secret.** |
 | `PUSH_ENCRYPTION_KEY` | Phase 10 | Fernet key encrypting push keys at rest (ADR-0020). **App refuses to boot in prod without it.** Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. |
 | `REMINDERS_ENABLED` | Phase 7 | `true` in production. **Single instance only** (ADR-0002). |
-| `ENV=production` | Always | Disables dev `/docs` + dev CORS; enables `Secure` cookies, HSTS, and login rate-limiting + CSRF (on by default). |
+| `ENV=production` | Always | Disables `/docs` and `/openapi.json`, defaults CORS to deny-all; enables `Secure` cookies, HSTS, `Cache-Control: no-store`, login/password rate-limiting, and CSRF. |
 
 `VITE_API_BASE_URL` is **intentionally empty** in this deploy (the React
 app calls relative, same-origin paths). The Dockerfile bakes it as `""` at
@@ -121,21 +124,31 @@ create_async_engine(
 )
 ```
 
-Leave these defaults as-is. TLS is automatic: asyncpg's default `ssl=prefer`
-negotiates an encrypted connection to Supabase (and falls back to plaintext
-only against a local non-TLS Postgres).
+Leave these defaults as-is. By default, asyncpg and psycopg use `ssl=prefer`
+(negotiates TLS to Supabase and falls back to plaintext only against local
+non-TLS Postgres). For strict CA + hostname verification (`verify-full`), set
+`DATABASE_SSL_MODE=verify-full` and `DATABASE_SSL_CA_FILE` — see
+[docs/operations.md §3](operations.md#3-hardening-setup-strict-postgresql-tls-verify-full).
 
 ### 1.4 Database migrations
 
 Most free PaaS hosts (Render, Koyeb) have **no release / pre-deploy
-command**, so the production image runs `alembic upgrade head` in its
-**entrypoint** on each container start, *before* uvicorn launches
-(`&&`-gated, so a failed migration aborts the boot). Safe because we run a
-**single** instance and the upgrade is idempotent. `alembic.ini` omits
-`sqlalchemy.url`; `alembic/env.py` reads it from `Settings.database_url_sync`
-(your `DATABASE_URL`, swapped to the sync `+psycopg` driver) and passes it
-straight to SQLAlchemy (never through ConfigParser — that would break on
+command**, so by default (`RUN_MIGRATIONS_ON_STARTUP=true`) the production
+image runs `alembic upgrade head` in its **entrypoint** on each container
+start, *before* uvicorn launches (`set -e` aborts boot if it fails). Safe
+because we run a **single** instance and the upgrade is idempotent.
+
+`alembic.ini` omits `sqlalchemy.url`; `alembic/env.py` reads it from
+`Settings.database_url_sync` (which prefers `MIGRATION_DATABASE_URL` when set
+and otherwise falls back to `DATABASE_URL`, swapped to `+psycopg`) and passes
+it straight to SQLAlchemy (never through ConfigParser — that would break on
 `%`-encoded passwords).
+
+To keep DDL credentials **completely out** of the Render container, set
+`RUN_MIGRATIONS_ON_STARTUP=false` on Render, point `DATABASE_URL` at a
+DML-only Postgres role, and run `alembic upgrade head` from your workstation
+before deploys with schema changes — step-by-step instructions live in
+[docs/operations.md §1–2](operations.md).
 
 ### 1.5 Security checklist
 
@@ -312,15 +325,19 @@ Render routes traffic once `/healthz` is healthy.
 
 ## 8. Hardening follow-ups
 
-- **Two database roles (security, NON-NEGOTIABLE per the constitution).**
-  Migrations as a DDL role, the app as a DML-only runtime role — needs a
-  separate `MIGRATION_DATABASE_URL` so Alembic (and the entrypoint) can use
-  a different URL than the runtime app. First hardening task.
+- **Two database roles (security, NON-NEGOTIABLE per the constitution) —
+  supported in code (ADR-0022).** `MIGRATION_DATABASE_URL` and
+  `RUN_MIGRATIONS_ON_STARTUP=false` are wired in; follow
+  [docs/operations.md §2](operations.md#2-hardening-setup-two-database-roles-supabase--render)
+  to create the DML-only `medminder_app` role in Supabase and cut Render over.
+- **`verify-full` TLS to Supabase — supported in code (ADR-0022).** Upload
+  Supabase's root CA as a Render Secret File (`/etc/secrets/supabase-ca.crt`)
+  and set `DATABASE_SSL_MODE=verify-full` + `DATABASE_SSL_CA_FILE` per
+  [docs/operations.md §3](operations.md#3-hardening-setup-strict-postgresql-tls-verify-full).
 - **Always-on without a pinger** — move to a paid Render Starter or Fly.io
   instance if reminder reliability shouldn't depend on the keep-alive ping.
-- **Scheduled off-site encrypted backups** (§6).
+- **Scheduled off-site encrypted backups** (§6 and [docs/operations.md §4](operations.md#4-database-backups--restores)).
 - **Custom domain** (§4).
-- **`verify-full` TLS** to Supabase (pin the CA) instead of `prefer`.
 
 ---
 

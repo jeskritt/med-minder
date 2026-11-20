@@ -5,8 +5,9 @@ helps you take the right medication at the right time.
 
 ## Prerequisites
 
-- **Python 3.12+**
-- **Node 20+**
+- **Python 3.14+**
+- **uv** — [installation guide](https://docs.astral.sh/uv/getting-started/installation/) (locks backend dependencies via `backend/uv.lock`)
+- **Node 24+**
 - **pnpm** — `npm install -g pnpm`
 - **just** — [installation guide](https://github.com/casey/just#installation)
 - **Docker** & **Docker Compose** — for the local dev environment
@@ -85,6 +86,7 @@ med-minder/
 - [Architecture Decision Records](docs/adr/)
 - [Design Notes](docs/design/)
 - [Deployment Guide](docs/deployment.md)
+- [Operations Guide](docs/operations.md) — day-2 runbook (two-role DB cutover, `verify-full` TLS, migrations, backups, secret rotation)
 - [Security Policy](SECURITY.md)
 
 ## License

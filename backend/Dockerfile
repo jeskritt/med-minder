@@ -1,6 +1,11 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
-ENV PYTHONTZPATH=""
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /uvx /usr/local/bin/
+
+ENV PYTHONTZPATH="" \
+    UV_NO_CACHE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -21,15 +26,14 @@ RUN apt-get update \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project metadata and source together so the editable install
-# can find the package.  We copy pyproject.toml + src/ first so that
-# Docker can cache the pip install layer when only test/config files change.
-COPY pyproject.toml ./
+# Copy project metadata, lockfile, and source together so the editable
+# install can find the package and Docker caches the venv layer when only
+# test/config files change.
+COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
 
-# Install the package (editable) with dev extras
-RUN python -m pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -e ".[dev]"
+# Install the locked package (editable) with dev extras
+RUN uv sync --frozen --extra dev
 
 # Copy everything else (tests, alembic, etc.)
 COPY . .
