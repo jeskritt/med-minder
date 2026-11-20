@@ -1,6 +1,6 @@
 """Application settings loaded from environment variables."""
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
 
 DEV_SESSION_SECRET_FALLBACK = "dev-only-insecure-session-secret-do-not-use-in-prod"  # noqa: S105
@@ -37,9 +37,10 @@ class Settings(BaseSettings):
     )
     """SQLAlchemy async DB URL used by the FastAPI app at runtime."""
 
-    cors_origins: list[str] = ["http://localhost:5173"]
-    """Allowed CORS origins.  Defaults to the Vite dev server.
-    Set to your production frontend URL in deployment."""
+    cors_origins: list[str] = Field(default_factory=list)
+    """Allowed CORS origins.  Defaults to ``["http://localhost:5173"]`` in
+    development and ``[]`` (deny-all) in any non-development environment unless
+    explicitly set via ``CORS_ORIGINS``."""
 
     session_secret: str = DEV_SESSION_SECRET_FALLBACK
     """HMAC key used by ``itsdangerous`` to sign the session cookie.
@@ -120,6 +121,12 @@ class Settings(BaseSettings):
     """Max attempts for a transient push send before giving up (FR-016).
     A subscription reported gone (HTTP 404/410) is deleted, not retried."""
 
+    reminder_send_timeout_seconds: int = 10
+    """Per-attempt HTTP timeout (seconds) for outbound Web Push requests."""
+
+    max_push_subscriptions_per_user: int = 20
+    """Cap on active Web Push subscriptions per user (limits fan-out abuse)."""
+
     # --- Single-service deployment (ADR-0017) --------------------------
     frontend_dist: str | None = None
     """Filesystem path to the built frontend (Vite ``dist``) to serve.
@@ -160,8 +167,12 @@ class Settings(BaseSettings):
         return self.env != "development"
 
     @model_validator(mode="after")
-    def _require_secrets_outside_dev(self) -> "Settings":
-        """Refuse to boot if a non-dev env still holds a dev fallback secret."""
+    def _apply_env_defaults_and_require_secrets(self) -> "Settings":
+        """Apply env-aware CORS default and refuse dev fallback secrets outside dev."""
+        if "cors_origins" not in self.model_fields_set:
+            self.cors_origins = (
+                ["http://localhost:5173"] if self.env == "development" else []
+            )
         if self.env == "development":
             return self
         if self.session_secret == DEV_SESSION_SECRET_FALLBACK:

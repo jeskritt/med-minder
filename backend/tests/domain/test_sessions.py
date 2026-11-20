@@ -14,6 +14,7 @@ from medminder.domain.sessions import (
     delete_session_by_token_hash,
     generate_token,
     hash_token,
+    purge_expired_sessions,
     revoke_all_user_sessions,
 )
 from medminder.domain.users import create_user
@@ -204,4 +205,24 @@ async def test_expired_session_not_extended(session: AsyncSession) -> None:
         assert result is None
         # expires_at must NOT have been extended.
         assert row.expires_at == original_expiry
+
+
+async def test_purge_expired_sessions_removes_only_expired(
+    session: AsyncSession,
+) -> None:
+    user = await create_user(
+        session,
+        email="purge@example.com",
+        name="Purge",
+        role="user",
+        password=_PASSWORD,
+    )
+    expired_row, _ = await create_session(session, user_id=user.id)
+    expired_row.expires_at = datetime.now(UTC) - timedelta(minutes=5)
+    _live_row, live_token = await create_session(session, user_id=user.id)
+    await session.flush()
+
+    purged = await purge_expired_sessions(session)
+    assert purged >= 1
+    assert await authenticate_token(session, plaintext_token=live_token) is not None
 

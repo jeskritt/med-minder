@@ -13,6 +13,7 @@ tests / CI / Alembic never spin up a background loop.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -28,11 +29,14 @@ from medminder.domain.reminder_dispatch import (
     dispatch_due_reminders,
     generate_due_dose_reminders,
 )
+from medminder.domain.sessions import purge_expired_sessions
 from medminder.settings import Settings
 
 logger = logging.getLogger(__name__)
 
 _TICK_JOB_ID = "reminder_dispatch_tick"
+_SESSION_PURGE_INTERVAL_SECONDS = 3600.0
+_last_session_purge: float = 0.0
 
 
 async def run_dispatch_tick(
@@ -63,6 +67,14 @@ async def run_dispatch_tick(
             grace=timedelta(minutes=settings.reminder_grace_minutes),
             send=_send,
         )
+
+        global _last_session_purge
+        mono = time.monotonic()
+        if mono - _last_session_purge >= _SESSION_PURGE_INTERVAL_SECONDS:
+            purged = await purge_expired_sessions(session, now=now)
+            _last_session_purge = mono
+            if purged:
+                logger.info("purged %d expired sessions", purged)
 
 
 def build_scheduler(

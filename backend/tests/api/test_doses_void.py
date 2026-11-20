@@ -62,9 +62,10 @@ async def test_void_409_double(
     assert second.status_code == 409
 
 
-async def test_void_403_cross_user(
+async def test_void_404_cross_user(
     client: AsyncClient, session: AsyncSession
 ) -> None:
+    """Cross-user void folds to 404 so dose UUID existence isn't leaked."""
     owner = await create_user(
         session,
         email="vown@example.com",
@@ -84,7 +85,7 @@ async def test_void_403_cross_user(
 
     await _login(client, "vint@example.com")
     resp = await client.post(f"/api/doses/{dose.id}/void")
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 async def test_void_404_missing(

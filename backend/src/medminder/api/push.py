@@ -6,8 +6,8 @@ private key is never exposed; only the public key is served (FR-002).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import delete, select
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.deps import get_current_user, get_session, get_settings
@@ -65,6 +65,20 @@ async def register_subscription(
         existing.auth = auth
         await db.flush()
         return Response(status_code=status.HTTP_200_OK)
+    current_count = int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(PushSubscription)
+                .where(PushSubscription.user_id == user.id)
+            )
+        ).scalar_one()
+    )
+    if current_count >= settings.max_push_subscriptions_per_user:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Maximum number of push subscriptions reached.",
+        )
     db.add(
         PushSubscription(
             user_id=user.id,

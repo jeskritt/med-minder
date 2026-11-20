@@ -166,12 +166,13 @@ export interface paths {
         put?: never;
         /**
          * Change Password
-         * @description Change the caller's password, then re-issue a fresh session cookie.
+         * @description Change the caller's password, then re-issue fresh session and CSRF cookies.
          *
          *     ``change_own_password`` verifies the current password, sets the new hash,
-         *     and revokes *all* of the user's sessions. We then mint a new session for
-         *     this device and set its cookie (mirrors ``POST /auth/login``), so the
+         *     and revokes *all* of the user's sessions. We then mint a new session and
+         *     fresh CSRF token for this device (mirrors ``POST /auth/login``), so the
          *     current device stays signed in while other devices are logged out (FR-005).
+         *     Failed ``current_password`` attempts are rate-limited per user.
          */
         post: operations["change_password_me_password_post"];
         delete?: never;

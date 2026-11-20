@@ -50,6 +50,15 @@ class SlidingWindowLimiter:
                 self._hits[key] = kept
             else:
                 del self._hits[key]
+        # Hard cap: if active keys within the window still exceed max_keys
+        # (e.g. distributed key-spray), evict the least-recently-seen entries.
+        if len(self._hits) > self.max_keys:
+            overflow = len(self._hits) - self.max_keys
+            oldest = sorted(
+                self._hits, key=lambda k: max(self._hits[k])
+            )[:overflow]
+            for key in oldest:
+                del self._hits[key]
 
     def retry_after(self, key: str, *, now: float) -> float | None:
         """Seconds until ``key`` is allowed again, or ``None`` if not blocked."""

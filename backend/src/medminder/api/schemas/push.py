@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from medminder.domain.push import InvalidPushEndpointError, validate_push_endpoint
 
 
 class VapidKeyOut(BaseModel):
@@ -29,6 +31,14 @@ class PushSubscriptionIn(BaseModel):
 
     endpoint: str = Field(min_length=1, max_length=2048)
     keys: PushKeys
+
+    @field_validator("endpoint")
+    @classmethod
+    def _validate_endpoint(cls, value: str) -> str:
+        try:
+            return validate_push_endpoint(value)
+        except InvalidPushEndpointError as exc:
+            raise ValueError(str(exc)) from exc
 
 
 class PushUnsubscribeIn(BaseModel):

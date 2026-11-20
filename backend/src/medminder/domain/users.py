@@ -24,8 +24,10 @@ from medminder.db.models.users import UserRole
 from medminder.domain.audit import record_admin_action
 from medminder.domain.passwords import (
     hash_password,
+    hash_password_async,
     password_too_short,
     verify_password,
+    verify_password_async,
 )
 from medminder.domain.sessions import revoke_all_user_sessions
 
@@ -161,7 +163,7 @@ async def create_user(
         raise DuplicateEmailError(f"A user with email {email!r} already exists.")
     user = User(
         email=email,
-        password_hash=hash_password(password),
+        password_hash=await hash_password_async(password),
         name=name,
         role=role,
         timezone=timezone_name,
@@ -235,7 +237,7 @@ async def update_user(
             raise PasswordTooShortError(
                 f"Password must be at least 12 characters (got {len(new_password)})."
             )
-        user.password_hash = hash_password(new_password)
+        user.password_hash = await hash_password_async(new_password)
         await session.flush()
         # FR-010: revoke every active session on password change.
         await revoke_all_user_sessions(session, user_id=user.id)
@@ -266,13 +268,13 @@ async def change_own_password(
     - IncorrectPasswordError: if ``current_password`` does not verify (→ 403).
     - PasswordTooShortError: if ``new_password`` < 12 chars (→ 422).
     """
-    if not verify_password(user.password_hash, current_password):
+    if not await verify_password_async(user.password_hash, current_password):
         raise IncorrectPasswordError("Current password is incorrect.")
     if password_too_short(new_password):
         raise PasswordTooShortError(
             f"Password must be at least 12 characters (got {len(new_password)})."
         )
-    user.password_hash = hash_password(new_password)
+    user.password_hash = await hash_password_async(new_password)
     await session.flush()
     # FR-005: revoke every session; the API layer mints a fresh one for the
     # current device (mirrors the CLI password-change revoke in update_user).

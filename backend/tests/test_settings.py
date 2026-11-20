@@ -64,3 +64,25 @@ def test_require_push_encryption_key_outside_dev() -> None:
             session_secret="a-real-strong-secret-value",
             push_encryption_key=DEV_PUSH_ENCRYPTION_KEY_FALLBACK,
         )
+
+
+def test_cors_origins_defaults_by_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CORS defaults to Vite dev origin in dev and deny-all ([]) in prod."""
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    dev = Settings(env="development")
+    assert dev.cors_origins == ["http://localhost:5173"]
+
+    prod = Settings(
+        env="production",
+        session_secret="a-real-strong-secret-value",
+        push_encryption_key=_PROD_PUSH_KEY,
+    )
+    assert prod.cors_origins == []
+
+    prod_explicit = Settings(
+        env="production",
+        session_secret="a-real-strong-secret-value",
+        push_encryption_key=_PROD_PUSH_KEY,
+        cors_origins=["https://med.example.com"],
+    )
+    assert prod_explicit.cors_origins == ["https://med.example.com"]

@@ -112,3 +112,14 @@ async def revoke_all_user_sessions(session: AsyncSession, *, user_id: uuid.UUID)
         delete(SessionModel).where(SessionModel.user_id == user_id)
     )
     return result.rowcount or 0  # type: ignore[attr-defined]
+
+
+async def purge_expired_sessions(
+    session: AsyncSession, *, now: datetime | None = None
+) -> int:
+    """Delete expired ``sessions`` rows (``expires_at <= now``); return count."""
+    when = now if now is not None else _now()
+    result = await session.execute(
+        delete(SessionModel).where(SessionModel.expires_at <= when)
+    )
+    return result.rowcount or 0  # type: ignore[attr-defined]

@@ -186,3 +186,23 @@ async def test_attempt_login_log_lines_are_pii_free(
         LoginOutcome.WRONG_PASSWORD.value,
         LoginOutcome.UNKNOWN_EMAIL.value,
     }
+
+
+async def test_attempt_login_sanitizes_user_agent_for_logs(
+    session: AsyncSession,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Control characters (CR/LF) in User-Agent cannot inject forged log lines."""
+    with caplog.at_level(logging.INFO, logger="medminder.auth.login"):
+        await attempt_login(
+            session,
+            email="crlf@example.com",
+            password=WRONG_PASSWORD,
+            ip="203.0.113.5\r\nforged",
+            user_agent="Mozilla/5.0\r\nauth.login outcome=success user_id=admin",
+        )
+    records = [r for r in caplog.records if r.name == "medminder.auth.login"]
+    assert len(records) == 1
+    msg = records[0].getMessage()
+    assert "\r" not in msg
+    assert "\n" not in msg

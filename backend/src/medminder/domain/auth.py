@@ -16,10 +16,20 @@ from typing import Final
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.db.models import User
-from medminder.domain.passwords import hash_password, verify_password
+from medminder.domain.passwords import hash_password, verify_password_async
 from medminder.domain.users import get_user_by_email
 
 logger = logging.getLogger("medminder.auth.login")
+
+_MAX_LOG_FIELD_LEN = 256
+
+
+def _sanitize_log_value(value: str, *, max_len: int = _MAX_LOG_FIELD_LEN) -> str:
+    """Strip control characters (CR/LF/etc.) and cap length to prevent log injection."""
+    cleaned = "".join(
+        ch if ch.isprintable() and ch not in "\r\n\t" else " " for ch in value
+    )
+    return cleaned[:max_len]
 
 DUMMY_HASH: Final[str] = hash_password("dummy-input-not-a-real-password")
 """Module-level Argon2id hash used by failure paths to keep verifier
@@ -58,10 +68,10 @@ async def attempt_login(
 
     if user is None:
         # Covers both unknown-email and soft-deleted users (FR-005 / FR-014).
-        verify_password(DUMMY_HASH, password)
+        await verify_password_async(DUMMY_HASH, password)
         outcome = LoginOutcome.UNKNOWN_EMAIL
         result_user: User | None = None
-    elif not verify_password(user.password_hash, password):
+    elif not await verify_password_async(user.password_hash, password):
         outcome = LoginOutcome.WRONG_PASSWORD
         result_user = None
     else:
@@ -73,7 +83,7 @@ async def attempt_login(
         "auth.login outcome=%s user_id=%s source_ip=%s user_agent=%s",
         outcome.value,
         user_id_str,
-        ip,
-        user_agent,
+        _sanitize_log_value(ip, max_len=64),
+        _sanitize_log_value(user_agent),
     )
     return result_user, outcome

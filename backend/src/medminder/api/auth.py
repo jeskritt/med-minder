@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from medminder.api.csrf import issue_csrf_token
 from medminder.api.deps import (
+    clear_csrf_cookie,
     clear_session_cookie,
     cookie_serializer,
     get_login_rate_limiter,
@@ -153,4 +154,5 @@ async def logout(
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     clear_session_cookie(response, settings=settings)
+    clear_csrf_cookie(response, settings=settings)
     return response

@@ -10,6 +10,7 @@ Callers are expected to do the same.
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 
 from argon2 import PasswordHasher
@@ -39,6 +40,16 @@ def verify_password(stored_hash: str, plain: str) -> bool:
         # is treated as a verification failure — the alternative is to
         # leak failure modes to attackers.
         return False
+
+
+async def hash_password_async(plain: str) -> str:
+    """Offload Argon2id hashing to a worker thread to keep the loop responsive."""
+    return await asyncio.to_thread(hash_password, plain)
+
+
+async def verify_password_async(stored_hash: str, plain: str) -> bool:
+    """Offload Argon2id verification to a worker thread to keep the loop responsive."""
+    return await asyncio.to_thread(verify_password, stored_hash, plain)
 
 
 def password_too_short(plain: str) -> bool:

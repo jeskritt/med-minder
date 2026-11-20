@@ -146,3 +146,56 @@ async def test_delete_does_not_touch_another_users_subscription(
     assert (
         await client.post("/api/v1/push/subscriptions", json=_SUB)
     ).status_code == 200
+
+
+async def test_register_rejects_ssrf_endpoints(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await _login(client, session, email="ssrf-sub@example.com")
+    for bad in (
+        "http://169.254.169.254/latest/meta-data/",
+        "https://127.0.0.1:8000/healthz",
+        "https://localhost/push",
+        "http://fcm.googleapis.com/fcm/send/abc",
+    ):
+        resp = await client.post(
+            "/api/v1/push/subscriptions",
+            json={"endpoint": bad, "keys": _SUB["keys"]},
+        )
+        assert resp.status_code == 422, bad
+
+
+async def test_register_enforces_per_user_cap(
+    client: AsyncClient, session: AsyncSession, app_settings: Settings
+) -> None:
+    await _login(client, session, email="cap-sub@example.com")
+    cap = app_settings.max_push_subscriptions_per_user
+    for i in range(cap):
+        resp = await client.post(
+            "/api/v1/push/subscriptions",
+            json={
+                "endpoint": f"https://push.example/device-{i}",
+                "keys": _SUB["keys"],
+            },
+        )
+        assert resp.status_code == 201
+
+    # Refreshing an existing endpoint still succeeds at the cap.
+    refresh = await client.post(
+        "/api/v1/push/subscriptions",
+        json={
+            "endpoint": "https://push.example/device-0",
+            "keys": _SUB["keys"],
+        },
+    )
+    assert refresh.status_code == 200
+
+    # Adding one more beyond the cap is rejected.
+    overflow = await client.post(
+        "/api/v1/push/subscriptions",
+        json={
+            "endpoint": "https://push.example/device-overflow",
+            "keys": _SUB["keys"],
+        },
+    )
+    assert overflow.status_code == 422

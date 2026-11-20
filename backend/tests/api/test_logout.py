@@ -33,9 +33,10 @@ async def test_logout_clears_cookie(
 
     resp = await client.post("/auth/logout")
     assert resp.status_code == 204
-    # The clearing cookie should have max-age=0.
-    set_cookie = resp.headers.get("set-cookie", "")
-    assert "Max-Age=0" in set_cookie or "max-age=0" in set_cookie.lower()
+    # Both session and CSRF cookies are cleared with Max-Age=0.
+    set_cookies = resp.headers.get_list("set-cookie")
+    assert any("mm_session=" in h and "max-age=0" in h.lower() for h in set_cookies)
+    assert any("mm_csrf=" in h and "max-age=0" in h.lower() for h in set_cookies)
 
 
 async def test_logout_without_cookie(client: AsyncClient) -> None:
