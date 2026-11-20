@@ -5,7 +5,7 @@ for user management.
 
 ## Stack
 
-- **Language / runtime:** Python 3.12+
+- **Language / runtime:** Python 3.14+ (locked via `uv.lock`)
 - **Framework:** FastAPI + Pydantic v2 (strict mode)
 - **ORM / migrations:** SQLAlchemy 2.0 + Alembic
 - **Auth:** Server-side sessions with signed HTTP-only cookies (Phase 2+)
@@ -19,8 +19,8 @@ For direct execution during development:
 
 ```bash
 cd backend
-python -m pip install -e ".[dev]"
-python -m uvicorn medminder.app:create_app --factory --reload --port 8000
+uv sync --frozen --extra dev
+uv run --frozen uvicorn medminder.app:create_app --factory --reload --port 8000
 ```
 
 ## Database migrations
@@ -99,18 +99,24 @@ HTTP auth code reuse the same `PasswordHasher` instance and
 `MIN_PASSWORD_LENGTH = 12`.  Drift between them is impossible by
 construction.
 
-## Database roles (production)
+## Database roles & TLS (production)
 
-Two distinct database roles are used in production:
+Two distinct database roles are supported in production (see ADR-0022 and
+`docs/operations.md`):
 
-- **Migration runner** — privileged role used by `alembic upgrade head`
-  on each deploy.  Has DDL rights.
-- **Runtime app** — least-privilege role used by the FastAPI app and
-  the admin CLI day-to-day.  Granted `SELECT, INSERT, UPDATE, DELETE`
-  on tables only; no DDL.
+- **Migration runner (`MIGRATION_DATABASE_URL`)** — privileged DDL role used by
+  `alembic upgrade head` and `medminder-admin db backup|restore`. Falls back to
+  `DATABASE_URL` when unset. Set `RUN_MIGRATIONS_ON_STARTUP=false` in the
+  production container to run migrations out-of-band so the runtime container
+  never holds DDL credentials.
+- **Runtime app (`DATABASE_URL`)** — least-privilege DML-only role used by the
+  FastAPI app and day-to-day user management CLI. Granted
+  `SELECT, INSERT, UPDATE, DELETE` on tables only; no DDL.
 
-`docs/deployment.md` documents the Supabase setup and which role is
-used where.
+TLS verification can be enforced uniformly across `asyncpg`, Alembic
+(`psycopg`), and `pg_dump`/`pg_restore` via `DATABASE_SSL_MODE=verify-full` and
+`DATABASE_SSL_CA_FILE=/path/to/ca.crt`. See `docs/operations.md` for the full
+Supabase + Render setup.
 
 ## Windows: Postgres client tools
 
