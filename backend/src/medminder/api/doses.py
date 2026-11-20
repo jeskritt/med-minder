@@ -80,13 +80,11 @@ async def post_dose_void(
     """Record a compensating un-take row in ``dose_voids``."""
     try:
         await void_dose(db, user=user, dose_id=dose_id)
-    except DoseNotFoundError as exc:
+    except (DoseNotFoundError, DoseForbiddenError) as exc:
+        # Fold missing and cross-user into 404 to avoid an existence oracle
+        # (consistent with medications, schedules, reminders, interactions).
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
-    except DoseForbiddenError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not Found"
         ) from exc
     except DoseAlreadyVoidedError as exc:
         raise HTTPException(

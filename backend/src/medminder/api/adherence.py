@@ -82,6 +82,16 @@ async def get_medication_adherence(
     return to_medication_adherence_out(result)
 
 
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: str) -> str:
+    """Neutralize spreadsheet formula injection in user-authored CSV cells."""
+    if value and value.startswith(_CSV_FORMULA_PREFIXES):
+        return f"'{value}"
+    return value
+
+
 def _csv_lines(rows: list[ExportRow]) -> Iterator[str]:
     """Yield CSV text one row at a time (header first)."""
     buffer = io.StringIO()
@@ -98,11 +108,11 @@ def _csv_lines(rows: list[ExportRow]) -> Iterator[str]:
     for row in rows:
         writer.writerow(
             [
-                row.medication_name,
+                _csv_safe(row.medication_name),
                 row.taken_at.isoformat(),
                 str(row.quantity),
-                row.unit,
-                row.schedule_label,
+                _csv_safe(row.unit),
+                _csv_safe(row.schedule_label),
                 "true" if row.soft_deleted else "false",
             ]
         )

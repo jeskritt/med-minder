@@ -259,3 +259,32 @@ async def test_range_respects_user_timezone(
     resp = await client.get(_URL, params={"from": "2026-05-07", "to": "2026-05-07"})
     assert resp.status_code == 200, resp.text
     assert len(_parse(resp.text)) == 1
+
+
+async def test_csv_formula_injection_neutralized(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """Spreadsheet formula prefixes (=, +, -, @) are prefixed with a quote."""
+    user = await _user(session, "csv-inj@example.com")
+    med = await make_medication(session, user=user, name="=CMD|' /C calc'!A0")
+    med.unit = "+mg"
+    sched = await make_schedule(session, user=user, label="@Evening")
+    from medminder.db.models import ScheduleMedication
+
+    session.add(ScheduleMedication(schedule_id=sched.id, medication_id=med.id))
+    await make_dose(
+        session,
+        user=user,
+        medication=med,
+        schedule=sched,
+        taken_at=datetime(2026, 5, 8, 8, 0, tzinfo=UTC),
+    )
+    await session.flush()
+
+    await login_as(client, "csv-inj@example.com")
+    resp = await client.get(_URL)
+    assert resp.status_code == 200, resp.text
+    row = _parse(resp.text)[0]
+    assert row["medication_name"] == "'=CMD|' /C calc'!A0"
+    assert row["unit"] == "'+mg"
+    assert row["schedule_label"] == "'@Evening"
