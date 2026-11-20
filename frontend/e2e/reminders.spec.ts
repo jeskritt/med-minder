@@ -34,7 +34,13 @@
  */
 
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { login, setPlainDose, addSchedule } from "./helpers";
+import {
+  addSchedule,
+  csrfHeaders,
+  isE2eEnabled,
+  login,
+  setPlainDose,
+} from "./helpers";
 
 const TEST_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@example.com";
 const TEST_PASSWORD =
@@ -69,8 +75,8 @@ function rowsForMed(page: Page, medName: string): Locator {
 
 test.describe("Reminders + snooze", () => {
   test.skip(
-    !process.env.E2E_RUN_REMINDERS,
-    "Set E2E_RUN_REMINDERS=1 to run; requires `just dev` + the seeded demo user.",
+    !isE2eEnabled("E2E_RUN_REMINDERS"),
+    "Set E2E_RUN_REMINDERS=1 or E2E_RUN_ALL=1 to run; requires `just dev` + the seeded demo user.",
   );
 
   test("a scheduled med shows an in-app reminder that snoozes and dismisses", async ({
@@ -161,9 +167,11 @@ test.describe("Reminders + snooze", () => {
     // pattern) — refill warnings are per-med and need no schedule. The
     // "Mark taken" UI click is already covered by granny-smoke.spec.ts; this
     // test targets the new US5 behavior: decrement → warn → in-app render.
+    const csrf = await csrfHeaders(page);
     const createResp = await page.request.post(
       `${API_BASE}/api/v1/medications`,
       {
+        headers: csrf,
         data: {
           name: medName,
           times_per_day: 1,
@@ -181,6 +189,7 @@ test.describe("Reminders + snooze", () => {
     // threshold (before > threshold >= after) → a refill reminder is generated.
     // (The doses router is mounted at /api/doses, not /api/v1/doses.)
     const doseResp = await page.request.post(`${API_BASE}/api/doses`, {
+      headers: csrf,
       data: { medication_id: medId },
     });
     expect(doseResp.ok()).toBeTruthy();
@@ -199,5 +208,42 @@ test.describe("Reminders + snooze", () => {
     // Clean up so repeated local runs don't accumulate this med's warning.
     await refillRow.getByRole("button", { name: /^dismiss$/i }).click();
     await expect(refillRow).toHaveCount(0);
+  });
+
+  test("quiet hours can be enabled, persisted across reload, and cleared", async ({
+    page,
+  }) => {
+    await login(page, TEST_EMAIL, TEST_PASSWORD);
+    await page.goto("/reminders");
+
+    const quietForm = page.getByRole("form", { name: "Quiet hours" });
+    await expect(quietForm).toBeVisible();
+
+    const toggle = quietForm.getByLabel(/mute reminders during these hours/i);
+    if (!(await toggle.isChecked())) {
+      await toggle.check();
+    }
+    await quietForm.getByLabel(/^start$/i).fill("22:30");
+    await quietForm.getByLabel(/^end$/i).fill("06:45");
+    await quietForm.getByRole("button", { name: /save quiet hours/i }).click();
+    await expect(quietForm.getByText("Quiet hours saved.")).toBeVisible();
+
+    // Reload and verify the saved window persists.
+    await page.reload();
+    const reloadedForm = page.getByRole("form", { name: "Quiet hours" });
+    await expect(
+      reloadedForm.getByLabel(/mute reminders during these hours/i),
+    ).toBeChecked();
+    await expect(reloadedForm.getByLabel(/^start$/i)).toHaveValue("22:30");
+    await expect(reloadedForm.getByLabel(/^end$/i)).toHaveValue("06:45");
+
+    // Clear quiet hours to leave the fixture clean.
+    await reloadedForm
+      .getByLabel(/mute reminders during these hours/i)
+      .uncheck();
+    await reloadedForm
+      .getByRole("button", { name: /save quiet hours/i })
+      .click();
+    await expect(reloadedForm.getByText("Quiet hours saved.")).toBeVisible();
   });
 });

@@ -81,3 +81,21 @@ def test_default_target_date_uses_zone_now() -> None:
     """Sanity check: default target_date is the current date in the chosen zone."""
     bounds = resolve_today_bounds(user_tz="UTC")
     assert bounds.target_date == datetime.now(ZoneInfo("UTC")).date()
+
+
+def test_alberta_permanent_utc_minus_6_from_nov_2026() -> None:
+    """Alberta's Official Time Act ended fall-back on 2026-11-01 (tzdata >= 2026c).
+
+    America/Edmonton stays on permanent UTC-6 instead of falling back to UTC-7,
+    so 2026-11-01 is a normal 24-hour day and 2026-11-19 midnight is 06:00 UTC.
+    """
+    nov1 = resolve_today_bounds(
+        user_tz="America/Edmonton", target_date=date(2026, 11, 1)
+    )
+    assert nov1.end_utc - nov1.start_utc == timedelta(hours=24)
+
+    nov19 = resolve_today_bounds(
+        user_tz="America/Edmonton", target_date=date(2026, 11, 19)
+    )
+    assert nov19.start_utc == datetime(2026, 11, 19, 6, 0, tzinfo=UTC)
+    assert nov19.end_utc == datetime(2026, 11, 20, 6, 0, tzinfo=UTC)

@@ -1,9 +1,9 @@
-FROM node:20-slim
+FROM node:24-slim
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm (pinned to match frontend/pnpm-lock.yaml and Dockerfile)
+RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 
 # Install dependencies
 COPY package.json pnpm-lock.yaml ./

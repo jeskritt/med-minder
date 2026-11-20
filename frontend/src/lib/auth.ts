@@ -80,9 +80,10 @@ export function useUpdateProfile() {
 
 /**
  * Update the current user's IANA timezone (`PUT /me/timezone`).  The picker
- * only ever submits a value from `Intl.supportedValuesOf("timeZone")`, so a
+ * only ever submits a value from the valid IANA list (including `UTC`), so a
  * 422 here is a backstop (the server re-validates against `zoneinfo`).
- * Invalidates `["me"]` so the nav, profile, and quiet-hours label refresh.
+ * Invalidates `["me"]`, `["today"]`, `["reminders"]`, and `["adherence"]` so
+ * all time-sensitive views refresh immediately.
  */
 export function useUpdateTimezone() {
   const queryClient = useQueryClient();
@@ -101,7 +102,12 @@ export function useUpdateTimezone() {
       return data;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: [...meQueryKey] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...meQueryKey] }),
+        queryClient.invalidateQueries({ queryKey: ["today"] }),
+        queryClient.invalidateQueries({ queryKey: ["reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["adherence"] }),
+      ]);
     },
   });
 }

@@ -91,7 +91,37 @@ export async function addSchedule(
   if (label !== undefined) {
     await page.getByLabel(/label \(optional\)/i).fill(label);
   }
-  await page.getByRole("button", { name: /^add$/i }).click();
+  const addBtn = page.getByRole("button", { name: /^add$/i });
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/api/v1/schedules" &&
+        r.request().method() === "POST" &&
+        r.status() === 201,
+    ),
+    addBtn.click(),
+  ]);
+  // Wait for the inline add form to close (SchedulePicker closes it after
+  // auto-selecting the new schedule chip in form state).
+  await expect(addBtn).toHaveCount(0);
+}
+
+/**
+ * Whether an E2E spec gated by `flag` (e.g. `E2E_RUN_GRANNY`) should execute.
+ * `E2E_RUN_ALL=1` enables every spec at once.
+ */
+export function isE2eEnabled(flag: string): boolean {
+  return Boolean(process.env.E2E_RUN_ALL || process.env[flag]);
+}
+
+/**
+ * Extract the `mm_csrf` cookie from the browser context and return it as the
+ * `X-CSRF-Token` header for direct `page.request` mutations (ADR-0019).
+ */
+export async function csrfHeaders(page: Page): Promise<Record<string, string>> {
+  const cookies = await page.context().cookies();
+  const csrf = cookies.find((c) => c.name === "mm_csrf");
+  return csrf ? { "X-CSRF-Token": decodeURIComponent(csrf.value) } : {};
 }
 
 /**

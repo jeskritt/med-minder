@@ -21,7 +21,7 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
-import { login } from "./helpers";
+import { isE2eEnabled, login } from "./helpers";
 
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@example.com";
 const GRANNY_EMAIL = process.env.E2E_USER_EMAIL ?? "granny@example.com";
@@ -35,8 +35,8 @@ function row(page: Page, email: string) {
 
 test.describe("In-app admin user management", () => {
   test.skip(
-    !process.env.E2E_RUN_ADMIN,
-    "Set E2E_RUN_ADMIN=1 to run; requires the live `just dev` docker stack.",
+    !isE2eEnabled("E2E_RUN_ADMIN"),
+    "Set E2E_RUN_ADMIN=1 or E2E_RUN_ALL=1 to run; requires the live `just dev` docker stack.",
   );
 
   test("a non-admin gets no Admin link and is redirected from /admin", async ({

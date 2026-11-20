@@ -96,7 +96,7 @@ describe("ProfileDialog", () => {
     await user.clear(tz);
     await user.type(tz, "Edmo");
     await user.click(
-      await screen.findByRole("option", { name: "America/Edmonton" }),
+      await screen.findByRole("option", { name: /America\/Edmonton/ }),
     );
     await user.click(screen.getByRole("button", { name: /save timezone/i }));
 

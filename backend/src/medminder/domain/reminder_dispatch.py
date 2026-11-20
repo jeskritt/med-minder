@@ -196,6 +196,40 @@ async def regenerate_schedule_reminders(
     return created
 
 
+async def regenerate_user_reminders(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    now: datetime | None = None,
+) -> int:
+    """Re-sync future pending dose reminders for all of ``user_id``'s schedules.
+
+    Called when a user updates their timezone so already-materialised future
+    ``pending`` reminders (up to ``GENERATION_HORIZON``) are moved to the new
+    UTC instants instead of firing at the old offset or duplicating. Preserves
+    ``sent`` / ``dismissed`` / past history via ``regenerate_schedule_reminders``.
+    """
+    when = now if now is not None else datetime.now(UTC)
+    schedule_ids = list(
+        (
+            await session.execute(
+                select(Schedule.id).where(
+                    Schedule.user_id == user_id,
+                    Schedule.deleted_at.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    created = 0
+    for sid in schedule_ids:
+        created += await regenerate_schedule_reminders(
+            session, schedule_id=sid, now=when
+        )
+    return created
+
+
 async def dispatch_due_reminders(
     session: AsyncSession,
     *,
@@ -540,6 +574,7 @@ __all__ = [
     "generate_due_dose_reminders",
     "load_reminder_titles",
     "regenerate_schedule_reminders",
+    "regenerate_user_reminders",
     "resolve_dose_reminders",
     "snooze_reminder",
 ]

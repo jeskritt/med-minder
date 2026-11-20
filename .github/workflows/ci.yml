@@ -29,10 +29,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -65,10 +65,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -95,6 +95,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/medminder
+      PYTHONTZPATH: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -131,10 +132,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -171,10 +172,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile
@@ -201,10 +202,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10.33.2
 
       - name: Install frontend dependencies
         run: cd frontend && pnpm install --frozen-lockfile

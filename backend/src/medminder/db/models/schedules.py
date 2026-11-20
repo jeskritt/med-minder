@@ -48,6 +48,6 @@ class Schedule(Base):
     )
 
 
-def active() -> Select[tuple[Schedule]]:
+def active() -> Select[Schedule]:
     """``select(Schedule)`` filtered to non-soft-deleted rows."""
     return select(Schedule).where(Schedule.deleted_at.is_(None))

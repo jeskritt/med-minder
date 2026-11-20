@@ -18,6 +18,9 @@ export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
   fullyParallel: false,
+  // All specs share one live dev DB and the same seeded fixture users
+  // (and profile-editor revokes sessions on password change), so run serially.
+  workers: 1,
   retries: 0,
   reporter: isCI ? "github" : "list",
   use: {
@@ -40,7 +43,7 @@ export default defineConfig({
     {
       command: isCI
         ? "cmd /c exit 0"
-        : "docker compose -f ../docker-compose.yml up -d db",
+        : "docker compose -f ../docker-compose.yml up -d backend",
       url: "http://localhost:8000/healthz",
       reuseExistingServer: true,
       timeout: 120_000,
