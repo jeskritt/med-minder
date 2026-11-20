@@ -11,23 +11,26 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.11.8"
 
       - name: Install backend dependencies
-        run: |
-          cd backend
-          pip install -e ".[dev]"
+        run: cd backend && uv sync --frozen --extra dev
 
       - name: Ruff check
-        run: cd backend && python -m ruff check src/ tests/
+        run: cd backend && uv run --frozen --no-sync ruff check src/ tests/
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -47,23 +50,26 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.11.8"
 
       - name: Install backend dependencies
-        run: |
-          cd backend
-          pip install -e ".[dev]"
+        run: cd backend && uv sync --frozen --extra dev
 
       - name: mypy --strict
-        run: cd backend && python -m mypy --strict src/
+        run: cd backend && uv run --frozen --no-sync mypy --strict src/
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -97,12 +103,17 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/medminder
       PYTHONTZPATH: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.11.8"
 
       - name: Install Postgres client tools
         run: |
@@ -110,27 +121,25 @@ jobs:
           sudo apt-get install -y postgresql-client
 
       - name: Install dependencies
-        run: |
-          cd backend
-          pip install -e ".[dev]"
+        run: cd backend && uv sync --frozen --extra dev
 
       - name: Apply migrations
-        run: cd backend && python -m alembic upgrade head
+        run: cd backend && uv run --frozen --no-sync alembic upgrade head
 
       - name: Verify no autogen drift
-        run: cd backend && python -m alembic check
+        run: cd backend && uv run --frozen --no-sync alembic check
 
       - name: Run pytest
-        run: cd backend && python -m pytest tests/ -v
+        run: cd backend && uv run --frozen --no-sync pytest tests/ -v
 
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -147,30 +156,30 @@ jobs:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
-      - name: Install backend dependencies
-        run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install pip-audit
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.11.8"
 
-      # pip-audit has no severity filter: it fails the job on any known
-      # vulnerable dependency in the resolved environment. --skip-editable drops
-      # the editable-installed local `medminder` package (not on PyPI, can't be
-      # audited). NB: --strict is intentionally omitted — it would treat that
-      # skip as a failure; without it, real vulnerabilities still fail the job.
+      - name: Export locked backend dependencies
+        run: >-
+          cd backend && uv export --frozen --extra dev --no-emit-project
+          --no-hashes --format requirements.txt -o /tmp/backend-requirements.txt
+
+      # Audit the exact locked backend dependency graph without mixing in
+      # pip-audit's own transitive dependencies.
       - name: pip-audit (backend)
-        run: cd backend && pip-audit --skip-editable
+        run: uvx pip-audit -r /tmp/backend-requirements.txt --no-deps --disable-pip
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -187,20 +196,23 @@ jobs:
     name: OpenAPI Client Drift
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.11.8"
 
       - name: Install backend dependencies
-        run: |
-          cd backend
-          pip install -e ".[dev]"
+        run: cd backend && uv sync --frozen --extra dev
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -211,7 +223,7 @@ jobs:
         run: cd frontend && pnpm install --frozen-lockfile
 
       - name: Regenerate OpenAPI client
-        run: python scripts/generate_openapi_client.py
+        run: uv run --project backend --frozen --no-sync python scripts/generate_openapi_client.py
 
       - name: Check for drift
         run: |
